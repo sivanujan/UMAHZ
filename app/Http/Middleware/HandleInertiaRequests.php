@@ -2,8 +2,9 @@
 
 namespace App\Http\Middleware;
 
-use Inertia\Middleware;
+use App\Scopes\TenantScope;
 use Illuminate\Http\Request;
+use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -37,22 +38,33 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
 
+        // SetTenantContext (which runs before this middleware) has already
+        // resolved which tenant is "current" for this request, whether via
+        // an explicit workspace choice or auto-selection.
+        $tenantId = TenantScope::getTenantId();
+
+        $membership = ($user && $tenantId)
+            ? $user->activeStaffMemberships()->with('tenant')->where('tenant_id', $tenantId)->first()
+            : null;
+
         return array_merge(parent::share($request), [
             'auth' => [
                 'user' => $user ? [
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
-                    'is_platform_admin' => $user->is_platform_admin,
+                    'is_platform_admin' => $user->isPlatformAdmin(),
                     'roles' => $user->getRoleNames(),
-                    'current_tenant_id' => $user->current_tenant_id,
+                    'role' => $membership?->role,
+                    'current_tenant_id' => $membership?->tenant_id,
+                    'workspace_count' => $user->activeWorkspaceMemberships()->count(),
                 ] : null,
-                'tenant' => $user && $user->currentTenant ? [
-                    'id' => $user->currentTenant->id,
-                    'name' => $user->currentTenant->name,
-                    'slug' => $user->currentTenant->slug,
-                    'timezone' => $user->currentTenant->timezone,
-                    'currency' => $user->currentTenant->currency,
+                'tenant' => $membership?->tenant ? [
+                    'id' => $membership->tenant->id,
+                    'name' => $membership->tenant->name,
+                    'slug' => $membership->tenant->slug,
+                    'timezone' => $membership->tenant->timezone,
+                    'currency' => $membership->tenant->currency,
                 ] : null,
             ],
             'flash' => [

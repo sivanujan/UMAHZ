@@ -23,7 +23,7 @@ class TenantScope implements Scope
     /**
      * Get current active tenant ID from session, request, or runtime context.
      */
-    public static function getTenantId(): ?int
+    public static function getTenantId(): ?string
     {
         if (app()->bound('current_tenant_id')) {
             return app('current_tenant_id');

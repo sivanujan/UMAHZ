@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Middleware\EnsureClientAccess;
+use App\Http\Middleware\EnsurePlatformAdmin;
+use App\Http\Middleware\EnsureStaffRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetTenantContext;
 use Illuminate\Foundation\Application;
@@ -23,6 +26,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
+            'platform.admin' => EnsurePlatformAdmin::class,
+            'staff.role' => EnsureStaffRole::class,
+            'client.access' => EnsureClientAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

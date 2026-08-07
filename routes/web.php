@@ -1,13 +1,14 @@
 <?php
 
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Settings\StaffInvitationController;
 use App\Models\Client;
-use App\Models\Location;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', function () {
     return Inertia::render('Welcome');
-});
+})->name('home');
 
 Route::get('/features', function () {
     return Inertia::render('Features');
@@ -44,49 +45,50 @@ Route::get('/contact', function () {
     return Inertia::render('Contact');
 })->name('contact');
 
-Route::middleware(['auth'])->group(function () {
-    Route::get('/dashboard', function () {
-        $clientsCount = Client::count();
-        $locationsCount = Location::count();
+/*
+|--------------------------------------------------------------------------
+| Platform Admin — /admin/*
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'verified', 'platform.admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'admin'])->name('dashboard');
+});
 
-        $sampleAppointments = [
-            [
-                'id' => 101,
-                'client_name' => 'Sophia Chen',
-                'service' => 'Acupuncture Initial Assessment',
-                'practitioner' => 'Julian Hayes, LAc',
-                'time' => '10:00 AM - 11:00 AM',
-                'room' => 'Acupuncture Suite A',
-                'status' => 'Confirmed',
-            ],
-            [
-                'id' => 102,
-                'client_name' => 'Marcus Aurelius',
-                'service' => 'Herbal Consultation & Follow-up',
-                'practitioner' => 'Dr. Eleanor Vance',
-                'time' => '02:30 PM - 03:15 PM',
-                'room' => 'Mindfulness Room B',
-                'status' => 'Scheduled',
-            ],
-        ];
-
-        return Inertia::render('Dashboard/Index', [
-            'stats' => [
-                'todayAppointments' => count($sampleAppointments),
-                'totalClients' => $clientsCount,
-                'activeLocations' => $locationsCount,
-                'monthlyRevenue' => '$14,280',
-            ],
-            'appointments' => $sampleAppointments,
-        ]);
-    })->name('dashboard');
+/*
+|--------------------------------------------------------------------------
+| Clinic staff — /app/* (clinic_owner, practitioner, receptionist)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'verified', 'staff.role'])->prefix('app')->name('app.')->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'app'])->name('dashboard');
 
     Route::get('/clients', function () {
-        $clients = Client::latest()->get();
         return Inertia::render('Clients/Index', [
-            'clients' => $clients,
+            'clients' => Client::latest()->get(),
         ]);
     })->name('clients.index');
+
+    // Staff invitations are owner-only.
+    Route::middleware('staff.role:clinic_owner')->group(function () {
+        Route::get('/staff', [StaffInvitationController::class, 'index'])->name('staff.index');
+        Route::post('/staff', [StaffInvitationController::class, 'store'])->name('staff.store');
+    });
+
+    // Example of a per-route Spatie permission gate on top of the tenant
+    // role check above — clinical note-signing is not available to every
+    // staff role (e.g. receptionists) even within /app.
+    Route::post('/notes/{note}/finalize', function (string $note) {
+        return back()->with('success', "Note {$note} finalized.");
+    })->middleware('permission:notes.finalize')->name('notes.finalize');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Client portal — /portal/*
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'verified', 'client.access'])->prefix('portal')->name('portal.')->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'portal'])->name('dashboard');
 });
 
 require __DIR__.'/auth.php';

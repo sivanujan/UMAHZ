@@ -1,15 +1,28 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { User, Mail, Lock, Building2, UserCircle } from 'lucide-react';
+import { User, Mail, Lock, Phone, Cake, Building2 } from 'lucide-react';
 
-export default function Register() {
-    const [accountType, setAccountType] = useState('owner');
+const CONTACT_METHODS = [
+    { value: 'email', label: 'Email' },
+    { value: 'phone', label: 'Phone' },
+    { value: 'sms', label: 'SMS' },
+];
+
+export default function Register({ tenants, preselectedTenantSlug, tosVersion }) {
+    const preselected = tenants?.find((t) => t.slug === preselectedTenantSlug);
+
     const { data, setData, post, processing, errors } = useForm({
-        name: '',
+        first_name: '',
+        last_name: '',
         email: '',
-        clinic_name: '',
+        phone: '',
         password: '',
         password_confirmation: '',
+        date_of_birth: '',
+        preferred_contact_method: 'email',
+        tenant_id: preselected?.id || '',
+        tos_accepted: false,
+        marketing_opt_in: false,
     });
 
     const submit = (e) => {
@@ -32,45 +45,41 @@ export default function Register() {
 
                 <div className="bg-white rounded-3xl shadow-xl border border-purple-100 p-8 space-y-6">
                     <div className="text-center">
-                        <h1 className="text-2xl font-bold text-[#1E0B3C] tracking-tight">Create Your Account</h1>
-                        <p className="mt-1 text-sm text-slate-500">Get started with UMAHZ in a few minutes.</p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 bg-slate-50 border border-slate-200 rounded-2xl p-1.5">
-                        <button
-                            type="button"
-                            onClick={() => setAccountType('owner')}
-                            className={`flex items-center justify-center gap-2 text-xs font-semibold py-2.5 rounded-xl transition-colors ${accountType === 'owner' ? 'bg-[#5B2EFF] text-white shadow-md' : 'text-slate-500 hover:text-[#1E0B3C]'}`}
-                        >
-                            <Building2 className="w-4 h-4" />
-                            Clinic Owner / Solo
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setAccountType('client')}
-                            className={`flex items-center justify-center gap-2 text-xs font-semibold py-2.5 rounded-xl transition-colors ${accountType === 'client' ? 'bg-[#5B2EFF] text-white shadow-md' : 'text-slate-500 hover:text-[#1E0B3C]'}`}
-                        >
-                            <UserCircle className="w-4 h-4" />
-                            I'm a Client
-                        </button>
+                        <h1 className="text-2xl font-bold text-[#1E0B3C] tracking-tight">Create Your Client Account</h1>
+                        <p className="mt-1 text-sm text-slate-500">Book appointments, fill forms, and manage your care.</p>
                     </div>
 
                     <form onSubmit={submit} className="space-y-4">
-                        <div>
-                            <label style={{ display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', marginBottom: 6 }}>
-                                Full Name
-                            </label>
-                            <div className="relative">
-                                <User className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label style={{ display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', marginBottom: 6 }}>
+                                    First Name
+                                </label>
+                                <div className="relative">
+                                    <User className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                                    <input
+                                        type="text"
+                                        value={data.first_name}
+                                        onChange={(e) => setData('first_name', e.target.value)}
+                                        required
+                                        className="w-full pl-11 pr-3 py-3 bg-slate-50 border border-slate-200 text-[#1E0B3C] rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF] transition-colors"
+                                    />
+                                </div>
+                                {errors.first_name && <div className="text-xs text-rose-600 mt-1">{errors.first_name}</div>}
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', marginBottom: 6 }}>
+                                    Last Name
+                                </label>
                                 <input
                                     type="text"
-                                    value={data.name}
-                                    onChange={(e) => setData('name', e.target.value)}
+                                    value={data.last_name}
+                                    onChange={(e) => setData('last_name', e.target.value)}
                                     required
-                                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 text-[#1E0B3C] rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF] transition-colors"
+                                    className="w-full px-3 py-3 bg-slate-50 border border-slate-200 text-[#1E0B3C] rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF] transition-colors"
                                 />
+                                {errors.last_name && <div className="text-xs text-rose-600 mt-1">{errors.last_name}</div>}
                             </div>
-                            {errors.name && <div className="text-xs text-rose-600 mt-1">{errors.name}</div>}
                         </div>
 
                         <div>
@@ -90,23 +99,78 @@ export default function Register() {
                             {errors.email && <div className="text-xs text-rose-600 mt-1">{errors.email}</div>}
                         </div>
 
-                        {accountType === 'owner' && (
+                        <div>
+                            <label style={{ display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', marginBottom: 6 }}>
+                                Phone
+                            </label>
+                            <div className="relative">
+                                <Phone className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                                <input
+                                    type="tel"
+                                    value={data.phone}
+                                    onChange={(e) => setData('phone', e.target.value)}
+                                    required
+                                    placeholder="(555) 234-5678"
+                                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 text-[#1E0B3C] rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF] transition-colors"
+                                />
+                            </div>
+                            {errors.phone && <div className="text-xs text-rose-600 mt-1">{errors.phone}</div>}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label style={{ display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', marginBottom: 6 }}>
-                                    Clinic Name
+                                    Date of Birth
                                 </label>
                                 <div className="relative">
-                                    <Building2 className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                                    <Cake className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                                     <input
-                                        type="text"
-                                        value={data.clinic_name}
-                                        onChange={(e) => setData('clinic_name', e.target.value)}
-                                        placeholder="Lotus Wellness Studio"
-                                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 text-[#1E0B3C] rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF] transition-colors"
+                                        type="date"
+                                        value={data.date_of_birth}
+                                        onChange={(e) => setData('date_of_birth', e.target.value)}
+                                        required
+                                        className="w-full pl-11 pr-3 py-3 bg-slate-50 border border-slate-200 text-[#1E0B3C] rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF] transition-colors"
                                     />
                                 </div>
+                                {errors.date_of_birth && <div className="text-xs text-rose-600 mt-1">{errors.date_of_birth}</div>}
                             </div>
-                        )}
+                            <div>
+                                <label style={{ display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', marginBottom: 6 }}>
+                                    Contact Via
+                                </label>
+                                <select
+                                    value={data.preferred_contact_method}
+                                    onChange={(e) => setData('preferred_contact_method', e.target.value)}
+                                    className="w-full px-3 py-3 bg-slate-50 border border-slate-200 text-[#1E0B3C] rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF] transition-colors"
+                                >
+                                    {CONTACT_METHODS.map((m) => (
+                                        <option key={m.value} value={m.value}>{m.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', marginBottom: 6 }}>
+                                Clinic
+                            </label>
+                            <div className="relative">
+                                <Building2 className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                                <select
+                                    value={data.tenant_id}
+                                    onChange={(e) => setData('tenant_id', e.target.value)}
+                                    required
+                                    disabled={!!preselected}
+                                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 text-[#1E0B3C] rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF] transition-colors disabled:text-slate-400"
+                                >
+                                    <option value="" disabled>Select your clinic…</option>
+                                    {(tenants || []).map((t) => (
+                                        <option key={t.id} value={t.id}>{t.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            {errors.tenant_id && <div className="text-xs text-rose-600 mt-1">{errors.tenant_id}</div>}
+                        </div>
 
                         <div>
                             <label style={{ display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', marginBottom: 6 }}>
@@ -119,9 +183,11 @@ export default function Register() {
                                     value={data.password}
                                     onChange={(e) => setData('password', e.target.value)}
                                     required
+                                    minLength={12}
                                     className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 text-[#1E0B3C] rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF] transition-colors"
                                 />
                             </div>
+                            <p className="text-[11px] text-slate-400 mt-1">Minimum 12 characters.</p>
                             {errors.password && <div className="text-xs text-rose-600 mt-1">{errors.password}</div>}
                         </div>
 
@@ -139,6 +205,34 @@ export default function Register() {
                                     className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 text-[#1E0B3C] rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF] transition-colors"
                                 />
                             </div>
+                        </div>
+
+                        <div className="space-y-3 pt-1">
+                            <label className="flex items-start gap-2.5">
+                                <input
+                                    type="checkbox"
+                                    checked={data.tos_accepted}
+                                    onChange={(e) => setData('tos_accepted', e.target.checked)}
+                                    required
+                                    className="mt-0.5 rounded border-slate-300 text-[#5B2EFF] focus:ring-[#5B2EFF] h-4 w-4 flex-shrink-0"
+                                />
+                                <span className="text-xs text-slate-600 leading-relaxed">
+                                    I agree to the <a href="#" className="text-[#5B2EFF] font-semibold hover:text-purple-700">Terms of Service</a> and <a href="#" className="text-[#5B2EFF] font-semibold hover:text-purple-700">Privacy Policy</a> (v{tosVersion}).
+                                </span>
+                            </label>
+                            {errors.tos_accepted && <div className="text-xs text-rose-600">{errors.tos_accepted}</div>}
+
+                            <label className="flex items-start gap-2.5">
+                                <input
+                                    type="checkbox"
+                                    checked={data.marketing_opt_in}
+                                    onChange={(e) => setData('marketing_opt_in', e.target.checked)}
+                                    className="mt-0.5 rounded border-slate-300 text-[#5B2EFF] focus:ring-[#5B2EFF] h-4 w-4 flex-shrink-0"
+                                />
+                                <span className="text-xs text-slate-600 leading-relaxed">
+                                    Send me wellness tips and clinic offers by email. (Optional — separate from the Terms above.)
+                                </span>
+                            </label>
                         </div>
 
                         <button

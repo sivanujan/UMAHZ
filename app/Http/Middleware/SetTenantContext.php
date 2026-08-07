@@ -19,21 +19,21 @@ class SetTenantContext
         $user = $request->user();
 
         if ($user) {
-            $tenantId = $request->header('X-Tenant-ID') 
-                ?? session('current_tenant_id') 
-                ?? $user->current_tenant_id;
+            $tenantId = $request->header('X-Tenant-ID')
+                ?? session('current_tenant_id');
 
-            if (!$tenantId && $user->tenants()->exists()) {
-                $tenantId = $user->tenants()->first()->id;
+            if (!$tenantId) {
+                $activeMembership = $user->staffMemberships()
+                    ->where('status', 'active')
+                    ->latest('joined_at')
+                    ->first();
+
+                $tenantId = $activeMembership?->tenant_id;
             }
 
             if ($tenantId) {
-                app()->instance('current_tenant_id', (int) $tenantId);
-                session(['current_tenant_id' => (int) $tenantId]);
-
-                if ($user->current_tenant_id !== (int) $tenantId) {
-                    $user->forceFill(['current_tenant_id' => (int) $tenantId])->save();
-                }
+                app()->instance('current_tenant_id', $tenantId);
+                session(['current_tenant_id' => $tenantId]);
             }
         }
 

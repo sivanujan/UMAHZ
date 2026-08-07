@@ -20,15 +20,14 @@ export default function AuthenticatedLayout({ children, title }) {
 
     const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
-    const userRoles = user?.roles || [];
-    const isOwnerOrAdmin = userRoles.includes('Clinic Owner') || user?.is_platform_admin;
+    const isOwnerOrAdmin = user?.role === 'clinic_owner' || user?.is_platform_admin;
 
     const navigation = [
-        { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, current: true, show: true },
-        { name: 'Clients', href: '/clients', icon: Users, current: false, show: true },
+        { name: 'Dashboard', href: '/app/dashboard', icon: LayoutDashboard, current: true, show: true },
+        { name: 'Clients', href: '/app/clients', icon: Users, current: false, show: true },
         { name: 'Appointments', href: '#', icon: Calendar, current: false, show: true },
         { name: 'Locations & Rooms', href: '#', icon: MapPin, current: false, show: isOwnerOrAdmin },
-        { name: 'Staff Members', href: '#', icon: UserCheck, current: false, show: isOwnerOrAdmin },
+        { name: 'Staff Members', href: '/app/staff', icon: UserCheck, current: false, show: isOwnerOrAdmin },
         { name: 'Clinic Settings', href: '#', icon: Building2, current: false, show: isOwnerOrAdmin },
     ];
 
@@ -86,8 +85,8 @@ export default function AuthenticatedLayout({ children, title }) {
                             </div>
                             <div className="truncate">
                                 <div className="text-xs font-medium text-stone-200 truncate">{user?.name}</div>
-                                <div className="text-[11px] text-teal-400 font-medium">
-                                    {userRoles[0] || 'Staff'}
+                                <div className="text-[11px] text-teal-400 font-medium capitalize">
+                                    {user?.is_platform_admin ? 'Platform Admin' : (user?.role || 'Staff').replace('_', ' ')}
                                 </div>
                             </div>
                         </div>

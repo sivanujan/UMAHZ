@@ -39,8 +39,7 @@ export default function ClientsIndex({ clients }) {
                                 <th className="py-3 px-6">Name</th>
                                 <th className="py-3 px-6">Contact Info</th>
                                 <th className="py-3 px-6">Date of Birth</th>
-                                <th className="py-3 px-6">Medical Notes</th>
-                                <th className="py-3 px-6">Status</th>
+                                <th className="py-3 px-6">Preferred Contact</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-stone-100 text-sm">
@@ -61,21 +60,16 @@ export default function ClientsIndex({ clients }) {
                                             </div>
                                         </td>
                                         <td className="py-4 px-6 text-xs text-stone-600">
-                                            {client.dob ? new Date(client.dob).toLocaleDateString() : 'N/A'}
+                                            {client.date_of_birth ? new Date(client.date_of_birth).toLocaleDateString() : 'N/A'}
                                         </td>
-                                        <td className="py-4 px-6 text-xs text-stone-500 max-w-xs truncate">
-                                            {client.medical_history_notes || 'None noted'}
-                                        </td>
-                                        <td className="py-4 px-6">
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                {client.status}
-                                            </span>
+                                        <td className="py-4 px-6 text-xs text-stone-500 capitalize">
+                                            {client.preferred_contact_method || 'N/A'}
                                         </td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="5" className="py-8 text-center text-stone-500 text-sm">
+                                    <td colSpan="4" className="py-8 text-center text-stone-500 text-sm">
                                         No clients found in this clinic tenant.
                                     </td>
                                 </tr>

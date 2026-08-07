@@ -11,28 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('tenants', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('slug')->unique();
-            $table->string('timezone')->default('UTC');
-            $table->string('currency', 3)->default('USD');
-            $table->text('address')->nullable();
-            $table->string('phone')->nullable();
-            $table->string('email')->nullable();
-            $table->boolean('is_active')->default(true);
-            $table->json('settings')->nullable();
-            $table->timestamps();
-        });
-
         Schema::create('users', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('current_tenant_id')->nullable()->constrained('tenants')->nullOnDelete();
+            $table->uuid('id')->primary();
             $table->string('name');
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->boolean('is_platform_admin')->default(false);
+            $table->string('phone')->nullable();
+            $table->text('two_factor_secret')->nullable();
+            $table->text('two_factor_recovery_codes')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });
@@ -45,7 +32,7 @@ return new class extends Migration
 
         Schema::create('sessions', function (Blueprint $table) {
             $table->string('id')->primary();
-            $table->foreignId('user_id')->nullable()->index();
+            $table->uuid('user_id')->nullable()->index();
             $table->string('ip_address', 45)->nullable();
             $table->text('user_agent')->nullable();
             $table->longText('payload');
@@ -61,6 +48,5 @@ return new class extends Migration
         Schema::dropIfExists('sessions');
         Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('users');
-        Schema::dropIfExists('tenants');
     }
 };

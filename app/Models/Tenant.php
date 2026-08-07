@@ -2,37 +2,35 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Tenant extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUuids, SoftDeletes;
 
     protected $fillable = [
         'name',
         'slug',
         'timezone',
         'currency',
-        'address',
+        'tax_settings',
         'phone',
         'email',
-        'is_active',
-        'settings',
+        'address',
+        'logo_url',
     ];
 
-    protected $casts = [
-        'is_active' => 'boolean',
-        'settings' => 'array',
-    ];
-
-    public function users(): BelongsToMany
+    protected function casts(): array
     {
-        return $this->belongsToMany(User::class, 'staff_memberships')
-            ->withPivot('role', 'status', 'permissions')
-            ->withTimestamps();
+        return [
+            'tax_settings' => 'array',
+            'address' => 'array',
+        ];
     }
 
     public function staffMemberships(): HasMany
@@ -40,13 +38,25 @@ class Tenant extends Model
         return $this->hasMany(StaffMembership::class);
     }
 
-    public function locations(): HasMany
+    public function users(): BelongsToMany
     {
-        return $this->hasMany(Location::class);
+        return $this->belongsToMany(User::class, 'staff_memberships')
+            ->withPivot('role', 'status', 'permissions', 'invited_at', 'joined_at')
+            ->withTimestamps();
     }
 
     public function clients(): HasMany
     {
         return $this->hasMany(Client::class);
+    }
+
+    public function locations(): HasMany
+    {
+        return $this->hasMany(Location::class);
+    }
+
+    public function auditEvents(): HasMany
+    {
+        return $this->hasMany(AuditEvent::class);
     }
 }
