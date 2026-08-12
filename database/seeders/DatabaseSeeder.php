@@ -39,9 +39,8 @@ class DatabaseSeeder extends Seeder
         Role::findByName('Practitioner')->givePermissionTo($notesFinalize);
 
         // 2. Demo Clinic Tenant
-        $tenant = Tenant::create([
+        $tenant = Tenant::firstOrCreate(['slug' => 'lotus-wellness'], [
             'name' => 'Lotus Wellness Clinic',
-            'slug' => 'lotus-wellness',
             'timezone' => 'America/New_York',
             'currency' => 'USD',
             'address' => [
@@ -57,9 +56,8 @@ class DatabaseSeeder extends Seeder
         app()->instance('current_tenant_id', $tenant->id);
 
         // A second tenant, used to demo multi-tenant workspace selection.
-        $secondTenant = Tenant::create([
+        $secondTenant = Tenant::firstOrCreate(['slug' => 'summit-performance'], [
             'name' => 'Summit Performance Studio',
-            'slug' => 'summit-performance',
             'timezone' => 'America/Denver',
             'currency' => 'USD',
             'address' => [
@@ -73,61 +71,65 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // 3. Platform Administrator
-        // (platform_admin still requires a tenant_id column value per schema,
-        // but isPlatformAdmin() checks the role across all tenants — the
-        // specific tenant here is not meaningful.)
-        $adminUser = User::create([
+        $adminUser = User::firstOrCreate(['email' => 'admin@umahz.com'], [
             'name' => 'Priya Nakamura',
-            'email' => 'admin@umahz.com',
             'password' => Hash::make('password'),
             'email_verified_at' => now(),
         ]);
-        $adminUser->assignRole('Platform Admin');
+        if (! $adminUser->hasRole('Platform Admin')) {
+            $adminUser->assignRole('Platform Admin');
+        }
 
-        StaffMembership::create([
+        StaffMembership::firstOrCreate([
             'tenant_id' => $tenant->id,
             'user_id' => $adminUser->id,
+        ], [
             'role' => StaffMembership::ROLE_PLATFORM_ADMIN,
             'status' => StaffMembership::STATUS_ACTIVE,
             'joined_at' => now(),
         ]);
 
         // 4. Demo Clinic Owner
-        $ownerUser = User::create([
+        $ownerUser = User::firstOrCreate(['email' => 'owner@lotuswellness.com'], [
             'name' => 'Dr. Eleanor Vance',
-            'email' => 'owner@lotuswellness.com',
             'password' => Hash::make('password'),
             'email_verified_at' => now(),
         ]);
-        $ownerUser->assignRole('Clinic Owner');
+        if (! $ownerUser->hasRole('Clinic Owner')) {
+            $ownerUser->assignRole('Clinic Owner');
+        }
 
-        $ownerMembership = StaffMembership::create([
+        $ownerMembership = StaffMembership::firstOrCreate([
             'tenant_id' => $tenant->id,
             'user_id' => $ownerUser->id,
+        ], [
             'role' => StaffMembership::ROLE_CLINIC_OWNER,
             'status' => StaffMembership::STATUS_ACTIVE,
             'joined_at' => now(),
         ]);
 
         // 5. Demo Practitioner
-        $practitionerUser = User::create([
+        $practitionerUser = User::firstOrCreate(['email' => 'julian@lotuswellness.com'], [
             'name' => 'Julian Hayes, LAc',
-            'email' => 'julian@lotuswellness.com',
             'password' => Hash::make('password'),
             'email_verified_at' => now(),
         ]);
-        $practitionerUser->assignRole('Practitioner');
+        if (! $practitionerUser->hasRole('Practitioner')) {
+            $practitionerUser->assignRole('Practitioner');
+        }
 
-        $practitionerMembership = StaffMembership::create([
+        $practitionerMembership = StaffMembership::firstOrCreate([
             'tenant_id' => $tenant->id,
             'user_id' => $practitionerUser->id,
+        ], [
             'role' => StaffMembership::ROLE_PRACTITIONER,
             'status' => StaffMembership::STATUS_ACTIVE,
             'joined_at' => now(),
         ]);
 
-        PractitionerProfile::create([
+        PractitionerProfile::firstOrCreate([
             'staff_membership_id' => $practitionerMembership->id,
+        ], [
             'profession' => PractitionerProfile::PROFESSION_ACUPUNCTURE_TCM,
             'credentials' => 'LAc, Dipl. OM',
             'biography' => 'Julian specialises in TCM pain management and herbal medicine.',
@@ -135,94 +137,100 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // 6. Demo Receptionist
-        $receptionistUser = User::create([
+        $receptionistUser = User::firstOrCreate(['email' => 'maya@lotuswellness.com'], [
             'name' => 'Maya Torres',
-            'email' => 'maya@lotuswellness.com',
             'password' => Hash::make('password'),
             'email_verified_at' => now(),
         ]);
-        $receptionistUser->assignRole('Receptionist');
+        if (! $receptionistUser->hasRole('Receptionist')) {
+            $receptionistUser->assignRole('Receptionist');
+        }
 
-        StaffMembership::create([
+        StaffMembership::firstOrCreate([
             'tenant_id' => $tenant->id,
             'user_id' => $receptionistUser->id,
+        ], [
             'role' => StaffMembership::ROLE_RECEPTIONIST,
             'status' => StaffMembership::STATUS_ACTIVE,
             'joined_at' => now(),
         ]);
 
-        // 7. Multi-tenant staff member — has active staff access at BOTH
-        // clinics, so logging in should show the "select a workspace" screen.
-        $multiTenantUser = User::create([
+        // 7. Multi-tenant staff member
+        $multiTenantUser = User::firstOrCreate(['email' => 'dana@multitenant.com'], [
             'name' => 'Dana Whitfield',
-            'email' => 'dana@multitenant.com',
             'password' => Hash::make('password'),
             'email_verified_at' => now(),
         ]);
-        $multiTenantUser->assignRole('Practitioner');
+        if (! $multiTenantUser->hasRole('Practitioner')) {
+            $multiTenantUser->assignRole('Practitioner');
+        }
 
-        StaffMembership::create([
+        StaffMembership::firstOrCreate([
             'tenant_id' => $tenant->id,
             'user_id' => $multiTenantUser->id,
+        ], [
             'role' => StaffMembership::ROLE_PRACTITIONER,
             'status' => StaffMembership::STATUS_ACTIVE,
             'joined_at' => now(),
         ]);
 
-        StaffMembership::create([
+        StaffMembership::firstOrCreate([
             'tenant_id' => $secondTenant->id,
             'user_id' => $multiTenantUser->id,
+        ], [
             'role' => StaffMembership::ROLE_RECEPTIONIST,
             'status' => StaffMembership::STATUS_ACTIVE,
             'joined_at' => now(),
         ]);
 
-        // 8. A pending invitation — never logged in, no password set yet.
-        // Used to exercise the AcceptInvite flow end-to-end.
-        $invitedUser = User::create([
+        // 8. A pending invitation
+        $invitedUser = User::firstOrCreate(['email' => 'newhire@lotuswellness.com'], [
             'name' => 'new.hire',
-            'email' => 'newhire@lotuswellness.com',
             'password' => Hash::make(str()->random(32)),
         ]);
 
-        StaffMembership::create([
+        StaffMembership::firstOrCreate([
             'tenant_id' => $tenant->id,
             'user_id' => $invitedUser->id,
+        ], [
             'role' => StaffMembership::ROLE_PRACTITIONER,
             'status' => StaffMembership::STATUS_INVITED,
             'invited_at' => now(),
         ]);
 
         // 9. Locations & Rooms
-        $location = Location::create([
+        $location = Location::firstOrCreate([
             'tenant_id' => $tenant->id,
             'name' => 'Downtown Sanctuary',
+        ], [
             'address' => '100 Healing Way, Boston MA',
             'timezone' => 'America/New_York',
             'phone' => '+1 (555) 234-5678',
         ]);
 
-        $roomA = Room::create([
+        $roomA = Room::firstOrCreate([
             'tenant_id' => $tenant->id,
             'location_id' => $location->id,
             'name' => 'Acupuncture Suite A',
+        ], [
             'description' => 'Equipped with heated treatment table and ambient sound machine',
         ]);
 
-        $roomB = Room::create([
+        $roomB = Room::firstOrCreate([
             'tenant_id' => $tenant->id,
             'location_id' => $location->id,
             'name' => 'Mindfulness Room B',
+        ], [
             'description' => 'Private meditation and biofeedback space',
         ]);
 
-        // 10. Clients — Sophia is a walk-in with no login yet, used to
-        // exercise the register-dedup-by-email flow.
-        $sophia = Client::create([
+        // 10. Clients
+        $sophia = Client::firstOrCreate([
             'tenant_id' => $tenant->id,
+            'email' => 'sophia.chen@example.com',
+        ], [
             'first_name' => 'Sophia',
             'last_name' => 'Chen',
-            'email' => 'sophia.chen@example.com',
             'phone' => '+1 (555) 987-6543',
             'date_of_birth' => '1990-04-12',
             'preferred_contact_method' => 'email',
@@ -233,32 +241,33 @@ class DatabaseSeeder extends Seeder
             ],
         ]);
 
-        $marcus = Client::create([
+        $marcus = Client::firstOrCreate([
             'tenant_id' => $tenant->id,
+            'email' => 'marcus@example.com',
+        ], [
             'first_name' => 'Marcus',
             'last_name' => 'Aurelius',
-            'email' => 'marcus@example.com',
             'phone' => '+1 (555) 876-5432',
             'date_of_birth' => '1985-08-23',
             'preferred_contact_method' => 'phone',
         ]);
 
         // A client who has already completed self-registration (has a login).
-        $clientUser = User::create([
+        $clientUser = User::firstOrCreate(['email' => 'ravi@example.com'], [
             'name' => 'Ravi Patel',
-            'email' => 'ravi@example.com',
             'password' => Hash::make('password'),
             'email_verified_at' => now(),
             'tos_accepted_version' => '2026-01-01',
             'tos_accepted_at' => now(),
         ]);
 
-        $ravi = Client::create([
+        $ravi = Client::firstOrCreate([
             'tenant_id' => $tenant->id,
+            'email' => 'ravi@example.com',
+        ], [
             'user_id' => $clientUser->id,
             'first_name' => 'Ravi',
             'last_name' => 'Patel',
-            'email' => 'ravi@example.com',
             'phone' => '+1 (555) 345-6789',
             'date_of_birth' => '1992-11-02',
             'preferred_contact_method' => 'sms',
