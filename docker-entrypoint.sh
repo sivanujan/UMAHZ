@@ -13,6 +13,12 @@ if [ "${RUN_MIGRATIONS}" = "true" ]; then
     php artisan migrate --force
 fi
 
+# Conditionally run database seeders if RUN_SEED is set to true
+if [ "${RUN_SEED}" = "true" ]; then
+    echo "Running database seeders..."
+    php artisan db:seed --force
+fi
+
 # Configure Apache to listen on Render's dynamic PORT variable if provided
 if [ -n "$PORT" ]; then
     echo "Configuring Apache to listen on port $PORT"
