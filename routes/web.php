@@ -3,6 +3,7 @@
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Settings\StaffInvitationController;
 use App\Models\Client;
+use App\Models\ClinicalNote;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -77,8 +78,10 @@ Route::middleware(['auth', 'verified', 'staff.role'])->prefix('app')->name('app.
     // Example of a per-route Spatie permission gate on top of the tenant
     // role check above — clinical note-signing is not available to every
     // staff role (e.g. receptionists) even within /app.
-    Route::post('/notes/{note}/finalize', function (string $note) {
-        return back()->with('success', "Note {$note} finalized.");
+    Route::post('/notes/{note}/finalize', function (ClinicalNote $note) {
+        $note->update(['status' => ClinicalNote::STATUS_SIGNED, 'signed_at' => now()]);
+
+        return back()->with('success', 'Note signed.');
     })->middleware('permission:notes.finalize')->name('notes.finalize');
 });
 

@@ -2,8 +2,13 @@
 
 namespace Database\Seeders;
 
+use App\Models\Appointment;
 use App\Models\Client;
+use App\Models\ClientForm;
+use App\Models\ClinicalNote;
+use App\Models\Invoice;
 use App\Models\Location;
+use App\Models\Message;
 use App\Models\PractitionerProfile;
 use App\Models\Room;
 use App\Models\StaffMembership;
@@ -96,7 +101,7 @@ class DatabaseSeeder extends Seeder
         ]);
         $ownerUser->assignRole('Clinic Owner');
 
-        StaffMembership::create([
+        $ownerMembership = StaffMembership::create([
             'tenant_id' => $tenant->id,
             'user_id' => $ownerUser->id,
             'role' => StaffMembership::ROLE_CLINIC_OWNER,
@@ -197,14 +202,14 @@ class DatabaseSeeder extends Seeder
             'phone' => '+1 (555) 234-5678',
         ]);
 
-        Room::create([
+        $roomA = Room::create([
             'tenant_id' => $tenant->id,
             'location_id' => $location->id,
             'name' => 'Acupuncture Suite A',
             'description' => 'Equipped with heated treatment table and ambient sound machine',
         ]);
 
-        Room::create([
+        $roomB = Room::create([
             'tenant_id' => $tenant->id,
             'location_id' => $location->id,
             'name' => 'Mindfulness Room B',
@@ -213,7 +218,7 @@ class DatabaseSeeder extends Seeder
 
         // 10. Clients — Sophia is a walk-in with no login yet, used to
         // exercise the register-dedup-by-email flow.
-        Client::create([
+        $sophia = Client::create([
             'tenant_id' => $tenant->id,
             'first_name' => 'Sophia',
             'last_name' => 'Chen',
@@ -228,7 +233,7 @@ class DatabaseSeeder extends Seeder
             ],
         ]);
 
-        Client::create([
+        $marcus = Client::create([
             'tenant_id' => $tenant->id,
             'first_name' => 'Marcus',
             'last_name' => 'Aurelius',
@@ -248,7 +253,7 @@ class DatabaseSeeder extends Seeder
             'tos_accepted_at' => now(),
         ]);
 
-        Client::create([
+        $ravi = Client::create([
             'tenant_id' => $tenant->id,
             'user_id' => $clientUser->id,
             'first_name' => 'Ravi',
@@ -257,6 +262,163 @@ class DatabaseSeeder extends Seeder
             'phone' => '+1 (555) 345-6789',
             'date_of_birth' => '1992-11-02',
             'preferred_contact_method' => 'sms',
+        ]);
+
+        // A few more clients purely to give the owner/admin stats and
+        // this month's revenue realistic-looking volume.
+        $extraClients = collect(['Nadia Farouk', 'Tomas Alvarez', 'Grace Kim', 'Ben Okafor', 'Lena Petrov'])
+            ->map(function (string $name) use ($tenant) {
+                [$first, $last] = explode(' ', $name, 2);
+
+                return Client::create([
+                    'tenant_id' => $tenant->id,
+                    'first_name' => $first,
+                    'last_name' => $last,
+                    'email' => strtolower($first).'@example.com',
+                    'phone' => '+1 (555) '.random_int(200, 999).'-'.random_int(1000, 9999),
+                    'preferred_contact_method' => ['email', 'phone', 'sms'][random_int(0, 2)],
+                ]);
+            });
+
+        // 11. Today's appointments — drive the owner/practitioner/receptionist
+        // dashboards and the check-in queue.
+        $today = now()->startOfDay();
+
+        $sophiaAppt = Appointment::create([
+            'tenant_id' => $tenant->id,
+            'client_id' => $sophia->id,
+            'staff_membership_id' => $practitionerMembership->id,
+            'location_id' => $location->id,
+            'room_id' => $roomA->id,
+            'service_name' => 'Acupuncture Initial Assessment',
+            'starts_at' => $today->copy()->setTime(10, 0),
+            'ends_at' => $today->copy()->setTime(11, 0),
+            'status' => Appointment::STATUS_CHECKED_IN,
+        ]);
+
+        Appointment::create([
+            'tenant_id' => $tenant->id,
+            'client_id' => $marcus->id,
+            'staff_membership_id' => $ownerMembership->id,
+            'location_id' => $location->id,
+            'room_id' => $roomB->id,
+            'service_name' => 'Herbal Consultation & Follow-up',
+            'starts_at' => $today->copy()->setTime(14, 30),
+            'ends_at' => $today->copy()->setTime(15, 15),
+            'status' => Appointment::STATUS_CONFIRMED,
+        ]);
+
+        // Ravi's upcoming appointment, for the client portal dashboard.
+        Appointment::create([
+            'tenant_id' => $tenant->id,
+            'client_id' => $ravi->id,
+            'staff_membership_id' => $practitionerMembership->id,
+            'location_id' => $location->id,
+            'room_id' => $roomA->id,
+            'service_name' => 'Acupuncture Follow-up',
+            'starts_at' => $today->copy()->addDay()->setTime(10, 0),
+            'ends_at' => $today->copy()->addDay()->setTime(10, 45),
+            'status' => Appointment::STATUS_CONFIRMED,
+        ]);
+
+        // A batch of completed sessions earlier this month, so "Revenue
+        // (MTD)" on the owner dashboard reflects real paid invoices.
+        $allClients = $extraClients->push($sophia)->push($marcus)->push($ravi);
+        for ($i = 0; $i < 18; $i++) {
+            $client = $allClients->random();
+            $daysAgo = random_int(0, (int) now()->day - 1);
+            $startsAt = $today->copy()->subDays($daysAgo)->setTime(random_int(9, 16), [0, 15, 30, 45][random_int(0, 3)]);
+
+            Appointment::create([
+                'tenant_id' => $tenant->id,
+                'client_id' => $client->id,
+                'staff_membership_id' => [$practitionerMembership->id, $ownerMembership->id][random_int(0, 1)],
+                'location_id' => $location->id,
+                'room_id' => [$roomA->id, $roomB->id][random_int(0, 1)],
+                'service_name' => ['Acupuncture Session', 'Herbal Consultation', 'Follow-up Treatment', 'Initial Assessment'][random_int(0, 3)],
+                'starts_at' => $startsAt,
+                'ends_at' => $startsAt->copy()->addMinutes(45),
+                'status' => Appointment::STATUS_COMPLETED,
+            ]);
+        }
+
+        // 12. Invoices — outstanding balances for the owner/receptionist/
+        // client views, plus paid invoices behind this month's revenue.
+        Invoice::create([
+            'tenant_id' => $tenant->id,
+            'client_id' => $sophia->id,
+            'description' => 'Acupuncture Initial Assessment',
+            'amount' => 120.00,
+            'status' => Invoice::STATUS_DUE,
+            'due_date' => now()->addDays(3)->toDateString(),
+        ]);
+
+        Invoice::create([
+            'tenant_id' => $tenant->id,
+            'client_id' => $marcus->id,
+            'description' => 'Herbal Consultation & Follow-up',
+            'amount' => 85.00,
+            'status' => Invoice::STATUS_OVERDUE,
+            'due_date' => now()->subDays(2)->toDateString(),
+        ]);
+
+        Invoice::create([
+            'tenant_id' => $tenant->id,
+            'client_id' => $ravi->id,
+            'description' => 'Acupuncture Session',
+            'amount' => 120.00,
+            'status' => Invoice::STATUS_DUE,
+            'due_date' => now()->addDays(5)->toDateString(),
+        ]);
+
+        foreach (Appointment::where('tenant_id', $tenant->id)->where('status', Appointment::STATUS_COMPLETED)->get() as $appointment) {
+            Invoice::create([
+                'tenant_id' => $tenant->id,
+                'client_id' => $appointment->client_id,
+                'appointment_id' => $appointment->id,
+                'description' => $appointment->service_name,
+                'amount' => [95.00, 120.00, 135.00, 150.00][random_int(0, 3)],
+                'status' => Invoice::STATUS_PAID,
+                'paid_at' => $appointment->ends_at,
+            ]);
+        }
+
+        // 13. Clinical notes — one unsigned note waiting on Julian.
+        ClinicalNote::create([
+            'tenant_id' => $tenant->id,
+            'client_id' => $sophia->id,
+            'staff_membership_id' => $practitionerMembership->id,
+            'appointment_id' => $sophiaAppt->id,
+            'content' => 'Acupuncture Session',
+            'status' => ClinicalNote::STATUS_DRAFT,
+            'created_at' => now()->subDay(),
+            'updated_at' => now()->subDay(),
+        ]);
+
+        // 14. Client forms — one pending clinic-wide, one for Ravi's portal.
+        ClientForm::create([
+            'tenant_id' => $tenant->id,
+            'client_id' => $marcus->id,
+            'name' => 'Updated Consent Form',
+            'status' => ClientForm::STATUS_PENDING,
+            'sent_at' => now()->subDays(2),
+        ]);
+
+        ClientForm::create([
+            'tenant_id' => $tenant->id,
+            'client_id' => $ravi->id,
+            'name' => 'Updated Intake & Consent Form',
+            'status' => ClientForm::STATUS_PENDING,
+            'sent_at' => now()->subDay(),
+        ]);
+
+        // 15. Messages — clinic confirming Ravi's upcoming appointment.
+        Message::create([
+            'tenant_id' => $tenant->id,
+            'client_id' => $ravi->id,
+            'sender' => Message::SENDER_CLINIC,
+            'body' => 'Your appointment tomorrow has been confirmed.',
+            'read_at' => now(),
         ]);
     }
 }
