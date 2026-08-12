@@ -14,8 +14,8 @@ COPY public public
 # Build frontend production bundle into public/build
 RUN npm run build
 
-# Stage 2: PHP Apache production environment
-FROM php:8.3-apache
+# Stage 2: PHP Apache production environment (PHP 8.4 required for Laravel 13)
+FROM php:8.4-apache
 
 # Install system dependencies and PHP extensions required by Laravel & Cashier/Inertia
 RUN apt-get update && apt-get install -y \
