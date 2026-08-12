@@ -51,8 +51,8 @@ COPY . /var/www/html
 # Copy built frontend assets from Stage 1
 COPY --from=frontend-builder /app/public/build /var/www/html/public/build
 
-# Install PHP production dependencies
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+# Install PHP production dependencies without running artisan scripts during build
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
 
 # Set correct ownership and permissions for storage and bootstrap/cache
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \

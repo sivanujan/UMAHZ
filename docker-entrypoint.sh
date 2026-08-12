@@ -1,7 +1,8 @@
 #!/bin/bash
 set -e
 
-# Cache configuration, routes, and views for production
+# Discover packages and cache configuration, routes, and views for production
+php artisan package:discover --ansi
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
