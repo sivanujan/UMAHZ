@@ -5,8 +5,10 @@ import FooterSection from '@/Components/Home/FooterSection';
 export default function PublicLayout({ children }) {
     return (
         <div className="min-h-screen bg-[#F9F5FB] font-sans antialiased text-slate-800 selection:bg-[#5B2EFF] selection:text-white">
-            <header className="bg-[#F9F5FB] relative overflow-hidden">
-                <div className="absolute top-[-80px] right-[-80px] w-[420px] h-[420px] bg-purple-200/30 rounded-full blur-3xl pointer-events-none" />
+            <header className="bg-[#F9F5FB] relative">
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    <div className="absolute top-[-80px] right-[-80px] w-[420px] h-[420px] bg-purple-200/30 rounded-full blur-3xl" />
+                </div>
                 <Navbar />
             </header>
             <main>{children}</main>

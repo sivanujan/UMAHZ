@@ -21,9 +21,7 @@ export default function AdminLayout({ children, title }) {
             <aside className="w-64 bg-black text-slate-300 flex flex-col border-r border-slate-800">
                 <div className="h-16 flex items-center px-6 border-b border-slate-800">
                     <div className="flex items-center space-x-3">
-                        <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#5B2EFF] to-purple-500 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-purple-900/30">
-                            U
-                        </div>
+                        <img src="/imags/logo.png" alt="UMAHZ" className="h-9 w-9 object-contain flex-shrink-0" />
                         <div>
                             <h1 className="font-semibold text-white text-sm tracking-wide leading-none">UMAHZ</h1>
                             <span className="text-xs text-purple-400 font-medium leading-none block mt-1">Platform Admin</span>

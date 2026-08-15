@@ -1,6 +1,7 @@
 import React from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { MailCheck } from 'lucide-react';
+import Logo from '@/Components/Common/Logo';
 
 export default function VerifyEmail({ status, email }) {
     const { post, processing } = useForm({});
@@ -18,9 +19,8 @@ export default function VerifyEmail({ status, email }) {
             <div className="absolute bottom-[-60px] left-[-60px] w-[320px] h-[320px] bg-pink-200/20 rounded-full blur-3xl pointer-events-none" />
 
             <div className="max-w-md w-full relative z-10">
-                <Link href="/" className="flex items-center justify-center gap-2 mb-8">
-                    <span style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg,#5B2EFF,#a855f7)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 18, flexShrink: 0 }}>U</span>
-                    <span className="text-2xl font-bold text-[#1E0B3C] tracking-tight">UMAHZ<span className="text-[#5B2EFF]">.</span></span>
+                <Link href="/" className="flex items-center justify-center mb-8">
+                    <Logo size="lg" tagline />
                 </Link>
 
                 <div className="bg-white rounded-3xl shadow-xl border border-purple-100 p-8 space-y-6 text-center">

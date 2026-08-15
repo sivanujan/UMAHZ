@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import { LayoutDashboard, CalendarDays, FileText, CreditCard, MessageSquare, LogOut, ChevronDown } from 'lucide-react';
+import Logo from '@/Components/Common/Logo';
 
 const NAV = [
     { name: 'Dashboard', href: '/portal/dashboard', icon: LayoutDashboard },
@@ -19,9 +20,8 @@ export default function PortalLayout({ children, title }) {
         <div className="min-h-screen bg-[#F9F5FB] font-sans antialiased text-slate-800">
             <header className="bg-white border-b border-purple-100">
                 <div className="max-w-6xl mx-auto px-6 flex items-center justify-between h-16">
-                    <Link href="/portal/dashboard" className="flex items-center gap-2 shrink-0">
-                        <span style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#5B2EFF,#a855f7)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>U</span>
-                        <span className="text-lg font-bold text-[#1E0B3C] tracking-tight">UMAHZ<span className="text-[#5B2EFF]">.</span></span>
+                    <Link href="/portal/dashboard" className="flex items-center shrink-0">
+                        <Logo size="sm" />
                     </Link>
 
                     <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-500">

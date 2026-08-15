@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from '@inertiajs/react';
 import { PROFESSIONS } from '@/Data/professions';
+import Logo from '@/Components/Common/Logo';
 
 const LINKS = {
     'Quick Links': [
@@ -40,9 +41,8 @@ export default function FooterSection() {
 
                     {/* Brand — 2 cols */}
                     <div className="lg:col-span-2 space-y-5">
-                        <div className="flex items-center gap-2">
-                            <span style={{width:36,height:36,borderRadius:'50%',background:'linear-gradient(135deg,#5B2EFF,#a855f7)',display:'inline-flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:700,fontSize:16,flexShrink:0}}>U</span>
-                            <span className="text-xl font-bold text-white tracking-tight">UMAHZ<span className="text-[#5B2EFF]">.</span></span>
+                        <div className="flex items-center">
+                            <Logo size="md" theme="dark" />
                         </div>
 
                         <p className="text-sm leading-relaxed max-w-xs" style={{color:'#a78bfa'}}>

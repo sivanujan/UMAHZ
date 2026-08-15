@@ -52,6 +52,17 @@ class EnsureStaffRole
 
         $request->attributes->set('staffMembership', $membership);
 
+        // A clinic_owner whose tenant hasn't finished the setup wizard is
+        // sent there first — except for the wizard's own routes, or every
+        // request would loop.
+        if (
+            $membership->role === StaffMembership::ROLE_CLINIC_OWNER
+            && !$request->routeIs('app.onboarding.*')
+            && !$membership->tenant->hasCompletedOnboarding()
+        ) {
+            return redirect()->route('app.onboarding.show');
+        }
+
         return $next($request);
     }
 }

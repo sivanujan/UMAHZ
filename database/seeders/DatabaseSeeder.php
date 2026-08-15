@@ -51,6 +51,8 @@ class DatabaseSeeder extends Seeder
             ],
             'phone' => '+1 (555) 234-5678',
             'email' => 'contact@lotuswellness.com',
+            // Seeded demo tenants skip the setup wizard — they're already "set up".
+            'onboarding_completed_at' => now(),
         ]);
 
         app()->instance('current_tenant_id', $tenant->id);
@@ -68,6 +70,7 @@ class DatabaseSeeder extends Seeder
             ],
             'phone' => '+1 (555) 900-1200',
             'email' => 'hello@summitperformance.com',
+            'onboarding_completed_at' => now(),
         ]);
 
         // 3. Platform Administrator

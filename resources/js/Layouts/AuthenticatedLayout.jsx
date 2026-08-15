@@ -38,9 +38,7 @@ export default function AuthenticatedLayout({ children, title }) {
                 {/* Clinic Brand Branding */}
                 <div className="h-16 flex items-center px-6 border-b border-stone-800 justify-between">
                     <div className="flex items-center space-x-3">
-                        <div className="h-9 w-9 rounded-xl bg-teal-600 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-teal-900/30">
-                            U
-                        </div>
+                        <img src="/imags/logo.png" alt="UMAHZ" className="h-9 w-9 object-contain flex-shrink-0" />
                         <div>
                             <h1 className="font-semibold text-stone-100 text-sm tracking-wide leading-none">UMAHZ</h1>
                             <span className="text-xs text-teal-400 font-medium leading-none block mt-1">Wellness Platform</span>

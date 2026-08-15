@@ -63,7 +63,7 @@ export default function AboutSection() {
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2" />
                                 </svg>
                             </div>
-                            <h3 className="text-[#1E0B3C] font-bold text-base mb-2">98% Admin Time Saved</h3>
+                            <h3 className="text-[#1E0B3C] font-bold text-base mb-2">Built To Save You Time</h3>
                             <p className="text-slate-500 text-sm leading-relaxed flex-1">Automated intake forms, instant SOAP charting, and one-click online booking eliminate front-desk overhead.</p>
                         </div>
 

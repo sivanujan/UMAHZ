@@ -3,6 +3,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { ChevronDown } from 'lucide-react';
 import { PROFESSIONS } from '@/Data/professions';
 import Button from '@/Components/UI/Button';
+import Logo from '@/Components/Common/Logo';
 
 const NAV_LINKS = [
     { label: 'Home', href: '/' },
@@ -26,9 +27,8 @@ export default function Navbar() {
     return (
         <div className="max-w-7xl mx-auto px-6 md:px-12 lg:px-24 relative z-40">
             <nav className="flex items-center justify-between py-5">
-                <Link href="/" className="flex items-center gap-2 shrink-0">
-                    <span style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#5B2EFF,#a855f7)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16, flexShrink: 0 }}>U</span>
-                    <span className="text-xl font-bold text-[#1E0B3C] tracking-tight">UMAHZ<span className="text-[#5B2EFF]">.</span></span>
+                <Link href="/" className="flex items-center shrink-0">
+                    <Logo size="md" />
                 </Link>
 
                 <div className="hidden xl:flex items-center gap-5 text-[13px] font-medium text-slate-600">

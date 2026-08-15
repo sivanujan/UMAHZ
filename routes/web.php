@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Onboarding\OnboardingController;
 use App\Http\Controllers\Settings\StaffInvitationController;
 use App\Models\Client;
 use App\Models\ClinicalNote;
@@ -62,6 +63,15 @@ Route::middleware(['auth', 'verified', 'platform.admin'])->prefix('admin')->name
 */
 Route::middleware(['auth', 'verified', 'staff.role'])->prefix('app')->name('app.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'app'])->name('dashboard');
+
+    // Clinic setup wizard — owner-only, exempted from the onboarding gate
+    // itself (see EnsureStaffRole) so it's always reachable.
+    Route::middleware('staff.role:clinic_owner')->prefix('onboarding')->name('onboarding.')->group(function () {
+        Route::get('/', [OnboardingController::class, 'show'])->name('show');
+        Route::post('/profile', [OnboardingController::class, 'updateProfile'])->name('profile');
+        Route::post('/branding', [OnboardingController::class, 'updateBranding'])->name('branding');
+        Route::post('/hours', [OnboardingController::class, 'updateHours'])->name('hours');
+    });
 
     Route::get('/clients', function () {
         return Inertia::render('Clients/Index', [

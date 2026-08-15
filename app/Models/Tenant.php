@@ -23,6 +23,9 @@ class Tenant extends Model
         'email',
         'address',
         'logo_url',
+        'business_hours',
+        'brand_color',
+        'onboarding_completed_at',
     ];
 
     protected function casts(): array
@@ -30,7 +33,14 @@ class Tenant extends Model
         return [
             'tax_settings' => 'array',
             'address' => 'array',
+            'business_hours' => 'array',
+            'onboarding_completed_at' => 'datetime',
         ];
+    }
+
+    public function hasCompletedOnboarding(): bool
+    {
+        return $this->onboarding_completed_at !== null;
     }
 
     public function staffMemberships(): HasMany
