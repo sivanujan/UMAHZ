@@ -252,6 +252,7 @@ class DashboardController extends Controller
             'client' => [
                 'first_name' => $client->first_name,
                 'last_name' => $client->last_name,
+                'member_since' => $client->created_at->format('M Y'),
             ],
             'upcomingAppointments' => $upcomingAppointments,
             'formsDue' => $formsDue,

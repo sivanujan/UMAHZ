@@ -323,6 +323,7 @@ export default function Register({ tenants, preselectedTenantSlug, tosVersion })
     const submit = (e) => {
         e.preventDefault();
         markStepTouched(3);
+        markTouched('tos_accepted');
         if (!stepValid(3) || !data.tos_accepted) return;
         post('/register');
     };
@@ -560,7 +561,11 @@ export default function Register({ tenants, preselectedTenantSlug, tosVersion })
                                         <a href="#" className="font-semibold transition-opacity duration-200 hover:opacity-75" style={{ color: ROYAL_BLUE }}>Privacy Policy</a>
                                         {' '}(v{tosVersion}).
                                     </ConsentCheckbox>
-                                    {errors.tos_accepted && <div className="text-xs text-rose-600">{errors.tos_accepted}</div>}
+                                    {(errors.tos_accepted || (touched.tos_accepted && !data.tos_accepted)) && (
+                                        <div className="text-xs text-rose-600 font-medium">
+                                            {errors.tos_accepted || 'You must agree to the Terms of Service to create an account.'}
+                                        </div>
+                                    )}
 
                                     <ConsentCheckbox
                                         checked={data.marketing_opt_in}
@@ -581,10 +586,12 @@ export default function Register({ tenants, preselectedTenantSlug, tosVersion })
                                     <button
                                         type="submit"
                                         disabled={processing}
-                                        className="flex-1 py-3.5 px-4 text-white font-medium text-sm rounded-full transition-all duration-300 ease-out flex items-center justify-center hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] disabled:opacity-70 disabled:hover:scale-100"
+                                        onClick={() => markTouched('tos_accepted')}
+                                        aria-disabled={!data.tos_accepted}
+                                        className={`flex-1 py-3.5 px-4 text-white font-medium text-sm rounded-full transition-all duration-300 ease-out flex items-center justify-center active:scale-[0.98] disabled:opacity-70 ${data.tos_accepted ? 'hover:scale-[1.02] hover:shadow-lg' : 'opacity-50'}`}
                                         style={{
                                             background: `linear-gradient(135deg, ${ROYAL_BLUE} 0%, #7C3AED 100%)`,
-                                            boxShadow: '0 10px 30px -8px rgba(37,99,235,0.45)',
+                                            boxShadow: data.tos_accepted ? '0 10px 30px -8px rgba(37,99,235,0.45)' : 'none',
                                         }}
                                     >
                                         Create Account
