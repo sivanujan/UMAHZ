@@ -13,7 +13,7 @@ export default function ProfessionsIndex() {
             <section className="py-16 md:py-24 px-6 md:px-12 lg:px-24">
                 <div className="max-w-7xl mx-auto text-center max-w-3xl">
                     <div className="inline-flex items-center gap-2 bg-pink-100 border border-pink-200 px-4 py-1.5 rounded-full mb-4">
-                        <span className="text-[11px] font-bold uppercase tracking-widest text-pink-600">Supported Modalities</span>
+                        <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-pink-600">Supported Modalities</span>
                     </div>
                     <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] leading-tight">
                         Built For Every{' '}

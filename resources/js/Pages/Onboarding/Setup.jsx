@@ -83,7 +83,7 @@ export default function OnboardingSetup({ tenant, timezones, currencies, days })
                     </div>
 
                     <div>
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Clinic Name</label>
+                        <label className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-1.5">Clinic Name</label>
                         <div className="relative">
                             <Building2 className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                             <input
@@ -99,7 +99,7 @@ export default function OnboardingSetup({ tenant, timezones, currencies, days })
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Contact Email</label>
+                            <label className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-1.5">Contact Email</label>
                             <div className="relative">
                                 <Mail className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                                 <input
@@ -113,7 +113,7 @@ export default function OnboardingSetup({ tenant, timezones, currencies, days })
                             {profileForm.errors.email && <div className="text-xs text-rose-600 mt-1">{profileForm.errors.email}</div>}
                         </div>
                         <div>
-                            <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Phone</label>
+                            <label className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-1.5">Phone</label>
                             <div className="relative">
                                 <Phone className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                                 <input
@@ -127,7 +127,7 @@ export default function OnboardingSetup({ tenant, timezones, currencies, days })
                     </div>
 
                     <div>
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Address (optional for now)</label>
+                        <label className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-1.5">Address (optional for now)</label>
                         <div className="relative mb-3">
                             <MapPin className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                             <input
@@ -165,7 +165,7 @@ export default function OnboardingSetup({ tenant, timezones, currencies, days })
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Timezone</label>
+                            <label className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-1.5">Timezone</label>
                             <select
                                 value={profileForm.data.timezone}
                                 onChange={(e) => profileForm.setData('timezone', e.target.value)}
@@ -175,7 +175,7 @@ export default function OnboardingSetup({ tenant, timezones, currencies, days })
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Currency</label>
+                            <label className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-1.5">Currency</label>
                             <select
                                 value={profileForm.data.currency}
                                 onChange={(e) => profileForm.setData('currency', e.target.value)}
@@ -189,7 +189,7 @@ export default function OnboardingSetup({ tenant, timezones, currencies, days })
                     <button
                         type="submit"
                         disabled={profileForm.processing}
-                        className="w-full py-3.5 px-4 bg-[#5B2EFF] hover:bg-purple-700 text-white font-semibold text-sm rounded-full shadow-lg shadow-purple-500/20 transition-colors mt-2"
+                        className="w-full py-3.5 px-4 bg-[#5B2EFF] hover:bg-purple-700 text-white font-medium text-sm rounded-full shadow-lg shadow-purple-500/20 transition-colors mt-2"
                     >
                         Continue to Branding
                     </button>
@@ -204,7 +204,7 @@ export default function OnboardingSetup({ tenant, timezones, currencies, days })
                     </div>
 
                     <div>
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Clinic Logo</label>
+                        <label className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-1.5">Clinic Logo</label>
                         <div className="flex items-center gap-4">
                             <div className="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
                                 {brandingForm.data.logo ? (
@@ -215,7 +215,7 @@ export default function OnboardingSetup({ tenant, timezones, currencies, days })
                                     <Building2 className="w-6 h-6 text-slate-300" />
                                 )}
                             </div>
-                            <label className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-50 border border-slate-200 hover:border-[#5B2EFF] rounded-xl text-sm font-semibold text-[#1E0B3C] cursor-pointer transition-colors">
+                            <label className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-50 border border-slate-200 hover:border-[#5B2EFF] rounded-xl text-sm font-medium text-[#1E0B3C] cursor-pointer transition-colors">
                                 <Upload className="w-4 h-4" />
                                 Upload Image
                                 <input
@@ -230,7 +230,7 @@ export default function OnboardingSetup({ tenant, timezones, currencies, days })
                     </div>
 
                     <div>
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Brand Colour</label>
+                        <label className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-1.5">Brand Colour</label>
                         <div className="flex items-center gap-3">
                             <input
                                 type="color"
@@ -252,14 +252,14 @@ export default function OnboardingSetup({ tenant, timezones, currencies, days })
                         <button
                             type="button"
                             onClick={() => setStep(1)}
-                            className="px-6 py-3.5 rounded-full text-sm font-semibold text-[#1E0B3C] border border-slate-200 hover:border-[#5B2EFF] transition-colors"
+                            className="px-6 py-3.5 rounded-full text-sm font-medium text-[#1E0B3C] border border-slate-200 hover:border-[#5B2EFF] transition-colors"
                         >
                             Back
                         </button>
                         <button
                             type="submit"
                             disabled={brandingForm.processing}
-                            className="flex-1 py-3.5 px-4 bg-[#5B2EFF] hover:bg-purple-700 text-white font-semibold text-sm rounded-full shadow-lg shadow-purple-500/20 transition-colors"
+                            className="flex-1 py-3.5 px-4 bg-[#5B2EFF] hover:bg-purple-700 text-white font-medium text-sm rounded-full shadow-lg shadow-purple-500/20 transition-colors"
                         >
                             Continue to Business Hours
                         </button>
@@ -322,14 +322,14 @@ export default function OnboardingSetup({ tenant, timezones, currencies, days })
                         <button
                             type="button"
                             onClick={() => setStep(2)}
-                            className="px-6 py-3.5 rounded-full text-sm font-semibold text-[#1E0B3C] border border-slate-200 hover:border-[#5B2EFF] transition-colors"
+                            className="px-6 py-3.5 rounded-full text-sm font-medium text-[#1E0B3C] border border-slate-200 hover:border-[#5B2EFF] transition-colors"
                         >
                             Back
                         </button>
                         <button
                             type="submit"
                             disabled={hoursForm.processing}
-                            className="flex-1 py-3.5 px-4 bg-[#5B2EFF] hover:bg-purple-700 text-white font-semibold text-sm rounded-full shadow-lg shadow-purple-500/20 transition-colors"
+                            className="flex-1 py-3.5 px-4 bg-[#5B2EFF] hover:bg-purple-700 text-white font-medium text-sm rounded-full shadow-lg shadow-purple-500/20 transition-colors"
                         >
                             Finish Setup
                         </button>

@@ -15,12 +15,12 @@ export default function ServicesSection() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-end mb-12">
                     <div className="space-y-3">
                         <div className="inline-flex items-center gap-2 bg-pink-100 border border-pink-200 px-4 py-1.5 rounded-full">
-                            <span className="text-[11px] font-bold uppercase tracking-widest text-pink-600">Supported Modalities</span>
+                            <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-pink-600">Supported Modalities</span>
                         </div>
                         <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] leading-tight">
-                            Purpose-Built For Every{' '}
+                            Purpose-Built for Modern Health &{' '}
                             <em className="not-italic font-light font-serif text-[#5B2EFF]">Wellness</em>{' '}
-                            Profession
+                            Professionals
                         </h2>
                     </div>
                     <p className="text-slate-500 text-base md:text-lg leading-relaxed lg:text-right">
@@ -61,7 +61,7 @@ export default function ServicesSection() {
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
                                 </svg>
                             </div>
-                            <span className="block text-[10px] font-bold tracking-widest uppercase text-pink-300">Also Available</span>
+                            <span className="block text-[10px] font-bold tracking-[0.14em] uppercase text-pink-300">Also Available</span>
                             <h3 className="text-xl font-bold text-white leading-snug">Colon Hydrotherapy Management</h3>
                             <p className="text-purple-200 text-sm leading-relaxed">
                                 Sterilization logs, equipment tracking, session protocols, and privacy-first consent management for colon hydrotherapy centers.
@@ -69,7 +69,7 @@ export default function ServicesSection() {
                         </div>
 
                         <div className="pt-8 relative z-10">
-                            <a href="#booking" className="block w-full text-center bg-[#5B2EFF] hover:bg-purple-600 text-white font-semibold py-3.5 px-6 rounded-full transition-colors text-sm shadow-lg">
+                            <a href="#booking" className="block w-full text-center bg-[#5B2EFF] hover:bg-purple-600 text-white font-medium py-3.5 px-6 rounded-full transition-colors text-sm shadow-lg">
                                 Schedule a Demo
                             </a>
                         </div>

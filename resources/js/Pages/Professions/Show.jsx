@@ -34,7 +34,7 @@ export default function ProfessionShow({ slug }) {
                             <Icon className="w-8 h-8" style={{ color: profession.stroke }} strokeWidth={1.8} />
                         </div>
                         <div className="inline-flex items-center gap-2 bg-pink-100 border border-pink-200 px-4 py-1.5 rounded-full mb-4">
-                            <span className="text-[11px] font-bold uppercase tracking-widest text-pink-600">{profession.tagline}</span>
+                            <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-pink-600">{profession.tagline}</span>
                         </div>
                         <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] leading-tight">
                             {profession.name}
@@ -82,7 +82,7 @@ export default function ProfessionShow({ slug }) {
                         <Link
                             key={p.slug}
                             href={`/professions/${p.slug}`}
-                            className="inline-flex items-center bg-white hover:bg-purple-50 text-[#5B2EFF] border border-purple-200 font-semibold px-5 py-2.5 rounded-full transition-colors text-sm"
+                            className="inline-flex items-center bg-white hover:bg-purple-50 text-[#5B2EFF] border border-purple-200 font-medium px-5 py-2.5 rounded-full transition-colors text-sm"
                         >
                             {p.name}
                         </Link>

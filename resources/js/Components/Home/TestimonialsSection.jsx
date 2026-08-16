@@ -16,7 +16,7 @@ export default function TestimonialsSection() {
 
                 <div className="text-center max-w-3xl mx-auto mb-14 space-y-4">
                     <div className="inline-flex items-center gap-2 bg-pink-100 border border-pink-200 px-4 py-1.5 rounded-full">
-                        <span className="text-[11px] font-bold uppercase tracking-widest text-pink-600">Practitioner Stories</span>
+                        <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-pink-600">Practitioner Stories</span>
                     </div>
                     <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] leading-tight">
                         Loved By{' '}

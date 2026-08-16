@@ -1,6 +1,6 @@
 import React from 'react';
 import { Head } from '@inertiajs/react';
-import { Lock, Users, History, Flag, BadgeCheck } from 'lucide-react';
+import { Lock, Users, History, Flag, ShieldCheck } from 'lucide-react';
 import PublicLayout from '@/Layouts/PublicLayout';
 import CTABanner from '@/Components/Home/CTABanner';
 
@@ -31,14 +31,14 @@ const SECTIONS = [
         bg: '#e0e7ff',
         stroke: '#4338ca',
         title: 'Canadian Data Hosting',
-        description: 'Client data is hosted in Canadian data centres by default, keeping practices aligned with provincial health information residency requirements.',
+        description: 'Client data is hosted in Canadian data centres by default, giving clinics a local data residency option for their practice.',
     },
     {
-        icon: BadgeCheck,
+        icon: ShieldCheck,
         bg: '#ccfbf1',
         stroke: '#0f766e',
-        title: 'Compliance Approach',
-        description: 'UMAHZ is built around PIPEDA and HIPAA-aligned data handling practices, with signed consent tracking and configurable retention policies.',
+        title: 'Privacy By Design',
+        description: 'Signed consent tracking, configurable data retention policies, and scoped role-based access are built into the platform from the ground up — not bolted on after the fact.',
     },
 ];
 
@@ -50,7 +50,7 @@ export default function Security() {
             <section className="py-16 md:py-24 px-6 md:px-12 lg:px-24">
                 <div className="max-w-7xl mx-auto text-center max-w-3xl">
                     <div className="inline-flex items-center gap-2 bg-pink-100 border border-pink-200 px-4 py-1.5 rounded-full mb-4">
-                        <span className="text-[11px] font-bold uppercase tracking-widest text-pink-600">Trust & Compliance</span>
+                        <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-pink-600">Trust & Security</span>
                     </div>
                     <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] leading-tight">
                         Security Built For{' '}

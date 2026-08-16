@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { User, Mail, Lock, Building2, Check, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
+import { Lock, Check, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 import Logo from '@/Components/Common/Logo';
 import PasswordStrengthMeter from '@/Components/UI/PasswordStrengthMeter';
 
 const ROYAL_BLUE = '#2563EB';
 const DEEP_NAVY = '#0D1B2A';
 const MANROPE = "'Manrope', system-ui, -apple-system, sans-serif";
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const labelStyle = { display: 'block', fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#64748b', marginBottom: 9 };
 
@@ -19,36 +18,6 @@ function inputBorderClass(showError) {
     return showError
         ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-400/15'
         : 'border-slate-200/80 focus:border-[#2563EB] focus:ring-[#2563EB]/20';
-}
-
-function Field({ icon: Icon, label, type = 'text', value, onChange, onBlur, error, valid, placeholder, helper, required, autoComplete }) {
-    const showError = !!error;
-    const showValid = valid && !showError;
-    return (
-        <div>
-            <label style={labelStyle}>{label}</label>
-            <div className="relative group">
-                {Icon && <Icon className={`w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-200 ${iconColorClass(showError)}`} />}
-                <input
-                    type={type}
-                    value={value}
-                    onChange={onChange}
-                    onBlur={onBlur}
-                    required={required}
-                    autoComplete={autoComplete}
-                    placeholder={placeholder}
-                    className={`w-full ${Icon ? 'pl-11' : 'pl-3.5'} pr-10 py-3.5 bg-white/70 border rounded-xl text-sm outline-none transition-all duration-200 text-[#0D1B2A] focus:bg-white focus:ring-4 ${inputBorderClass(showError)}`}
-                />
-                {showValid && <Check className="w-4 h-4 text-emerald-500 absolute right-3.5 top-1/2 -translate-y-1/2" strokeWidth={2.5} />}
-                {showError && <AlertCircle className="w-4 h-4 text-rose-500 absolute right-3.5 top-1/2 -translate-y-1/2" strokeWidth={2} />}
-            </div>
-            {showError ? (
-                <p className="text-[11px] text-rose-600 font-medium mt-1.5">{error}</p>
-            ) : helper ? (
-                <p className="text-[11px] text-slate-400 mt-1.5">{helper}</p>
-            ) : null}
-        </div>
-    );
 }
 
 function PasswordField({ label, value, onChange, onBlur, error, valid, helper, show, onToggleShow, autoComplete }) {
@@ -88,11 +57,10 @@ function PasswordField({ label, value, onChange, onBlur, error, valid, helper, s
     );
 }
 
-export default function ClinicRegister() {
+export default function ResetPassword({ email, token }) {
     const { data, setData, post, processing, errors } = useForm({
-        name: '',
-        email: '',
-        clinic_name: '',
+        token,
+        email: email || '',
         password: '',
         password_confirmation: '',
     });
@@ -103,19 +71,9 @@ export default function ClinicRegister() {
 
     const markTouched = (name) => setTouched((t) => ({ ...t, [name]: true }));
 
-    const nameError = errors.name || (touched.name && !data.name.trim() ? 'Required' : null);
-    const nameValid = !!data.name.trim() && !errors.name;
-
-    const emailFormatError = touched.email && data.email && !EMAIL_RE.test(data.email) ? 'Enter a valid email address' : null;
-    const emailError = errors.email || emailFormatError || (touched.email && !data.email ? 'Required' : null);
-    const emailValid = !!data.email && EMAIL_RE.test(data.email) && !errors.email;
-
-    const clinicNameError = errors.clinic_name || (touched.clinic_name && !data.clinic_name.trim() ? 'Required' : null);
-    const clinicNameValid = !!data.clinic_name.trim() && !errors.clinic_name;
-
-    const passwordFormatError = touched.password && data.password.length < 8 ? 'At least 8 characters' : null;
+    const passwordFormatError = touched.password && data.password.length < 12 ? 'At least 12 characters' : null;
     const passwordError = errors.password || passwordFormatError;
-    const passwordValid = data.password.length >= 8 && !errors.password;
+    const passwordValid = data.password.length >= 12 && !errors.password;
 
     const confirmFormatError = touched.password_confirmation && data.password_confirmation && data.password_confirmation !== data.password ? 'Passwords must match' : null;
     const confirmError = errors.password_confirmation || confirmFormatError;
@@ -123,7 +81,7 @@ export default function ClinicRegister() {
 
     const submit = (e) => {
         e.preventDefault();
-        post('/clinics/register');
+        post('/reset-password');
     };
 
     return (
@@ -131,14 +89,12 @@ export default function ClinicRegister() {
             className="min-h-screen antialiased text-slate-800 flex items-center justify-center px-6 py-16 relative overflow-hidden"
             style={{ fontFamily: MANROPE, background: '#F8FAFC' }}
         >
-            <Head title="Set Up Your Clinic" />
+            <Head title="Reset Password" />
 
-            {/* Gradient mesh background */}
             <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #F8FAFC 45%, #ECFDF5 100%)' }} />
                 <div className="absolute top-[-120px] right-[-100px] w-[480px] h-[480px] rounded-full" style={{ background: 'rgba(37,99,235,0.22)', filter: 'blur(110px)' }} />
                 <div className="absolute bottom-[-100px] left-[-80px] w-[420px] h-[420px] rounded-full" style={{ background: 'rgba(34,197,94,0.16)', filter: 'blur(110px)' }} />
-                <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[380px] h-[380px] rounded-full" style={{ background: 'rgba(13,27,42,0.05)', filter: 'blur(130px)' }} />
             </div>
 
             <div className="max-w-md w-full relative z-10">
@@ -154,52 +110,14 @@ export default function ClinicRegister() {
                     }}
                 >
                     <div className="text-center">
-                        <h1 className="text-[26px] font-bold tracking-tight" style={{ color: DEEP_NAVY }}>Set Up Your Clinic</h1>
-                        <p className="mt-2 text-sm text-slate-400">Create your owner account to get started on UMAHZ.</p>
+                        <h1 className="text-[26px] font-bold tracking-tight" style={{ color: DEEP_NAVY }}>Reset Your Password</h1>
+                        <p className="mt-2 text-sm text-slate-400">Choose a new password for {data.email || 'your account'}.</p>
                     </div>
 
                     <form onSubmit={submit} className="space-y-5">
-                        <Field
-                            icon={User}
-                            label="Your Full Name"
-                            value={data.name}
-                            onChange={(e) => setData('name', e.target.value)}
-                            onBlur={() => markTouched('name')}
-                            error={nameError}
-                            valid={nameValid}
-                            required
-                            autoComplete="name"
-                        />
-
-                        <Field
-                            icon={Mail}
-                            label="Email"
-                            type="email"
-                            value={data.email}
-                            onChange={(e) => setData('email', e.target.value)}
-                            onBlur={() => markTouched('email')}
-                            error={emailError}
-                            valid={emailValid}
-                            required
-                            autoComplete="email"
-                        />
-
-                        <Field
-                            icon={Building2}
-                            label="Clinic Name"
-                            value={data.clinic_name}
-                            onChange={(e) => setData('clinic_name', e.target.value)}
-                            onBlur={() => markTouched('clinic_name')}
-                            error={clinicNameError}
-                            valid={clinicNameValid}
-                            required
-                            placeholder="Lotus Wellness Studio"
-                            helper="You can add your logo, colours, and hours after signing up."
-                        />
-
                         <div>
                             <PasswordField
-                                label="Password"
+                                label="New Password"
                                 value={data.password}
                                 onChange={(e) => setData('password', e.target.value)}
                                 onBlur={() => markTouched('password')}
@@ -208,13 +126,13 @@ export default function ClinicRegister() {
                                 show={showPassword}
                                 onToggleShow={() => setShowPassword((s) => !s)}
                                 autoComplete="new-password"
-                                helper="Minimum 8 characters."
+                                helper="Minimum 12 characters."
                             />
                             <PasswordStrengthMeter password={data.password} />
                         </div>
 
                         <PasswordField
-                            label="Confirm Password"
+                            label="Confirm New Password"
                             value={data.password_confirmation}
                             onChange={(e) => setData('password_confirmation', e.target.value)}
                             onBlur={() => markTouched('password_confirmation')}
@@ -235,13 +153,12 @@ export default function ClinicRegister() {
                             }}
                         >
                             {processing && <Loader2 className="w-4 h-4 animate-spin" />}
-                            {processing ? 'Creating Account…' : 'Create Clinic Account'}
+                            {processing ? 'Resetting…' : 'Reset Password'}
                         </button>
                     </form>
 
                     <p className="text-center text-sm text-slate-400">
-                        Already have an account?{' '}
-                        <Link href="/login" className="font-semibold transition-opacity duration-200 hover:opacity-75" style={{ color: ROYAL_BLUE }}>Sign in</Link>
+                        <Link href="/login" className="font-semibold transition-opacity duration-200 hover:opacity-75" style={{ color: ROYAL_BLUE }}>Back to sign in</Link>
                     </p>
                 </div>
             </div>

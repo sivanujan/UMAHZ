@@ -6,7 +6,7 @@ import { PROFESSIONS } from '@/Data/professions';
 function Field({ label, type = 'text', placeholder, value, onChange, required }) {
     return (
         <div>
-            <label style={{ display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', marginBottom: 6 }}>{label}</label>
+            <label style={{ display: 'block', fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#64748b', marginBottom: 6 }}>{label}</label>
             <input type={type} placeholder={placeholder} value={value} onChange={e => onChange(e.target.value)} required={required}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-[#1E0B3C] placeholder-slate-400 focus:outline-none focus:ring-2 focus:border-[#5B2EFF] transition-colors"
             />
@@ -15,9 +15,9 @@ function Field({ label, type = 'text', placeholder, value, onChange, required })
 }
 
 const CONTACT_ITEMS = [
-    { label: 'Email Us', value: 'support@umahz.com', iconContent: '✉' },
-    { label: 'Call Us', value: '+1 (800) 555-UMAHZ', iconContent: '📞' },
-    { label: 'Office Hours', value: 'Mon–Fri · 8am–7pm EST', iconContent: '🕐' },
+    { label: 'Email Us', value: '[Your Support Email]', iconContent: '✉' },
+    { label: 'Call Us', value: '[Your Phone Number]', iconContent: '📞' },
+    { label: 'Office Hours', value: '[Your Office Hours]', iconContent: '🕐' },
 ];
 
 export default function Contact() {
@@ -44,7 +44,7 @@ export default function Contact() {
                         {/* Left */}
                         <div className="text-white space-y-6 pt-2">
                             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full" style={{ background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.3)' }}>
-                                <span className="text-[11px] font-bold uppercase tracking-widest text-pink-300">Get In Touch</span>
+                                <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-pink-300">Get In Touch</span>
                             </div>
                             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight">
                                 Book Your{' '}
@@ -104,14 +104,14 @@ export default function Contact() {
                                     </div>
 
                                     <div>
-                                        <label style={{ display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', marginBottom: 6 }}>Profession(s)</label>
+                                        <label style={{ display: 'block', fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#64748b', marginBottom: 6 }}>Profession(s)</label>
                                         <div className="flex flex-wrap gap-2">
                                             {PROFESSIONS.map((p) => (
                                                 <button
                                                     key={p.slug}
                                                     type="button"
                                                     onClick={() => toggleProfession(p.name)}
-                                                    className={`text-xs font-semibold px-3.5 py-2 rounded-full border transition-colors ${professions.includes(p.name)
+                                                    className={`text-xs font-medium px-3.5 py-2 rounded-full border transition-colors ${professions.includes(p.name)
                                                         ? 'bg-[#5B2EFF] border-[#5B2EFF] text-white'
                                                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-[#5B2EFF]'}`}
                                                 >
@@ -124,12 +124,12 @@ export default function Contact() {
                                     <Field label="Preferred Demo Time" type="datetime-local" value={form.time} onChange={set('time')} required />
 
                                     <div>
-                                        <label style={{ display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', marginBottom: 6 }}>Message</label>
+                                        <label style={{ display: 'block', fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#64748b', marginBottom: 6 }}>Message</label>
                                         <textarea rows={3} placeholder="Tell us about your team size, current software, or specific pain points…" value={form.message} onChange={e => set('message')(e.target.value)}
                                             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-[#1E0B3C] placeholder-slate-400 focus:outline-none focus:ring-2 focus:border-[#5B2EFF] resize-none" />
                                     </div>
 
-                                    <button type="submit" className="w-full bg-[#5B2EFF] hover:bg-purple-700 text-white font-bold py-4 rounded-full shadow-xl shadow-purple-500/20 transition-colors text-sm uppercase tracking-wide">
+                                    <button type="submit" className="w-full bg-[#5B2EFF] hover:bg-purple-700 text-white font-medium py-4 rounded-full shadow-xl shadow-purple-500/20 transition-colors text-sm uppercase tracking-wide">
                                         Request Demo →
                                     </button>
                                 </form>

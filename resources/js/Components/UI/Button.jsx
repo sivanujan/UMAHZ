@@ -16,7 +16,7 @@ const SIZES = {
 };
 
 export default function Button({ href, variant = 'solid', size = 'md', className = '', children, ...props }) {
-    const classes = `inline-flex items-center justify-center gap-2 font-semibold rounded-full transition-colors whitespace-nowrap ${VARIANTS[variant]} ${SIZES[size]} ${className}`;
+    const classes = `inline-flex items-center justify-center gap-2 font-medium rounded-full transition-colors whitespace-nowrap ${VARIANTS[variant]} ${SIZES[size]} ${className}`;
 
     if (href) {
         if (href.startsWith('#') || href.startsWith('http')) {

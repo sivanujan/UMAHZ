@@ -44,7 +44,7 @@ export default function ProcessSection() {
                     {/* Right text */}
                     <div className="space-y-5">
                         <div className="inline-flex items-center gap-2 bg-pink-100 border border-pink-200 px-4 py-1.5 rounded-full">
-                            <span className="text-[11px] font-bold uppercase tracking-widest text-pink-600">Simple Onboarding</span>
+                            <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-pink-600">Simple Onboarding</span>
                         </div>
                         <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] leading-tight">
                             How UMAHZ Transforms Your{' '}
@@ -55,11 +55,11 @@ export default function ProcessSection() {
                             Designed with licensed practitioners, UMAHZ removes technical friction so you spend more time on patient care and less on administration.
                         </p>
                         <div className="flex flex-wrap gap-3 pt-2">
-                            <a href="#booking" className="inline-flex items-center bg-[#5B2EFF] hover:bg-purple-700 text-white font-semibold px-7 py-3.5 rounded-full shadow-lg shadow-purple-500/20 transition-colors text-sm">
-                                Start Free Trial
+                            <a href="#booking" className="inline-flex items-center bg-[#5B2EFF] hover:bg-purple-700 text-white font-medium px-7 py-3.5 rounded-full shadow-lg shadow-purple-500/20 transition-colors text-sm">
+                                Book a Demo
                             </a>
-                            <a href="#services" className="inline-flex items-center text-[#1E0B3C] hover:text-[#5B2EFF] font-semibold px-7 py-3.5 rounded-full border border-purple-200 hover:border-[#5B2EFF] transition-colors text-sm">
-                                View Features
+                            <a href="#services" className="inline-flex items-center text-[#1E0B3C] hover:text-[#5B2EFF] font-medium px-7 py-3.5 rounded-full border border-purple-200 hover:border-[#5B2EFF] transition-colors text-sm">
+                                Explore Features
                             </a>
                         </div>
                     </div>

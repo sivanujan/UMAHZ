@@ -4,6 +4,7 @@ import { CalendarCheck, FolderHeart, FileText, ShieldCheck, CreditCard, BarChart
 import PublicLayout from '@/Layouts/PublicLayout';
 import { IconCard } from '@/Components/UI/Card';
 import CTABanner from '@/Components/Home/CTABanner';
+import FadeUp from '@/Components/UI/FadeUp';
 
 const FEATURES = [
     { icon: CalendarCheck, title: 'Online Booking', bg: '#ede9fe', stroke: '#5B2EFF', description: 'Client-facing self-booking with smart intake forms, room and practitioner availability, and automated reminders.' },
@@ -19,25 +20,36 @@ export default function Features() {
         <PublicLayout>
             <Head title="Features" />
 
-            <section className="py-16 md:py-24 px-6 md:px-12 lg:px-24">
-                <div className="max-w-7xl mx-auto text-center max-w-3xl">
-                    <div className="inline-flex items-center gap-2 bg-pink-100 border border-pink-200 px-4 py-1.5 rounded-full mb-4">
-                        <span className="text-[11px] font-bold uppercase tracking-widest text-pink-600">Platform Features</span>
-                    </div>
-                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] leading-tight">
-                        Everything Your Practice Needs,{' '}
-                        <em className="not-italic font-light font-serif text-[#5B2EFF]">Unified</em>
-                    </h1>
-                    <p className="text-slate-500 text-base md:text-lg leading-relaxed mt-6 max-w-2xl mx-auto">
-                        Booking, records, consent, billing, and reporting — UMAHZ replaces a stack of disconnected tools with one platform built for multi-modality wellness practices.
-                    </p>
+            <section className="relative overflow-hidden py-16 md:py-24 px-6 md:px-12 lg:px-24">
+                <div className="absolute inset-0 pointer-events-none">
+                    <div className="absolute top-[-100px] right-[-80px] w-[440px] h-[440px] bg-purple-200/30 rounded-full blur-3xl" />
+                    <div className="absolute bottom-[-60px] left-[-60px] w-[340px] h-[340px] bg-pink-200/20 rounded-full blur-3xl" />
+                </div>
+                <div className="relative max-w-7xl mx-auto text-center max-w-3xl">
+                    <FadeUp>
+                        <div className="inline-flex items-center gap-2 bg-pink-100/90 border border-pink-300/60 px-4 py-1.5 rounded-full mb-4">
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ec4899', flexShrink: 0, display: 'inline-block' }} />
+                            <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-pink-600">Platform Features</span>
+                        </div>
+                    </FadeUp>
+                    <FadeUp delay={100}>
+                        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] leading-tight">
+                            Everything Your Practice Needs,{' '}
+                            <em className="not-italic font-light font-serif text-[#5B2EFF]">Unified</em>
+                        </h1>
+                    </FadeUp>
+                    <FadeUp delay={200}>
+                        <p className="text-slate-500 text-base md:text-lg leading-relaxed mt-6 max-w-2xl mx-auto">
+                            Booking, records, consent, billing, and reporting — UMAHZ replaces a stack of disconnected tools with one platform built for multi-modality wellness practices.
+                        </p>
+                    </FadeUp>
                 </div>
             </section>
 
             <section className="pb-16 md:pb-24 px-6 md:px-12 lg:px-24">
                 <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {FEATURES.map((f) => (
-                        <IconCard key={f.title} icon={f.icon} iconBg={f.bg} iconColor={f.stroke} title={f.title} description={f.description} />
+                    {FEATURES.map((f, i) => (
+                        <IconCard key={f.title} index={i} icon={f.icon} iconBg={f.bg} iconColor={f.stroke} title={f.title} description={f.description} />
                     ))}
                 </div>
             </section>

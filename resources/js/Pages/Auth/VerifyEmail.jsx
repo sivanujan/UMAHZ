@@ -45,7 +45,7 @@ export default function VerifyEmail({ status, email }) {
                         <button
                             type="submit"
                             disabled={processing}
-                            className="w-full py-3.5 px-4 bg-[#5B2EFF] hover:bg-purple-700 text-white font-semibold text-sm rounded-full shadow-lg shadow-purple-500/20 transition-colors"
+                            className="w-full py-3.5 px-4 bg-[#5B2EFF] hover:bg-purple-700 text-white font-medium text-sm rounded-full shadow-lg shadow-purple-500/20 transition-colors"
                         >
                             Resend Verification Email
                         </button>

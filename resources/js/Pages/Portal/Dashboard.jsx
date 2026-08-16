@@ -11,7 +11,7 @@ export default function PortalDashboard({ client, upcomingAppointments, formsDue
             <div className="bg-gradient-to-br from-[#2A1054] via-[#5B2EFF] to-[#1E0B3C] rounded-3xl p-8 text-white shadow-xl mb-8 relative overflow-hidden">
                 <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle,#fff 1px,transparent 1px)', backgroundSize: '24px 24px' }} />
                 <div className="relative z-10">
-                    <p className="text-purple-300 text-xs font-bold uppercase tracking-widest mb-2">Welcome Back</p>
+                    <p className="text-purple-300 text-xs font-bold uppercase tracking-[0.14em] mb-2">Welcome Back</p>
                     <h1 className="text-2xl font-bold">Hi {client.first_name}, here's what's next</h1>
                 </div>
             </div>

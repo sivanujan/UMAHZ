@@ -8,7 +8,7 @@ export default function AboutSection() {
                 {/* Centered header */}
                 <div className="text-center max-w-3xl mx-auto mb-14 space-y-4">
                     <div className="inline-flex items-center gap-2 bg-pink-100 border border-pink-200 px-4 py-1.5 rounded-full">
-                        <span className="text-[11px] font-bold uppercase tracking-widest text-pink-600">About UMAHZ</span>
+                        <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-pink-600">About UMAHZ</span>
                     </div>
                     <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] leading-tight">
                         Built For Modern{' '}
@@ -19,7 +19,7 @@ export default function AboutSection() {
                         UMAHZ is a cloud-native, multi-tenant platform that replaces fragmented tools with one unified workspace — connecting practitioners, treatment rooms, and clients seamlessly.
                     </p>
                     <div className="pt-2">
-                        <a href="#services" className="inline-flex items-center bg-[#5B2EFF] hover:bg-purple-700 text-white font-semibold px-7 py-3.5 rounded-full shadow-lg shadow-purple-500/20 transition-colors text-sm">
+                        <a href="#services" className="inline-flex items-center text-[#1E0B3C] hover:text-[#5B2EFF] font-medium px-7 py-3.5 rounded-full border border-purple-200 hover:border-[#5B2EFF] transition-colors text-sm">
                             Explore Features
                         </a>
                     </div>
@@ -74,8 +74,8 @@ export default function AboutSection() {
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
                                 </svg>
                             </div>
-                            <h3 className="text-[#1E0B3C] font-bold text-base mb-2">HIPAA & GDPR Compliant</h3>
-                            <p className="text-slate-500 text-sm leading-relaxed flex-1">Enterprise-grade security with role-based access, encrypted storage, and full audit trails across all locations.</p>
+                            <h3 className="text-[#1E0B3C] font-bold text-base mb-2">Built With Enterprise-Grade Security</h3>
+                            <p className="text-slate-500 text-sm leading-relaxed flex-1">Role-based access controls, encrypted storage, and full audit trails across all locations.</p>
                         </div>
                     </div>
                 </div>

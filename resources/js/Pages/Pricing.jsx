@@ -12,7 +12,7 @@ const PLANS = [
         period: '/month',
         description: 'For independent practitioners running a single-provider practice.',
         features: ['1 practitioner seat', 'Unlimited clients', 'Online booking & reminders', '1 profession-specific module', 'Payments & invoicing', 'Email support'],
-        cta: 'Start Free Trial',
+        cta: 'Book a Demo',
         highlight: false,
     },
     {
@@ -36,7 +36,6 @@ const PLANS = [
 ];
 
 const PRICING_FAQS = [
-    { question: 'Is there a free trial?', answer: 'Yes — the Solo Practitioner and Growing Clinic plans include a 14-day free trial, no credit card required.' },
     { question: 'Can I switch plans later?', answer: 'Absolutely. You can upgrade or downgrade at any time, and billing is prorated automatically.' },
     { question: 'Do you charge per profession module?', answer: 'No. Growing Clinic and Multi-Location plans include every profession-specific module — Massage, Acupuncture & TCM, Personal Training, Nutrition, and Colon Hydrotherapy — at no extra cost.' },
     { question: 'What payment methods do you accept?', answer: 'We accept all major credit cards. Multi-Location plans can also be invoiced annually.' },
@@ -50,7 +49,7 @@ export default function Pricing() {
             <section className="py-16 md:py-24 px-6 md:px-12 lg:px-24">
                 <div className="max-w-7xl mx-auto text-center max-w-3xl">
                     <div className="inline-flex items-center gap-2 bg-pink-100 border border-pink-200 px-4 py-1.5 rounded-full mb-4">
-                        <span className="text-[11px] font-bold uppercase tracking-widest text-pink-600">Simple Pricing</span>
+                        <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-pink-600">Simple Pricing</span>
                     </div>
                     <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] leading-tight">
                         Plans That{' '}
@@ -78,7 +77,7 @@ export default function Pricing() {
 
                             <div className="relative z-10 flex flex-col flex-1">
                                 {plan.highlight && (
-                                    <span className="inline-flex self-start items-center bg-[#5B2EFF] text-white text-[11px] font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-4">
+                                    <span className="inline-flex self-start items-center bg-[#5B2EFF] text-white text-[11px] font-bold uppercase tracking-[0.14em] px-3 py-1 rounded-full mb-4">
                                         Most Popular
                                     </span>
                                 )}

@@ -135,7 +135,7 @@ export default function Navbar() {
                     <Link
                         href="/contact"
                         onClick={() => setMobileOpen(false)}
-                        className="block text-center bg-[#5B2EFF] text-white font-semibold px-5 py-3 rounded-full mt-3"
+                        className="block text-center bg-[#5B2EFF] text-white font-medium px-5 py-3 rounded-full mt-3"
                     >
                         Book a Demo
                     </Link>

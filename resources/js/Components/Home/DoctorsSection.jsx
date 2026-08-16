@@ -20,7 +20,7 @@ export default function DoctorsSection() {
                 <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
                     <div className="space-y-3 max-w-2xl">
                         <div className="inline-flex items-center gap-2 bg-pink-100 border border-pink-200 px-4 py-1.5 rounded-full">
-                            <span className="text-[11px] font-bold uppercase tracking-widest text-pink-600">Platform Modules</span>
+                            <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-pink-600">Platform Modules</span>
                         </div>
                         <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] leading-tight">
                             Explore Our{' '}
@@ -28,7 +28,7 @@ export default function DoctorsSection() {
                             Practice Modules
                         </h2>
                     </div>
-                    <a href="#services" className="inline-flex items-center bg-[#F9F5FB] hover:bg-purple-50 text-[#5B2EFF] border border-purple-200 font-bold px-6 py-3 rounded-full transition-colors text-sm" style={{flexShrink:0}}>
+                    <a href="#services" className="inline-flex items-center bg-[#F9F5FB] hover:bg-purple-50 text-[#5B2EFF] border border-purple-200 font-medium px-6 py-3 rounded-full transition-colors text-sm" style={{flexShrink:0}}>
                         View All Modules
                     </a>
                 </div>

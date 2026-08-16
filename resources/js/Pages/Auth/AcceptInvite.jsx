@@ -51,7 +51,7 @@ export default function AcceptInvite({ staffMembership, name, email, tenantName,
 
                     <form onSubmit={submit} className="space-y-4">
                         <div>
-                            <label style={{ display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', marginBottom: 6 }}>
+                            <label style={{ display: 'block', fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#64748b', marginBottom: 6 }}>
                                 Email
                             </label>
                             <input
@@ -63,7 +63,7 @@ export default function AcceptInvite({ staffMembership, name, email, tenantName,
                         </div>
 
                         <div>
-                            <label style={{ display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', marginBottom: 6 }}>
+                            <label style={{ display: 'block', fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#64748b', marginBottom: 6 }}>
                                 Full Name
                             </label>
                             <div className="relative">
@@ -80,7 +80,7 @@ export default function AcceptInvite({ staffMembership, name, email, tenantName,
                         </div>
 
                         <div>
-                            <label style={{ display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', marginBottom: 6 }}>
+                            <label style={{ display: 'block', fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#64748b', marginBottom: 6 }}>
                                 Password
                             </label>
                             <div className="relative">
@@ -97,7 +97,7 @@ export default function AcceptInvite({ staffMembership, name, email, tenantName,
                         </div>
 
                         <div>
-                            <label style={{ display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', marginBottom: 6 }}>
+                            <label style={{ display: 'block', fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#64748b', marginBottom: 6 }}>
                                 Confirm Password
                             </label>
                             <div className="relative">
@@ -115,7 +115,7 @@ export default function AcceptInvite({ staffMembership, name, email, tenantName,
                         <button
                             type="submit"
                             disabled={processing}
-                            className="w-full py-3.5 px-4 bg-[#5B2EFF] hover:bg-purple-700 text-white font-semibold text-sm rounded-full shadow-lg shadow-purple-500/20 transition-colors flex items-center justify-center"
+                            className="w-full py-3.5 px-4 bg-[#5B2EFF] hover:bg-purple-700 text-white font-medium text-sm rounded-full shadow-lg shadow-purple-500/20 transition-colors flex items-center justify-center"
                         >
                             Activate Account
                         </button>

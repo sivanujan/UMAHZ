@@ -11,6 +11,14 @@ const VALUES = [
     { icon: Users2, bg: '#ccfbf1', stroke: '#0f766e', title: 'Continuous Partnership', description: "Onboarding doesn't end at go-live — our team stays close as your practice grows." },
 ];
 
+const NAME_MEANING = [
+    { letter: 'U', name: 'Umrah', color: '#5B2EFF' },
+    { letter: 'M', name: 'Mohamed', color: '#db2777' },
+    { letter: 'A', name: 'Alpha', color: '#d97706' },
+    { letter: 'H', name: 'Hassantu', color: '#0f766e' },
+    { letter: 'Z', name: 'Zainab', color: '#dc2626' },
+];
+
 const TEAM = [
     { initials: 'JM', name: 'Jordan Mercer', role: 'Co-Founder & CEO', bg: 'linear-gradient(135deg,#a78bfa,#6366f1)' },
     { initials: 'PK', name: 'Priya Kapoor', role: 'Co-Founder & Head of Product', bg: 'linear-gradient(135deg,#f472b6,#f43f5e)' },
@@ -26,7 +34,7 @@ export default function About() {
             <section className="py-16 md:py-24 px-6 md:px-12 lg:px-24">
                 <div className="max-w-7xl mx-auto text-center max-w-3xl">
                     <div className="inline-flex items-center gap-2 bg-pink-100 border border-pink-200 px-4 py-1.5 rounded-full mb-4">
-                        <span className="text-[11px] font-bold uppercase tracking-widest text-pink-600">About UMAHZ</span>
+                        <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-pink-600">About UMAHZ</span>
                     </div>
                     <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] leading-tight">
                         Built By People Who{' '}
@@ -47,7 +55,7 @@ export default function About() {
                             <div className="w-14 h-14 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center mb-5">
                                 <Target className="w-7 h-7 text-white" strokeWidth={1.8} />
                             </div>
-                            <p className="text-[11px] font-bold uppercase tracking-widest text-purple-300 mb-3">Our Mission</p>
+                            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-purple-300 mb-3">Our Mission</p>
                             <p className="text-white text-xl md:text-2xl font-bold leading-snug max-w-lg">
                                 Give every wellness practitioner one unified system of record — so administration never gets in the way of care.
                             </p>
@@ -84,6 +92,31 @@ export default function About() {
                     <p className="text-slate-500 text-base md:text-lg leading-relaxed mt-6">
                         UMAHZ started after watching a multi-modality clinic run their massage, acupuncture, and nutrition practitioners on five different tools — one for booking, one for charting, one for billing, and spreadsheets to hold it all together. Every new modality meant another workaround. We built UMAHZ so clinics never have to choose between the right software for one profession and a single source of truth for the whole practice.
                     </p>
+                </div>
+            </section>
+
+            {/* About the Name */}
+            <section className="pb-16 md:pb-24 px-6 md:px-12 lg:px-24">
+                <div className="max-w-3xl mx-auto text-center">
+                    <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] leading-tight">
+                        About The <em className="not-italic font-light font-serif text-[#5B2EFF]">Name</em>
+                    </h2>
+                    <p className="text-slate-500 text-base md:text-lg leading-relaxed mt-6">
+                        UMAHZ is inspired by family. Each letter represents someone who inspired the vision behind the company — U: Umrah, M: Mohamed, A: Alpha, H: Hassantu, Z: Zainab.
+                    </p>
+                </div>
+                <div className="max-w-4xl mx-auto mt-10 grid grid-cols-2 sm:grid-cols-5 gap-4">
+                    {NAME_MEANING.map((n) => (
+                        <div key={n.letter} className="bg-[#F9F5FB] border border-purple-100 rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col items-center text-center">
+                            <div
+                                className="w-14 h-14 rounded-2xl flex items-center justify-center mb-3 flex-shrink-0 text-2xl font-bold text-white"
+                                style={{ background: n.color }}
+                            >
+                                {n.letter}
+                            </div>
+                            <p className="text-[#1E0B3C] font-bold text-sm">{n.name}</p>
+                        </div>
+                    ))}
                 </div>
             </section>
 

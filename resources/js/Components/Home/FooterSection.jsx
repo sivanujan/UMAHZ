@@ -32,12 +32,14 @@ export default function FooterSection() {
     const [email, setEmail] = useState('');
 
     return (
-        <footer className="pt-16 pb-10 relative overflow-hidden" style={{background:'#1E0B3C',color:'#c4b5fd'}}>
+        <footer className="pt-20 pb-10 relative overflow-hidden" style={{background:'#1E0B3C',color:'#c4b5fd'}}>
+            <div className="absolute inset-0 opacity-[0.06] pointer-events-none"
+                style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
             <div className="absolute top-0 left-0 rounded-full blur-3xl pointer-events-none" style={{width:256,height:256,background:'rgba(109,40,217,0.15)'}} />
 
             <div className="max-w-7xl mx-auto px-6 md:px-12 lg:px-24 relative z-10">
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-10 pb-12 border-b border-purple-800/50">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-10 lg:gap-8 pb-14 border-b border-purple-800/50">
 
                     {/* Brand — 2 cols */}
                     <div className="lg:col-span-2 space-y-5">
@@ -50,12 +52,15 @@ export default function FooterSection() {
                         </p>
 
                         <div className="space-y-2">
-                            <p style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'#e9d5ff'}}>Product Updates</p>
+                            <p style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.14em',color:'#e9d5ff'}}>Product Updates</p>
                             <div className="flex gap-2">
                                 <input type="email" placeholder="your@practice.com" value={email} onChange={e=>setEmail(e.target.value)}
-                                    className="flex-1 text-xs px-4 py-2.5 rounded-full focus:outline-none focus:ring-2 min-w-0"
-                                    style={{background:'rgba(88,28,135,0.4)',border:'1px solid rgba(109,40,217,0.5)',color:'#fff',placeholder:'rgba(167,139,250,0.6)'}} />
-                                <button className="bg-[#5B2EFF] hover:bg-purple-600 text-white font-bold text-xs px-4 py-2.5 rounded-full transition-colors" style={{flexShrink:0}}>
+                                    className="flex-1 text-xs px-4 py-2.5 rounded-full outline-none min-w-0 transition-all duration-200 placeholder:text-purple-300/50 focus:bg-white/[0.08] focus:ring-4 focus:ring-[#7C3AED]/25"
+                                    style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(139,92,246,0.35)',color:'#fff'}} />
+                                <button
+                                    className="text-white font-semibold text-xs px-4 py-2.5 rounded-full transition-all duration-200 hover:scale-[1.03] active:scale-[0.97]"
+                                    style={{flexShrink:0, background:'linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)', boxShadow:'0 6px 18px -6px rgba(37,99,235,0.5)'}}
+                                >
                                     Subscribe
                                 </button>
                             </div>
@@ -66,7 +71,7 @@ export default function FooterSection() {
                     {/* Link columns */}
                     {Object.entries(LINKS).map(([heading, items]) => (
                         <div key={heading} className="space-y-4">
-                            <h4 style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'#fff'}}>{heading}</h4>
+                            <h4 style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.14em',color:'#fff'}}>{heading}</h4>
                             <ul className="space-y-2.5">
                                 {items.map(item => (
                                     <li key={item.label}>

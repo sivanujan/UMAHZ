@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 function Field({ label, type='text', placeholder, value, onChange, required }) {
     return (
         <div>
-            <label style={{display:'block',fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.08em',color:'#64748b',marginBottom:6}}>{label}</label>
+            <label style={{display:'block',fontSize:10,fontWeight:500,textTransform:'uppercase',letterSpacing:'0.12em',color:'#64748b',marginBottom:6}}>{label}</label>
             <input type={type} placeholder={placeholder} value={value} onChange={e=>onChange(e.target.value)} required={required}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-[#1E0B3C] placeholder-slate-400 focus:outline-none focus:ring-2 focus:border-[#5B2EFF] transition-colors"
                 style={{focusRingColor:'rgba(91,46,255,0.4)'}}
@@ -18,8 +18,8 @@ export default function BookingSection() {
     const set = k => v => setForm(f=>({...f,[k]:v}));
 
     const contactItems = [
-        { label:'Our Location', value:'750 Wellness Way, Suite 400, San Francisco, CA 94107', iconContent:'📍' },
-        { label:'Email Us', value:'support@umahz.com · +1 (800) 555-UMAHZ', iconContent:'✉' },
+        { label:'Our Location', value:'[Your Business Address]', iconContent:'📍' },
+        { label:'Email Us', value:'[Your Support Email] · [Your Phone Number]', iconContent:'✉' },
     ];
 
     return (
@@ -33,7 +33,7 @@ export default function BookingSection() {
                     {/* Left */}
                     <div className="text-white space-y-6 pt-2">
                         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full" style={{background:'rgba(139,92,246,0.2)',border:'1px solid rgba(139,92,246,0.3)'}}>
-                            <span className="text-[11px] font-bold uppercase tracking-widest text-pink-300">Get Started Today</span>
+                            <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-pink-300">Get Started Today</span>
                         </div>
                         <h2 className="text-3xl md:text-4xl font-bold text-white leading-tight">
                             Book A{' '}
@@ -95,7 +95,7 @@ export default function BookingSection() {
                                     <Field label="Phone" type="tel" placeholder="(555) 234-5678" value={form.phone} onChange={set('phone')} required />
                                 </div>
                                 <div>
-                                    <label style={{display:'block',fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.08em',color:'#64748b',marginBottom:6}}>Primary Modality</label>
+                                    <label style={{display:'block',fontSize:10,fontWeight:500,textTransform:'uppercase',letterSpacing:'0.12em',color:'#64748b',marginBottom:6}}>Primary Modality</label>
                                     <select value={form.service} onChange={e=>set('service')(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-[#1E0B3C] focus:outline-none focus:ring-2 focus:border-[#5B2EFF]">
                                         {['Massage Therapy Suite','Acupuncture & TCM','Personal Training','Nutrition Counseling','Colon Hydrotherapy','Multi-Modality Clinic'].map(o=><option key={o}>{o}</option>)}
                                     </select>
@@ -105,11 +105,11 @@ export default function BookingSection() {
                                     <Field label="Preferred Time" type="time" value={form.time} onChange={set('time')} required />
                                 </div>
                                 <div>
-                                    <label style={{display:'block',fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.08em',color:'#64748b',marginBottom:6}}>Practice Notes</label>
+                                    <label style={{display:'block',fontSize:10,fontWeight:500,textTransform:'uppercase',letterSpacing:'0.12em',color:'#64748b',marginBottom:6}}>Practice Notes</label>
                                     <textarea rows={3} placeholder="Tell us about your team size, current software, or specific pain points…" value={form.message} onChange={e=>set('message')(e.target.value)}
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-[#1E0B3C] placeholder-slate-400 focus:outline-none focus:ring-2 focus:border-[#5B2EFF] resize-none" />
                                 </div>
-                                <button type="submit" className="w-full bg-[#5B2EFF] hover:bg-purple-700 text-white font-bold py-4 rounded-full shadow-xl shadow-purple-500/20 transition-colors text-sm uppercase tracking-wide">
+                                <button type="submit" className="w-full bg-[#5B2EFF] hover:bg-purple-700 text-white font-medium py-4 rounded-full shadow-xl shadow-purple-500/20 transition-colors text-sm uppercase tracking-wide">
                                     Confirm Demo Request →
                                 </button>
                             </form>

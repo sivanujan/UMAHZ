@@ -19,6 +19,7 @@ class AuthenticatedSessionController extends Controller
     {
         return Inertia::render('Auth/Login', [
             'status' => session('status'),
+            'demoCredentialsEnabled' => ! app()->environment('production'),
         ]);
     }
 
