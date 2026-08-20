@@ -38,6 +38,13 @@ RUN apt-get update && apt-get install -y \
 # Enable Apache mod_rewrite module for Laravel routing
 RUN a2enmod rewrite
 
+# The apt-get install above pulls in Debian's apache2 package, whose
+# maintainer scripts enable mpm_event by default — but mod_php (loaded by
+# this base image) requires mpm_prefork and isn't thread-safe, so having
+# both enabled makes Apache refuse to start with "More than one MPM
+# loaded". Force prefork as the only active MPM.
+RUN a2dismod mpm_event mpm_worker 2>/dev/null; a2enmod mpm_prefork
+
 # Configure Apache DocumentRoot to point to Laravel's public folder
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
