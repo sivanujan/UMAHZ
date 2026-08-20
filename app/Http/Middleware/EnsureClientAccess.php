@@ -41,6 +41,7 @@ class EnsureClientAccess
         }
 
         abort_unless($client, 403, 'No client profile is linked to your account.');
+        abort_unless($client->tenant->isApproved(), 403, 'This clinic is not currently active.');
 
         app()->instance('current_tenant_id', $client->tenant_id);
         $request->session()->put('current_tenant_id', $client->tenant_id);

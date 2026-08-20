@@ -52,6 +52,14 @@ class EnsureStaffRole
 
         $request->attributes->set('staffMembership', $membership);
 
+        // The clinic must be approved by a super admin before ANY /app or
+        // /portal route is reachable — checked here so every request that
+        // resolves a membership passes through this one gate. Exempt the
+        // status page itself, or an unapproved tenant could never reach it.
+        if (!$membership->tenant->isApproved() && !$request->routeIs('clinic.status*')) {
+            return redirect()->route('clinic.status');
+        }
+
         // A clinic_owner whose tenant hasn't finished the setup wizard is
         // sent there first — except for the wizard's own routes, or every
         // request would loop.

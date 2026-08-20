@@ -5,13 +5,21 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Builder;
 
 class Tenant extends Model
 {
     use HasFactory, HasUuids, SoftDeletes;
+
+    public const STATUS_PENDING_REVIEW = 'pending_review';
+    public const STATUS_NEEDS_MORE_INFO = 'needs_more_info';
+    public const STATUS_APPROVED = 'approved';
+    public const STATUS_REJECTED = 'rejected';
+    public const STATUS_SUSPENDED = 'suspended';
 
     protected $fillable = [
         'name',
@@ -26,6 +34,17 @@ class Tenant extends Model
         'business_hours',
         'brand_color',
         'onboarding_completed_at',
+        'status',
+        'business_registration_number',
+        'primary_contact_name',
+        'primary_contact_email',
+        'primary_contact_phone',
+        'requested_disciplines',
+        'estimated_practitioner_count',
+        'submitted_at',
+        'reviewed_at',
+        'reviewed_by',
+        'review_note',
     ];
 
     protected function casts(): array
@@ -35,12 +54,30 @@ class Tenant extends Model
             'address' => 'array',
             'business_hours' => 'array',
             'onboarding_completed_at' => 'datetime',
+            'requested_disciplines' => 'array',
+            'submitted_at' => 'datetime',
+            'reviewed_at' => 'datetime',
         ];
     }
 
     public function hasCompletedOnboarding(): bool
     {
         return $this->onboarding_completed_at !== null;
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->status === self::STATUS_APPROVED;
+    }
+
+    public function reviewedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function scopeStatus(Builder $query, string $status): Builder
+    {
+        return $query->where('status', $status);
     }
 
     public function staffMemberships(): HasMany

@@ -1,7 +1,11 @@
 <?php
 
+use App\Http\Controllers\Admin\ClinicReviewController;
+use App\Http\Controllers\Admin\PractitionerReviewController;
+use App\Http\Controllers\ClinicStatusController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Onboarding\OnboardingController;
+use App\Http\Controllers\Portal\SettingsController;
 use App\Http\Controllers\Settings\StaffInvitationController;
 use App\Models\Client;
 use App\Models\ClinicalNote;
@@ -54,6 +58,36 @@ Route::get('/contact', function () {
 */
 Route::middleware(['auth', 'verified', 'platform.admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'admin'])->name('dashboard');
+
+    Route::prefix('clinics')->name('clinics.')->group(function () {
+        Route::get('/', [ClinicReviewController::class, 'index'])->name('index');
+        Route::get('/{tenant}', [ClinicReviewController::class, 'show'])->name('show');
+        Route::get('/{tenant}/document', [ClinicReviewController::class, 'document'])->middleware('signed')->name('document');
+        Route::post('/{tenant}/approve', [ClinicReviewController::class, 'approve'])->name('approve');
+        Route::post('/{tenant}/request-info', [ClinicReviewController::class, 'requestMoreInfo'])->name('request-info');
+        Route::post('/{tenant}/reject', [ClinicReviewController::class, 'reject'])->name('reject');
+    });
+
+    Route::prefix('practitioners')->name('practitioners.')->group(function () {
+        Route::get('/', [PractitionerReviewController::class, 'index'])->name('index');
+        Route::get('/{practitionerProfile}', [PractitionerReviewController::class, 'show'])->name('show');
+        Route::get('/{practitionerProfile}/document', [PractitionerReviewController::class, 'document'])->middleware('signed')->name('document');
+        Route::post('/{practitionerProfile}/approve', [PractitionerReviewController::class, 'approve'])->name('approve');
+        Route::post('/{practitionerProfile}/reject', [PractitionerReviewController::class, 'reject'])->name('reject');
+    });
+});
+
+/*
+|--------------------------------------------------------------------------
+| Clinic application status — /clinic/status
+|--------------------------------------------------------------------------
+| Reachable regardless of the tenant's approval status (it's the one route
+| EnsureStaffRole exempts from its approval gate), so an owner mid-review
+| can always see where their application stands.
+*/
+Route::middleware(['auth', 'verified', 'staff.role'])->prefix('clinic')->name('clinic.')->group(function () {
+    Route::get('/status', [ClinicStatusController::class, 'show'])->name('status');
+    Route::patch('/status', [ClinicStatusController::class, 'update'])->name('status.update');
 });
 
 /*
@@ -102,6 +136,13 @@ Route::middleware(['auth', 'verified', 'staff.role'])->prefix('app')->name('app.
 */
 Route::middleware(['auth', 'verified', 'client.access'])->prefix('portal')->name('portal.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'portal'])->name('dashboard');
+
+    Route::get('/settings', [SettingsController::class, 'show'])->name('settings');
+    Route::patch('/settings/profile', [SettingsController::class, 'updateProfile'])->name('settings.profile');
+    Route::put('/settings/password', [SettingsController::class, 'updatePassword'])->name('settings.password');
+    Route::patch('/settings/notifications', [SettingsController::class, 'updateNotifications'])->name('settings.notifications');
+    Route::patch('/settings/theme', [SettingsController::class, 'updateTheme'])->name('settings.theme');
+    Route::post('/settings/delete-account', [SettingsController::class, 'requestDeletion'])->name('settings.delete-account');
 });
 
 require __DIR__.'/auth.php';

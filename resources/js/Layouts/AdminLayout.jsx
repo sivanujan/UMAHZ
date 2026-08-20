@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutDashboard, Building2, Users, LifeBuoy, Settings, LogOut, ChevronDown, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, LifeBuoy, Settings, LogOut, ChevronDown, ShieldCheck, ClipboardCheck, IdCard } from 'lucide-react';
 
 export default function AdminLayout({ children, title }) {
     const { auth } = usePage().props;
@@ -11,6 +11,8 @@ export default function AdminLayout({ children, title }) {
     const navigation = [
         { name: 'Overview', href: '/admin/dashboard', icon: LayoutDashboard },
         { name: 'Tenants', href: '/admin/dashboard', icon: Building2 },
+        { name: 'Clinic Applications', href: '/admin/clinics', icon: ClipboardCheck },
+        { name: 'Practitioner Verification', href: '/admin/practitioners', icon: IdCard },
         { name: 'Platform Staff', href: '#', icon: Users },
         { name: 'Support', href: '#', icon: LifeBuoy },
         { name: 'Platform Settings', href: '#', icon: Settings },
@@ -24,14 +26,14 @@ export default function AdminLayout({ children, title }) {
                         <img src="/imags/logo.png" alt="UMAHZ" className="h-9 w-9 object-contain flex-shrink-0" />
                         <div>
                             <h1 className="font-semibold text-white text-sm tracking-wide leading-none">UMAHZ</h1>
-                            <span className="text-xs text-purple-400 font-medium leading-none block mt-1">Platform Admin</span>
+                            <span className="text-xs text-violet-400 font-medium leading-none block mt-1">Platform Admin</span>
                         </div>
                     </div>
                 </div>
 
-                <div className="px-4 py-3 mx-3 my-3 bg-purple-500/10 rounded-lg border border-purple-500/20 flex items-center gap-2">
-                    <ShieldCheck className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
-                    <span className="text-[11px] text-purple-200 font-medium">Platform-wide access</span>
+                <div className="px-4 py-3 mx-3 my-3 bg-violet-500/10 rounded-lg border border-violet-500/20 flex items-center gap-2">
+                    <ShieldCheck className="w-3.5 h-3.5 text-violet-400 flex-shrink-0" />
+                    <span className="text-[11px] text-violet-200 font-medium">Platform-wide access</span>
                 </div>
 
                 <nav className="flex-1 px-3 py-2 space-y-1">
@@ -41,7 +43,7 @@ export default function AdminLayout({ children, title }) {
                             href={item.href}
                             className="group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:bg-slate-900 hover:text-white transition-colors"
                         >
-                            <item.icon className="mr-3 h-4 w-4 text-slate-500 group-hover:text-purple-400 transition-colors" />
+                            <item.icon className="mr-3 h-4 w-4 text-slate-500 group-hover:text-violet-400 transition-colors" />
                             {item.name}
                         </Link>
                     ))}
@@ -50,12 +52,12 @@ export default function AdminLayout({ children, title }) {
                 <div className="p-4 border-t border-slate-800 bg-black/60">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3 overflow-hidden">
-                            <div className="h-8 w-8 rounded-full bg-purple-900 text-purple-200 flex items-center justify-center font-semibold text-xs border border-purple-700">
+                            <div className="h-8 w-8 rounded-full bg-violet-900 text-violet-200 flex items-center justify-center font-semibold text-xs border border-violet-700">
                                 {user?.name?.charAt(0) || 'A'}
                             </div>
                             <div className="truncate">
                                 <div className="text-xs font-medium text-slate-200 truncate">{user?.name}</div>
-                                <div className="text-[11px] text-purple-400 font-medium">Platform Admin</div>
+                                <div className="text-[11px] text-violet-400 font-medium">Platform Admin</div>
                             </div>
                         </div>
                         <Link

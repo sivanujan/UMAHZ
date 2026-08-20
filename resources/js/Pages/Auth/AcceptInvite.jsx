@@ -1,6 +1,6 @@
 import React from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { User, Lock, Building2 } from 'lucide-react';
+import { User, Lock, Building2, Check, IdCard, Upload, FileText, X } from 'lucide-react';
 import Logo from '@/Components/Common/Logo';
 
 const ROLE_LABELS = {
@@ -9,16 +9,30 @@ const ROLE_LABELS = {
     receptionist: 'Receptionist',
 };
 
-export default function AcceptInvite({ staffMembership, name, email, tenantName, role, signature, expires }) {
+const DISCIPLINE_LABELS = {
+    massage_therapy: 'Massage Therapy',
+    acupuncture_tcm: 'Acupuncture / TCM',
+    personal_training: 'Personal Training',
+    nutrition: 'Dietitian / Nutrition',
+    colon_hydrotherapy: 'Colon Hydrotherapy',
+};
+
+const fieldLabelStyle = { display: 'block', fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#64748b', marginBottom: 6 };
+
+export default function AcceptInvite({ staffMembership, name, email, tenantName, role, signature, expires, requiresLicense, disciplines = [] }) {
     const { data, setData, post, processing, errors } = useForm({
         name: name || '',
         password: '',
         password_confirmation: '',
+        discipline: '',
+        license_number: '',
+        licensing_body: '',
+        license_document: null,
     });
 
     const submit = (e) => {
         e.preventDefault();
-        post(`/invite/accept/${staffMembership}?signature=${signature}&expires=${expires}`);
+        post(`/invite/accept/${staffMembership}?signature=${signature}&expires=${expires}`, { forceFormData: true });
     };
 
     return (
@@ -111,6 +125,81 @@ export default function AcceptInvite({ staffMembership, name, email, tenantName,
                                 />
                             </div>
                         </div>
+
+                        {requiresLicense && (
+                            <>
+                                <div className="h-px bg-slate-200" />
+                                <div>
+                                    <label style={fieldLabelStyle}>Discipline</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {disciplines.map((d) => {
+                                            const active = data.discipline === d;
+                                            return (
+                                                <button
+                                                    key={d} type="button" onClick={() => setData('discipline', d)}
+                                                    className={`text-left px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all duration-200 flex items-center gap-2 ${
+                                                        active ? 'text-white bg-[#5B2EFF] border-[#5B2EFF]' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-[#5B2EFF]/40'
+                                                    }`}
+                                                >
+                                                    <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center flex-shrink-0 border ${active ? 'border-white' : 'border-slate-300'}`}>
+                                                        {active && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
+                                                    </span>
+                                                    {DISCIPLINE_LABELS[d] || d}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    {errors.discipline && <div className="text-xs text-rose-600 mt-1">{errors.discipline}</div>}
+                                </div>
+
+                                <div>
+                                    <label style={fieldLabelStyle}>License Number</label>
+                                    <div className="relative">
+                                        <IdCard className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                                        <input
+                                            type="text" value={data.license_number}
+                                            onChange={(e) => setData('license_number', e.target.value)}
+                                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 text-[#1E0B3C] rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF] transition-colors"
+                                        />
+                                    </div>
+                                    {errors.license_number && <div className="text-xs text-rose-600 mt-1">{errors.license_number}</div>}
+                                </div>
+
+                                <div>
+                                    <label style={fieldLabelStyle}>Licensing Body</label>
+                                    <div className="relative">
+                                        <IdCard className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                                        <input
+                                            type="text" value={data.licensing_body}
+                                            onChange={(e) => setData('licensing_body', e.target.value)}
+                                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 text-[#1E0B3C] rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF] transition-colors"
+                                        />
+                                    </div>
+                                    {errors.licensing_body && <div className="text-xs text-rose-600 mt-1">{errors.licensing_body}</div>}
+                                </div>
+
+                                <div>
+                                    <label style={fieldLabelStyle}>License Document</label>
+                                    {data.license_document ? (
+                                        <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 bg-slate-50">
+                                            <FileText className="w-4 h-4 text-[#5B2EFF] flex-shrink-0" />
+                                            <span className="text-xs font-medium text-[#1E0B3C] truncate flex-1">{data.license_document.name}</span>
+                                            <button type="button" onClick={() => setData('license_document', null)} className="text-slate-400 hover:text-rose-500 flex-shrink-0">
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <label className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-dashed border-slate-300 cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors duration-200">
+                                            <Upload className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                            <span className="text-xs text-slate-500">PDF, JPG, or PNG (max 10MB)</span>
+                                            <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={(e) => setData('license_document', e.target.files?.[0] || null)} />
+                                        </label>
+                                    )}
+                                    {errors.license_document && <div className="text-xs text-rose-600 mt-1">{errors.license_document}</div>}
+                                    <p className="text-[11px] text-slate-400 mt-1.5">You'll have full access right away — this is verified by our team in the background.</p>
+                                </div>
+                            </>
+                        )}
 
                         <button
                             type="submit"
