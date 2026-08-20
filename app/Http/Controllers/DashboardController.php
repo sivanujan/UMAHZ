@@ -220,6 +220,8 @@ class DashboardController extends Controller
                 'time' => $a->starts_at->isToday()
                     ? 'Today, '.$a->starts_at->format('g:i A')
                     : ($a->starts_at->isTomorrow() ? 'Tomorrow, '.$a->starts_at->format('g:i A') : $a->starts_at->format('M j, g:i A')),
+                'day' => $a->starts_at->format('j'),
+                'month' => $a->starts_at->format('M'),
             ]);
 
         $formsDue = $client->forms()
@@ -230,13 +232,22 @@ class DashboardController extends Controller
                 'status' => 'Action needed',
             ]);
 
-        $balances = $client->invoices()
-            ->whereIn('status', [Invoice::STATUS_DUE, Invoice::STATUS_OVERDUE])
-            ->get()
-            ->map(fn (Invoice $invoice) => [
-                'description' => $invoice->description,
-                'amount' => '$'.number_format($invoice->amount, 2),
-            ]);
+        $allInvoices = $client->invoices()->get();
+
+        $dueInvoices = $allInvoices->whereIn('status', [Invoice::STATUS_DUE, Invoice::STATUS_OVERDUE]);
+
+        $balances = $dueInvoices->map(fn (Invoice $invoice) => [
+            'description' => $invoice->description,
+            'amount' => '$'.number_format($invoice->amount, 2),
+        ])->values();
+
+        $totalInvoiceCount = $allInvoices->count();
+        $paidInvoiceCount = $allInvoices->where('status', Invoice::STATUS_PAID)->count();
+
+        $balanceStats = [
+            'totalDue' => '$'.number_format($dueInvoices->sum('amount'), 2),
+            'paidRatio' => $totalInvoiceCount > 0 ? round($paidInvoiceCount / $totalInvoiceCount, 2) : 1,
+        ];
 
         $messages = $client->messages()
             ->where('sender', 'clinic')
@@ -254,9 +265,11 @@ class DashboardController extends Controller
                 'last_name' => $client->last_name,
                 'member_since' => $client->created_at->format('M Y'),
             ],
+            'themePreference' => $client->theme_preference,
             'upcomingAppointments' => $upcomingAppointments,
             'formsDue' => $formsDue,
             'balances' => $balances,
+            'balanceStats' => $balanceStats,
             'messages' => $messages,
         ]);
     }

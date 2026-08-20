@@ -4,8 +4,8 @@ import { User, Mail, Lock, Phone, Cake, Building2, Check, Eye, EyeOff, AlertCirc
 import Logo from '@/Components/Common/Logo';
 import PasswordStrengthMeter from '@/Components/UI/PasswordStrengthMeter';
 
-const ROYAL_BLUE = '#2563EB';
-const DEEP_NAVY = '#0D1B2A';
+const ROYAL_BLUE = '#5B2EFF';
+const DEEP_NAVY = '#1E0B3C';
 const MANROPE = "'Manrope', system-ui, -apple-system, sans-serif";
 
 const CONTACT_METHODS = [
@@ -57,13 +57,13 @@ function validateField(name, value, data) {
 const labelStyle = { display: 'block', fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#64748b', marginBottom: 9 };
 
 function iconColorClass(showError) {
-    return showError ? 'text-rose-400' : 'text-[#2563EB]/45 group-focus-within:text-[#2563EB]';
+    return showError ? 'text-rose-400' : 'text-[#5B2EFF]/45 group-focus-within:text-[#5B2EFF]';
 }
 
 function inputBorderClass(showError) {
     return showError
         ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-400/15'
-        : 'border-slate-200/80 focus:border-[#2563EB] focus:ring-[#2563EB]/20';
+        : 'border-slate-200/80 focus:border-[#5B2EFF] focus:ring-[#5B2EFF]/20';
 }
 
 function Field({ icon: Icon, label, type = 'text', value, onChange, onBlur, error, valid, placeholder, helper, required, autoComplete }) {
@@ -82,7 +82,7 @@ function Field({ icon: Icon, label, type = 'text', value, onChange, onBlur, erro
                     required={required}
                     autoComplete={autoComplete}
                     placeholder={placeholder}
-                    className={`w-full ${Icon ? 'pl-11' : 'pl-3.5'} pr-10 py-3.5 bg-white/70 border rounded-xl text-sm outline-none transition-all duration-200 text-[#0D1B2A] focus:bg-white focus:ring-4 ${inputBorderClass(showError)}`}
+                    className={`w-full ${Icon ? 'pl-11' : 'pl-3.5'} pr-10 py-3.5 bg-white/70 border rounded-xl text-sm outline-none transition-all duration-200 text-[#1E0B3C] focus:bg-white focus:ring-4 ${inputBorderClass(showError)}`}
                 />
                 {showValid && <Check className="w-4 h-4 text-emerald-500 absolute right-3.5 top-1/2 -translate-y-1/2" strokeWidth={2.5} />}
                 {showError && <AlertCircle className="w-4 h-4 text-rose-500 absolute right-3.5 top-1/2 -translate-y-1/2" strokeWidth={2} />}
@@ -111,7 +111,7 @@ function PasswordField({ label, value, onChange, onBlur, error, valid, helper, s
                     onBlur={onBlur}
                     required
                     autoComplete={autoComplete}
-                    className={`w-full pl-11 pr-16 py-3.5 bg-white/70 border rounded-xl text-sm outline-none transition-all duration-200 text-[#0D1B2A] focus:bg-white focus:ring-4 ${inputBorderClass(showError)}`}
+                    className={`w-full pl-11 pr-16 py-3.5 bg-white/70 border rounded-xl text-sm outline-none transition-all duration-200 text-[#1E0B3C] focus:bg-white focus:ring-4 ${inputBorderClass(showError)}`}
                 />
                 {showValid && <Check className="w-4 h-4 text-emerald-500 absolute right-10 top-1/2 -translate-y-1/2" strokeWidth={2.5} />}
                 {showError && <AlertCircle className="w-4 h-4 text-rose-500 absolute right-10 top-1/2 -translate-y-1/2" strokeWidth={2} />}
@@ -119,7 +119,7 @@ function PasswordField({ label, value, onChange, onBlur, error, valid, helper, s
                     type="button"
                     onClick={onToggleShow}
                     tabIndex={-1}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#2563EB] transition-colors duration-200"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#5B2EFF] transition-colors duration-200"
                 >
                     {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -162,7 +162,7 @@ function ClinicField({ tenants, value, onChange, onBlur, error, disabled, disabl
             <div>
                 <label style={labelStyle}>Clinic</label>
                 <div className="relative">
-                    <Building2 className="w-4 h-4 text-[#2563EB]/45 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <Building2 className="w-4 h-4 text-[#5B2EFF]/45 absolute left-4 top-1/2 -translate-y-1/2" />
                     <div className="w-full pl-11 pr-4 py-3.5 bg-slate-100/70 border border-slate-200/80 text-slate-500 rounded-xl text-sm">{disabledName}</div>
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1.5">Pre-selected from your invite link.</p>
@@ -184,7 +184,7 @@ function ClinicField({ tenants, value, onChange, onBlur, error, disabled, disabl
                     onFocus={(e) => { setOpen(true); e.target.select(); }}
                     onChange={(e) => { setQuery(e.target.value); setOpen(true); if (value) onChange(''); }}
                     placeholder="Search your clinic…"
-                    className={`w-full pl-11 pr-10 py-3.5 bg-white/70 border rounded-xl text-sm outline-none transition-all duration-200 text-[#0D1B2A] focus:bg-white focus:ring-4 ${inputBorderClass(showError)}`}
+                    className={`w-full pl-11 pr-10 py-3.5 bg-white/70 border rounded-xl text-sm outline-none transition-all duration-200 text-[#1E0B3C] focus:bg-white focus:ring-4 ${inputBorderClass(showError)}`}
                 />
                 {value ? (
                     <Check className="w-4 h-4 text-emerald-500 absolute right-3.5 top-1/2 -translate-y-1/2" strokeWidth={2.5} />
@@ -200,10 +200,10 @@ function ClinicField({ tenants, value, onChange, onBlur, error, disabled, disabl
                             type="button"
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={() => { onChange(t.id); setQuery(t.name); setOpen(false); }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-[#0D1B2A] hover:bg-indigo-50 transition-colors flex items-center justify-between"
+                            className="w-full text-left px-4 py-2.5 text-sm text-[#1E0B3C] hover:bg-violet-50 transition-colors flex items-center justify-between"
                         >
                             {t.name}
-                            {value === t.id && <Check className="w-3.5 h-3.5 text-[#2563EB]" />}
+                            {value === t.id && <Check className="w-3.5 h-3.5 text-[#5B2EFF]" />}
                         </button>
                     )) : (
                         <p className="px-4 py-3 text-sm text-slate-400">No clinics match "{query}"</p>
@@ -223,7 +223,7 @@ function ConsentCheckbox({ checked, onChange, required, children }) {
                 className="mt-0.5 w-[18px] h-[18px] rounded-[6px] border-[1.5px] flex items-center justify-center flex-shrink-0 transition-all duration-200"
                 style={{
                     borderColor: checked ? 'transparent' : '#cbd5e1',
-                    background: checked ? `linear-gradient(135deg, ${ROYAL_BLUE}, #7C3AED)` : 'transparent',
+                    background: checked ? `linear-gradient(135deg, ${ROYAL_BLUE}, #2E9BE6)` : 'transparent',
                 }}
             >
                 <Check className="w-3 h-3 text-white transition-opacity duration-150" style={{ opacity: checked ? 1 : 0 }} strokeWidth={3} />
@@ -242,7 +242,7 @@ function StepProgress({ current }) {
                         <div
                             className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold flex-shrink-0 transition-all duration-300"
                             style={{
-                                background: s.num < current ? `linear-gradient(135deg, ${ROYAL_BLUE}, #7C3AED)` : '#fff',
+                                background: s.num < current ? `linear-gradient(135deg, ${ROYAL_BLUE}, #2E9BE6)` : '#fff',
                                 color: s.num < current ? '#fff' : s.num === current ? ROYAL_BLUE : '#94a3b8',
                                 border: s.num === current ? `2px solid ${ROYAL_BLUE}` : s.num < current ? 'none' : '1.5px solid #e2e8f0',
                             }}
@@ -254,7 +254,7 @@ function StepProgress({ current }) {
                     {i < STEPS.length - 1 && (
                         <div
                             className="flex-1 h-[2px] rounded-full mt-[13px] mx-1.5 transition-all duration-300"
-                            style={{ background: s.num < current ? `linear-gradient(90deg, ${ROYAL_BLUE}, #7C3AED)` : '#e2e8f0' }}
+                            style={{ background: s.num < current ? `linear-gradient(90deg, ${ROYAL_BLUE}, #2E9BE6)` : '#e2e8f0' }}
                         />
                     )}
                 </React.Fragment>
@@ -345,7 +345,7 @@ export default function Register({ tenants, preselectedTenantSlug, tosVersion })
             {/* Gradient mesh background */}
             <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #F8FAFC 45%, #ECFDF5 100%)' }} />
-                <div className="absolute top-[-120px] right-[-100px] w-[480px] h-[480px] rounded-full" style={{ background: 'rgba(37,99,235,0.22)', filter: 'blur(110px)' }} />
+                <div className="absolute top-[-120px] right-[-100px] w-[480px] h-[480px] rounded-full" style={{ background: 'rgba(91,46,255,0.22)', filter: 'blur(110px)' }} />
                 <div className="absolute bottom-[-100px] left-[-80px] w-[420px] h-[420px] rounded-full" style={{ background: 'rgba(34,197,94,0.16)', filter: 'blur(110px)' }} />
                 <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[380px] h-[380px] rounded-full" style={{ background: 'rgba(13,27,42,0.05)', filter: 'blur(130px)' }} />
             </div>
@@ -359,7 +359,7 @@ export default function Register({ tenants, preselectedTenantSlug, tosVersion })
                     className="rounded-[20px] p-8 sm:p-9 space-y-7 border border-white/60 backdrop-blur-xl"
                     style={{
                         background: 'rgba(255,255,255,0.78)',
-                        boxShadow: '0 25px 70px -25px rgba(13,27,42,0.25), 0 8px 24px -12px rgba(37,99,235,0.15)',
+                        boxShadow: '0 25px 70px -25px rgba(13,27,42,0.25), 0 8px 24px -12px rgba(91,46,255,0.15)',
                     }}
                 >
                     <div className="text-center">
@@ -371,7 +371,7 @@ export default function Register({ tenants, preselectedTenantSlug, tosVersion })
                         <button
                             type="button"
                             onClick={() => setOauthNotice("Google sign-up isn't connected yet — use the form below for now.")}
-                            className="w-full inline-flex items-center justify-center gap-2.5 py-3.5 px-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-[#0D1B2A] transition-all duration-200 hover:border-slate-300 hover:shadow-sm active:scale-[0.98]"
+                            className="w-full inline-flex items-center justify-center gap-2.5 py-3.5 px-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-[#1E0B3C] transition-all duration-200 hover:border-slate-300 hover:shadow-sm active:scale-[0.98]"
                         >
                             <GoogleIcon /> Continue with Google
                         </button>
@@ -433,8 +433,8 @@ export default function Register({ tenants, preselectedTenantSlug, tosVersion })
                                     onClick={goNext}
                                     className="w-full py-3.5 px-4 text-white font-medium text-sm rounded-full transition-all duration-300 ease-out flex items-center justify-center hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]"
                                     style={{
-                                        background: `linear-gradient(135deg, ${ROYAL_BLUE} 0%, #7C3AED 100%)`,
-                                        boxShadow: '0 10px 30px -8px rgba(37,99,235,0.45)',
+                                        background: `linear-gradient(135deg, ${ROYAL_BLUE} 0%, #2E9BE6 100%)`,
+                                        boxShadow: '0 10px 30px -8px rgba(91,46,255,0.45)',
                                     }}
                                 >
                                     Continue
@@ -478,7 +478,7 @@ export default function Register({ tenants, preselectedTenantSlug, tosVersion })
                                     <select
                                         value={data.preferred_contact_method}
                                         onChange={(e) => setData('preferred_contact_method', e.target.value)}
-                                        className="w-full px-3.5 py-3.5 bg-white/70 border border-slate-200/80 text-[#0D1B2A] rounded-xl text-sm outline-none transition-all duration-200 focus:bg-white focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/20"
+                                        className="w-full px-3.5 py-3.5 bg-white/70 border border-slate-200/80 text-[#1E0B3C] rounded-xl text-sm outline-none transition-all duration-200 focus:bg-white focus:border-[#5B2EFF] focus:ring-4 focus:ring-[#5B2EFF]/20"
                                     >
                                         {CONTACT_METHODS.map((m) => (
                                             <option key={m.value} value={m.value}>{m.label}</option>
@@ -500,7 +500,7 @@ export default function Register({ tenants, preselectedTenantSlug, tosVersion })
                                     <button
                                         type="button"
                                         onClick={goBack}
-                                        className="px-6 py-3.5 rounded-full text-sm font-medium text-[#0D1B2A] border border-slate-200 hover:border-[#2563EB] hover:bg-white transition-all duration-200"
+                                        className="px-6 py-3.5 rounded-full text-sm font-medium text-[#1E0B3C] border border-slate-200 hover:border-[#5B2EFF] hover:bg-white transition-all duration-200"
                                     >
                                         Back
                                     </button>
@@ -509,8 +509,8 @@ export default function Register({ tenants, preselectedTenantSlug, tosVersion })
                                         onClick={goNext}
                                         className="flex-1 py-3.5 px-4 text-white font-medium text-sm rounded-full transition-all duration-300 ease-out flex items-center justify-center hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]"
                                         style={{
-                                            background: `linear-gradient(135deg, ${ROYAL_BLUE} 0%, #7C3AED 100%)`,
-                                            boxShadow: '0 10px 30px -8px rgba(37,99,235,0.45)',
+                                            background: `linear-gradient(135deg, ${ROYAL_BLUE} 0%, #2E9BE6 100%)`,
+                                            boxShadow: '0 10px 30px -8px rgba(91,46,255,0.45)',
                                         }}
                                     >
                                         Continue
@@ -579,7 +579,7 @@ export default function Register({ tenants, preselectedTenantSlug, tosVersion })
                                     <button
                                         type="button"
                                         onClick={goBack}
-                                        className="px-6 py-3.5 rounded-full text-sm font-medium text-[#0D1B2A] border border-slate-200 hover:border-[#2563EB] hover:bg-white transition-all duration-200"
+                                        className="px-6 py-3.5 rounded-full text-sm font-medium text-[#1E0B3C] border border-slate-200 hover:border-[#5B2EFF] hover:bg-white transition-all duration-200"
                                     >
                                         Back
                                     </button>
@@ -590,8 +590,8 @@ export default function Register({ tenants, preselectedTenantSlug, tosVersion })
                                         aria-disabled={!data.tos_accepted}
                                         className={`flex-1 py-3.5 px-4 text-white font-medium text-sm rounded-full transition-all duration-300 ease-out flex items-center justify-center active:scale-[0.98] disabled:opacity-70 ${data.tos_accepted ? 'hover:scale-[1.02] hover:shadow-lg' : 'opacity-50'}`}
                                         style={{
-                                            background: `linear-gradient(135deg, ${ROYAL_BLUE} 0%, #7C3AED 100%)`,
-                                            boxShadow: data.tos_accepted ? '0 10px 30px -8px rgba(37,99,235,0.45)' : 'none',
+                                            background: `linear-gradient(135deg, ${ROYAL_BLUE} 0%, #2E9BE6 100%)`,
+                                            boxShadow: data.tos_accepted ? '0 10px 30px -8px rgba(91,46,255,0.45)' : 'none',
                                         }}
                                     >
                                         Create Account

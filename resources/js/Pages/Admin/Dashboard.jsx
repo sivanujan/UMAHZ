@@ -14,7 +14,7 @@ export default function AdminDashboard({ stats, tenants }) {
                         <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Tenants</p>
                         <h3 className="text-2xl font-bold text-white mt-1">{stats.totalTenants}</h3>
                     </div>
-                    <div className="h-10 w-10 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center">
+                    <div className="h-10 w-10 rounded-lg bg-violet-500/10 text-violet-400 flex items-center justify-center">
                         <Building2 className="w-5 h-5" />
                     </div>
                 </div>

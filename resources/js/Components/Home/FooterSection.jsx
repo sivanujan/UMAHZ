@@ -55,11 +55,11 @@ export default function FooterSection() {
                             <p style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.14em',color:'#e9d5ff'}}>Product Updates</p>
                             <div className="flex gap-2">
                                 <input type="email" placeholder="your@practice.com" value={email} onChange={e=>setEmail(e.target.value)}
-                                    className="flex-1 text-xs px-4 py-2.5 rounded-full outline-none min-w-0 transition-all duration-200 placeholder:text-purple-300/50 focus:bg-white/[0.08] focus:ring-4 focus:ring-[#7C3AED]/25"
+                                    className="flex-1 text-xs px-4 py-2.5 rounded-full outline-none min-w-0 transition-all duration-200 placeholder:text-purple-300/50 focus:bg-white/[0.08] focus:ring-4 focus:ring-[#2E9BE6]/25"
                                     style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(139,92,246,0.35)',color:'#fff'}} />
                                 <button
                                     className="text-white font-semibold text-xs px-4 py-2.5 rounded-full transition-all duration-200 hover:scale-[1.03] active:scale-[0.97]"
-                                    style={{flexShrink:0, background:'linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)', boxShadow:'0 6px 18px -6px rgba(37,99,235,0.5)'}}
+                                    style={{flexShrink:0, background:'linear-gradient(135deg, #5B2EFF 0%, #2E9BE6 100%)', boxShadow:'0 6px 18px -6px rgba(91,46,255,0.5)'}}
                                 >
                                     Subscribe
                                 </button>

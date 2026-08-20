@@ -1,9 +1,59 @@
 @import "tailwindcss";
 
+/* Scoped class-based dark mode: activates on .dark or any descendant of
+   .dark, rather than Tailwind v4's default prefers-color-scheme strategy.
+   Kept scoped to .umahz-portal below so the marketing site and staff
+   dashboards (not part of this redesign) are unaffected. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: 'Manrope', system-ui, -apple-system, sans-serif;
   --font-serif: 'Playfair Display', Georgia, serif;
   --font-display: 'Clash Display', 'Manrope', system-ui, sans-serif;
+}
+
+/* UMAHZ client portal theme tokens (light + dark) */
+.umahz-portal {
+  --umahz-bg: #F1F5F9;
+  --umahz-surface: #FFFFFF;
+  --umahz-sidebar-bg: #0D1B2A;
+  --umahz-border: #E2E8F0;
+  --umahz-text-primary: #0D1B2A;
+  --umahz-text-secondary: #64748B;
+  --umahz-text-tertiary: #94A3B8;
+  --umahz-nav-active-bg: rgba(37,99,235,0.1);
+  --umahz-accent-text: #2563EB;
+  --umahz-track-off: #E2E8F0;
+  --umahz-hover: #F8FAFC;
+
+  /* Sidebar stays Deep Navy regardless of light/dark content theme, so it
+     needs its own text/hover tokens rather than the ones above. */
+  --umahz-sidebar-text: #C9D6E4;
+  --umahz-sidebar-text-muted: #7C93AC;
+  --umahz-sidebar-hover: rgba(255,255,255,0.06);
+  --umahz-sidebar-active-bg: rgba(37,99,235,0.28);
+  --umahz-sidebar-border: rgba(255,255,255,0.08);
+
+  background: var(--umahz-bg);
+  transition: background-color 0.25s ease;
+}
+
+.umahz-portal.dark {
+  --umahz-bg: #0B1420;
+  --umahz-surface: #101B29;
+  --umahz-sidebar-bg: #08111B;
+  --umahz-border: #1E2E40;
+  --umahz-text-primary: #E6EAEF;
+  --umahz-text-secondary: #93A4B8;
+  --umahz-text-tertiary: #64768A;
+  --umahz-nav-active-bg: rgba(37,99,235,0.22);
+  --umahz-accent-text: #5B9BFF;
+  --umahz-track-off: #1E2E40;
+  --umahz-hover: rgba(255,255,255,0.04);
+}
+
+.umahz-portal input::placeholder {
+  color: var(--umahz-text-tertiary);
 }
 
 @layer base {

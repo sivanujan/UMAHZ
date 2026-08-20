@@ -26,6 +26,9 @@ class Client extends Model
         'date_of_birth',
         'preferred_contact_method',
         'emergency_contact',
+        'notification_preferences',
+        'deletion_requested_at',
+        'theme_preference',
     ];
 
     protected function casts(): array
@@ -33,7 +36,21 @@ class Client extends Model
         return [
             'date_of_birth' => 'date',
             'emergency_contact' => 'array',
+            'notification_preferences' => 'array',
+            'deletion_requested_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Notification preferences with defaults filled in for keys the client
+     * hasn't explicitly set yet.
+     */
+    public function notificationPreferences(): array
+    {
+        return array_merge([
+            'email_reminders' => true,
+            'sms_reminders' => true,
+        ], $this->notification_preferences ?? []);
     }
 
     public function getActivitylogOptions(): LogOptions
