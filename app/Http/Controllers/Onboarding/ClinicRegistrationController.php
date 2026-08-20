@@ -87,6 +87,14 @@ class ClinicRegistrationController extends Controller
                 'password' => Hash::make($data['password']),
             ]);
 
+            // TODO: production mail delivery isn't configured yet (Render
+            // blocks outbound SMTP) — auto-verifying so signup isn't stuck
+            // behind an email that can never arrive. email_verified_at isn't
+            // mass-assignable, so forceFill (not create()) is required here.
+            // Revert to sending sendEmailVerificationNotification() once
+            // mail is fixed.
+            $user->forceFill(['email_verified_at' => now()])->save();
+
             $tenant = Tenant::create([
                 'name' => $data['clinic_name'],
                 'slug' => $this->uniqueSlug($data['clinic_name']),
@@ -143,10 +151,9 @@ class ClinicRegistrationController extends Controller
 
         Auth::login($user);
 
-        $user->sendEmailVerificationNotification();
-        $user->notify(new ClinicApplicationReceivedNotification($user->tenants()->first()));
+        $this->notifySafely($user, new ClinicApplicationReceivedNotification($user->tenants()->first()));
 
-        return redirect()->route('verification.notice');
+        return redirect()->route('clinic.status');
     }
 
     protected function uniqueSlug(string $name): string

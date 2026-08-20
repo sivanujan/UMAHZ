@@ -3,7 +3,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import {
     ArrowLeft, Building2, MapPin, IdCard, User, Mail, Phone, Users, Stethoscope,
-    Check, AlertTriangle, XCircle, FileText, Loader2,
+    Check, AlertTriangle, XCircle, FileText, Loader2, Trash2,
 } from 'lucide-react';
 
 const DISCIPLINE_LABELS = {
@@ -60,7 +60,7 @@ function NoteModal({ title, confirmLabel, confirmClass, onCancel, onConfirm, pro
 }
 
 export default function ClinicShow({ tenant, primaryPractitioner }) {
-    const [modal, setModal] = useState(null); // 'needs_more_info' | 'reject' | null
+    const [modal, setModal] = useState(null); // 'needs_more_info' | 'reject' | 'remove' | null
     const [processing, setProcessing] = useState(false);
 
     const approve = () => {
@@ -74,7 +74,13 @@ export default function ClinicShow({ tenant, primaryPractitioner }) {
         router.post(url, { note }, { onFinish: () => { setProcessing(false); setModal(null); } });
     };
 
+    const remove = () => {
+        setProcessing(true);
+        router.delete(`/admin/clinics/${tenant.id}`, { onFinish: () => { setProcessing(false); setModal(null); } });
+    };
+
     const isPending = tenant.status === 'pending_review' || tenant.status === 'needs_more_info';
+    const canRemove = tenant.status !== 'approved';
 
     return (
         <AdminLayout title={tenant.name}>
@@ -181,11 +187,24 @@ export default function ClinicShow({ tenant, primaryPractitioner }) {
                                 )}
                             </div>
                         )}
+
+                        {canRemove && (
+                            <>
+                                <div className="h-px bg-slate-800 my-4" />
+                                <button
+                                    onClick={() => setModal('remove')}
+                                    disabled={processing}
+                                    className="w-full py-2.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 border border-slate-800 hover:border-rose-500/20 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                                >
+                                    <Trash2 className="w-3.5 h-3.5" /> Remove Application &amp; Owner Account
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
 
-            {modal && (
+            {(modal === 'reject' || modal === 'needs_more_info') && (
                 <NoteModal
                     title={modal === 'reject' ? 'Reject this application' : 'Request more information'}
                     confirmLabel={modal === 'reject' ? 'Reject' : 'Send Request'}
@@ -194,6 +213,34 @@ export default function ClinicShow({ tenant, primaryPractitioner }) {
                     onConfirm={submitNote}
                     processing={processing}
                 />
+            )}
+
+            {modal === 'remove' && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
+                    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md">
+                        <h3 className="text-white font-semibold text-base mb-1">Remove this application?</h3>
+                        <p className="text-xs text-slate-500 mb-4">
+                            This permanently deletes <span className="text-slate-300 font-medium">{tenant.name}</span>'s
+                            owner account and removes the application from the queue. This can't be undone.
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <button
+                                disabled={processing}
+                                onClick={remove}
+                                className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white bg-rose-600 hover:bg-rose-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {processing && <Loader2 className="w-4 h-4 animate-spin" />}
+                                Remove Permanently
+                            </button>
+                            <button
+                                onClick={() => setModal(null)}
+                                className="px-4 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </AdminLayout>
     );

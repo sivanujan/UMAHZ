@@ -126,7 +126,7 @@ class ClinicStatusController extends Controller
             $primaryProfile->update($updates);
         }
 
-        $membership->user->notify(new ClinicApplicationReceivedNotification($tenant));
+        $this->notifySafely($membership->user, new ClinicApplicationReceivedNotification($tenant));
 
         return back()->with('success', 'Application resubmitted for review.');
     }

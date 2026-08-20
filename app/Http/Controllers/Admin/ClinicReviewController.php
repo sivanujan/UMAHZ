@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AuditEvent;
 use App\Models\PractitionerProfile;
+use App\Models\StaffMembership;
 use App\Models\Tenant;
+use App\Models\User;
 use App\Notifications\ClinicApplicationApprovedNotification;
 use App\Notifications\ClinicApplicationNeedsInfoNotification;
 use App\Notifications\ClinicApplicationRejectedNotification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\Rule;
@@ -121,7 +124,7 @@ class ClinicReviewController extends Controller
         $this->logAuditEvent($request, $tenant, 'clinic.approved');
 
         $owner = $tenant->staffMemberships()->where('role', 'clinic_owner')->first()?->user;
-        $owner?->notify(new ClinicApplicationApprovedNotification($tenant));
+        $this->notifySafely($owner, new ClinicApplicationApprovedNotification($tenant));
 
         return back()->with('success', "{$tenant->name} approved.");
     }
@@ -144,7 +147,7 @@ class ClinicReviewController extends Controller
         $this->logAuditEvent($request, $tenant, 'clinic.needs_more_info', $data['note']);
 
         $owner = $tenant->staffMemberships()->where('role', 'clinic_owner')->first()?->user;
-        $owner?->notify(new ClinicApplicationNeedsInfoNotification($tenant));
+        $this->notifySafely($owner, new ClinicApplicationNeedsInfoNotification($tenant));
 
         return back()->with('success', "Requested more information from {$tenant->name}.");
     }
@@ -167,9 +170,36 @@ class ClinicReviewController extends Controller
         $this->logAuditEvent($request, $tenant, 'clinic.rejected', $data['note']);
 
         $owner = $tenant->staffMemberships()->where('role', 'clinic_owner')->first()?->user;
-        $owner?->notify(new ClinicApplicationRejectedNotification($tenant));
+        $this->notifySafely($owner, new ClinicApplicationRejectedNotification($tenant));
 
         return back()->with('success', "{$tenant->name} rejected.");
+    }
+
+    /**
+     * Permanently remove an application: the tenant and its owner's user
+     * account. For cleaning up test signups, duplicates, or spam before
+     * they ever go live — deliberately refuses to touch an approved tenant,
+     * since that's a real operating clinic with real client data and
+     * removal isn't the right tool for that (suspension is).
+     */
+    public function destroy(Request $request, Tenant $tenant): RedirectResponse
+    {
+        $this->authorize('review', $tenant);
+
+        abort_if($tenant->status === Tenant::STATUS_APPROVED, 403, 'Approved clinics cannot be removed this way.');
+
+        $tenantName = $tenant->name;
+        $ownerIds = $tenant->staffMemberships()->where('role', StaffMembership::ROLE_CLINIC_OWNER)->pluck('user_id');
+
+        $this->logAuditEvent($request, $tenant, 'clinic.removed');
+
+        DB::transaction(function () use ($tenant, $ownerIds) {
+            $tenant->delete();
+            User::whereIn('id', $ownerIds)->delete();
+        });
+
+        return redirect()->route('admin.clinics.index', ['status' => $tenant->status])
+            ->with('success', "{$tenantName} and its owner account were removed.");
     }
 
     /**

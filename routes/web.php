@@ -66,6 +66,7 @@ Route::middleware(['auth', 'verified', 'platform.admin'])->prefix('admin')->name
         Route::post('/{tenant}/approve', [ClinicReviewController::class, 'approve'])->name('approve');
         Route::post('/{tenant}/request-info', [ClinicReviewController::class, 'requestMoreInfo'])->name('request-info');
         Route::post('/{tenant}/reject', [ClinicReviewController::class, 'reject'])->name('reject');
+        Route::delete('/{tenant}', [ClinicReviewController::class, 'destroy'])->name('destroy');
     });
 
     Route::prefix('practitioners')->name('practitioners.')->group(function () {

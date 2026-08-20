@@ -84,7 +84,7 @@ class PractitionerReviewController extends Controller
         $this->logAuditEvent($request, $practitionerProfile, 'practitioner.verified');
 
         $practitionerProfile->loadMissing('staffMembership.user');
-        $practitionerProfile->staffMembership->user->notify(new PractitionerVerifiedNotification($practitionerProfile));
+        $this->notifySafely($practitionerProfile->staffMembership->user, new PractitionerVerifiedNotification($practitionerProfile));
 
         return back()->with('success', 'Practitioner verified.');
     }
@@ -107,7 +107,7 @@ class PractitionerReviewController extends Controller
         $this->logAuditEvent($request, $practitionerProfile, 'practitioner.rejected', $data['note']);
 
         $practitionerProfile->loadMissing('staffMembership.user');
-        $practitionerProfile->staffMembership->user->notify(new PractitionerRejectedNotification($practitionerProfile));
+        $this->notifySafely($practitionerProfile->staffMembership->user, new PractitionerRejectedNotification($practitionerProfile));
 
         return back()->with('success', 'Practitioner verification rejected.');
     }

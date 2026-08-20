@@ -75,6 +75,13 @@ class RegisteredUserController extends Controller
             'marketing_opt_in_at' => ($data['marketing_opt_in'] ?? false) ? now() : null,
         ]);
 
+        // TODO: production mail delivery isn't configured yet (Render blocks
+        // outbound SMTP) — auto-verifying so signup isn't stuck behind an
+        // email that can never arrive. email_verified_at isn't mass-
+        // assignable, so forceFill (not create()) is required here. Revert
+        // to sending sendEmailVerificationNotification() once mail is fixed.
+        $user->forceFill(['email_verified_at' => now()])->save();
+
         // If reception already added this person as a walk-in client (no
         // login yet), link this registration to that existing record
         // instead of creating a duplicate.
@@ -107,8 +114,6 @@ class RegisteredUserController extends Controller
 
         Auth::login($user);
 
-        $user->sendEmailVerificationNotification();
-
-        return redirect()->route('verification.notice');
+        return redirect()->route('portal.dashboard');
     }
 }

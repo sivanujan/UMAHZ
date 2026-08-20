@@ -86,7 +86,7 @@ class StaffInvitationController extends Controller
             'invited_at' => now(),
         ]);
 
-        $user->notify(new StaffInvitationNotification($membership));
+        $this->notifySafely($user, new StaffInvitationNotification($membership));
 
         return back()->with('success', "Invitation sent to {$data['email']}.");
     }
