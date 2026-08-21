@@ -83,6 +83,13 @@ RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cac
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
+# Debug: print the FINAL loaded-module list as the very last build step, so
+# the build log shows exactly what Apache will see at container start — not
+# just what it looked like right after the earlier MPM fix, in case anything
+# between here and there (composer install, chmod, etc.) changed it again.
+# Temporary — remove once the MPM issue is confirmed resolved.
+RUN apache2ctl -M
+
 # Expose port 80 (Render dynamically overrides PORT at runtime)
 EXPOSE 80
 
