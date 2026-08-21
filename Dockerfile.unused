@@ -1,3 +1,24 @@
+# DISABLED — kept for reference/rollback only, not used for deploys.
+#
+# Railway (and previously Render) now builds via Nixpacks instead — see
+# nixpacks.toml at the repo root. Root cause: this image's Apache config
+# was correct at every build (apache2ctl configtest passed clean, verified
+# fresh/non-cached), but the *running* container's /etc/apache2/mods-enabled
+# held mpm_event.load/.conf with timestamps predating every fix pushed —
+# the platform was never actually giving the container a filesystem that
+# reflected the newly built image at that path, for reasons never fully
+# identified despite ruling out a duplicate config source, stale build
+# cache, and a mounted Volume. A runtime self-heal in docker-entrypoint.sh
+# worked around it, but at that point the whole custom-Apache-image
+# approach was fighting the platform more than serving the app — moving
+# to Nixpacks removes an entire class of failure by letting Railway own
+# the web server instead of us hand-rolling one inside a container it
+# doesn't reliably refresh.
+#
+# If you ever need Docker again: rename this back to `Dockerfile`, restore
+# `docker-entrypoint.sh.unused` to `docker-entrypoint.sh`, and set
+# Railway's Builder back to Dockerfile in the service's Build settings.
+
 # Stage 1: Build Inertia/React frontend assets with Node & Vite
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app
