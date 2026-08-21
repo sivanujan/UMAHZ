@@ -38,12 +38,22 @@ RUN apt-get update && apt-get install -y \
 # Enable Apache mod_rewrite module for Laravel routing
 RUN a2enmod rewrite
 
-# The apt-get install above pulls in Debian's apache2 package, whose
-# maintainer scripts enable mpm_event by default — but mod_php (loaded by
-# this base image) requires mpm_prefork and isn't thread-safe, so having
-# both enabled makes Apache refuse to start with "More than one MPM
-# loaded". Force prefork as the only active MPM.
-RUN a2dismod mpm_event mpm_worker 2>/dev/null; a2enmod mpm_prefork
+# This image uses mod_php (PHP as an Apache module, not PHP-FPM — there's
+# no proxy_fcgi/fpm config anywhere here), which is not thread-safe and
+# requires mpm_prefork specifically. The apt-get install above still ends
+# up with mpm_event enabled alongside it: Debian's apache2 package
+# defaults to mpm_event, and installing further apt packages can re-run
+# apache2's postinst trigger, re-enabling it even after an earlier
+# a2dismod in this same image (confirmed — a plain `a2dismod mpm_event;
+# a2enmod mpm_prefork` here was NOT sufficient and still deployed broken).
+# Remove the competing MPMs' enabling symlinks directly instead of relying
+# on a2dismod's exit behavior, then verify with configtest so a conflict
+# fails the build here — visibly, at build time — rather than surfacing
+# only as a crash loop after Render deploys it.
+RUN rm -f /etc/apache2/mods-enabled/mpm_event.load /etc/apache2/mods-enabled/mpm_event.conf \
+           /etc/apache2/mods-enabled/mpm_worker.load /etc/apache2/mods-enabled/mpm_worker.conf \
+    && a2enmod mpm_prefork \
+    && apache2ctl configtest
 
 # Configure Apache DocumentRoot to point to Laravel's public folder
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
