@@ -1,6 +1,21 @@
 #!/bin/bash
 set -e
 
+# Force the correct MPM state on every boot, unconditionally. This was
+# previously only handled at build time in the Dockerfile (rm -f the
+# competing MPM symlinks, a2enmod mpm_prefork, verified with configtest) —
+# and that build step genuinely passes clean. But `apache2ctl -M` run
+# inside the actual deployed container showed mpm_event.load/.conf sitting
+# in /etc/apache2/mods-enabled with timestamps predating every one of those
+# fixes, proving the platform is not giving this container a filesystem
+# that reflects what was baked into the newly built image for this path —
+# whatever the underlying reason, the build-time fix alone cannot be
+# trusted here. Doing it again at runtime, every single start, means it
+# self-heals regardless of what state the filesystem was already in.
+rm -f /etc/apache2/mods-enabled/mpm_event.load /etc/apache2/mods-enabled/mpm_event.conf \
+      /etc/apache2/mods-enabled/mpm_worker.load /etc/apache2/mods-enabled/mpm_worker.conf
+a2enmod mpm_prefork >/dev/null
+
 # Discover packages and cache configuration, routes, and views for production
 php artisan package:discover --ansi
 php artisan config:cache
