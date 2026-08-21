@@ -1,23 +1,29 @@
 # DISABLED — kept for reference/rollback only, not used for deploys.
 #
-# Railway (and previously Render) now builds via Nixpacks instead — see
-# nixpacks.toml at the repo root. Root cause: this image's Apache config
-# was correct at every build (apache2ctl configtest passed clean, verified
-# fresh/non-cached), but the *running* container's /etc/apache2/mods-enabled
-# held mpm_event.load/.conf with timestamps predating every fix pushed —
-# the platform was never actually giving the container a filesystem that
-# reflected the newly built image at that path, for reasons never fully
-# identified despite ruling out a duplicate config source, stale build
-# cache, and a mounted Volume. A runtime self-heal in docker-entrypoint.sh
-# worked around it, but at that point the whole custom-Apache-image
-# approach was fighting the platform more than serving the app — moving
-# to Nixpacks removes an entire class of failure by letting Railway own
-# the web server instead of us hand-rolling one inside a container it
-# doesn't reliably refresh.
+# Railway (and previously Render) now builds via Railpack instead — its
+# own default builder, no config file needed (it auto-detects Laravel via
+# the `artisan` file: sets document root to public/, runs composer
+# install, runs npm install/build since package.json exists, optimizes
+# artisan caches at build time, runs migrations on deploy, and serves via
+# FrankenPHP — not Apache). Root cause of the move: this image's Apache
+# config was correct at every build (apache2ctl configtest passed clean,
+# verified fresh/non-cached), but the *running* container's
+# /etc/apache2/mods-enabled held mpm_event.load/.conf with timestamps
+# predating every fix pushed — the platform was never actually giving the
+# container a filesystem that reflected the newly built image at that
+# path, for reasons never fully identified despite ruling out a duplicate
+# config source, stale build cache, and a mounted Volume. A runtime
+# self-heal in the entrypoint worked around it, but at that point the
+# whole custom-Apache-image approach was fighting the platform more than
+# serving the app.
+#
+# (This file briefly named itself for Nixpacks in an earlier commit —
+# Railway deprecated Nixpacks in favor of Railpack shortly after, before
+# that attempt was ever actually deployed, so it was replaced before use.)
 #
 # If you ever need Docker again: rename this back to `Dockerfile`, restore
-# `docker-entrypoint.sh.unused` to `docker-entrypoint.sh`, and set
-# Railway's Builder back to Dockerfile in the service's Build settings.
+# `legacy-apache-entrypoint-reference.txt` to `docker-entrypoint.sh`, and
+# set Railway's Builder back to Dockerfile in the service's Build settings.
 
 # Stage 1: Build Inertia/React frontend assets with Node & Vite
 FROM node:20-alpine AS frontend-builder
