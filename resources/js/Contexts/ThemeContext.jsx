@@ -3,7 +3,7 @@ import { router } from '@inertiajs/react';
 
 const ThemeContext = createContext(null);
 
-const STORAGE_KEY = 'umahz-theme';
+const DEFAULT_STORAGE_KEY = 'umahz-theme';
 
 function systemPrefersDark() {
     return typeof window !== 'undefined' && window.matchMedia
@@ -16,13 +16,23 @@ function resolve(preference) {
 }
 
 /**
- * Scoped to the client portal only (see .umahz-portal in app.css) — the
- * marketing site and staff dashboards aren't part of this redesign.
+ * Reusable theme provider for both themed shells:
+ *   - Client portal (.umahz-portal): persistUrl="/portal/settings/theme" so the
+ *     choice is saved to the Client model as well as localStorage.
+ *   - Staff/owner dashboard (.umahz-app): no persistUrl — staff Users have no
+ *     theme column, so persistence is localStorage-only (per-device).
+ *
+ * A distinct storageKey per shell keeps the two preferences independent.
  */
-export function ThemeProvider({ initialPreference = 'system', children }) {
+export function ThemeProvider({
+    initialPreference = 'system',
+    storageKey = DEFAULT_STORAGE_KEY,
+    persistUrl = null,
+    children,
+}) {
     const [preference, setPreferenceState] = useState(() => {
         if (typeof window === 'undefined') return initialPreference;
-        return window.localStorage.getItem(STORAGE_KEY) || initialPreference;
+        return window.localStorage.getItem(storageKey) || initialPreference;
     });
     const [resolved, setResolved] = useState(() => resolve(preference));
 
@@ -38,12 +48,14 @@ export function ThemeProvider({ initialPreference = 'system', children }) {
 
     const setPreference = useCallback((next) => {
         setPreferenceState(next);
-        window.localStorage.setItem(STORAGE_KEY, next);
-        router.patch('/portal/settings/theme', { theme_preference: next }, {
-            preserveScroll: true,
-            preserveState: true,
-        });
-    }, []);
+        window.localStorage.setItem(storageKey, next);
+        if (persistUrl) {
+            router.patch(persistUrl, { theme_preference: next }, {
+                preserveScroll: true,
+                preserveState: true,
+            });
+        }
+    }, [storageKey, persistUrl]);
 
     const toggle = useCallback(() => {
         setPreference(resolve(preference) === 'dark' ? 'light' : 'dark');

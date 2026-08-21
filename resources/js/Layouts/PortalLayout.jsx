@@ -9,18 +9,57 @@ import { ThemeProvider, useTheme } from '@/Contexts/ThemeContext';
 
 const MANROPE = "'Manrope', system-ui, -apple-system, sans-serif";
 
-const NAV = [
-    { name: 'Dashboard', href: '/portal/dashboard', icon: LayoutDashboard },
-    { name: 'Appointments', href: '#', icon: CalendarDays },
-    { name: 'Forms', href: '#', icon: FileText },
-    { name: 'Billing', href: '#', icon: CreditCard },
-    { name: 'Messages', href: '#', icon: MessageSquare },
-    { name: 'Settings', href: '/portal/settings', icon: SettingsIcon },
+/* Grouped so navigation state reads at a glance and matches the Owner
+   dashboard's sidebar structure (headings + divider + active accent bar). */
+const NAV_GROUPS = [
+    {
+        label: 'Overview',
+        items: [
+            { name: 'Dashboard', href: '/portal/dashboard', icon: LayoutDashboard },
+            { name: 'Appointments', href: '#', icon: CalendarDays },
+            { name: 'Forms', href: '#', icon: FileText },
+        ],
+    },
+    {
+        label: 'Account',
+        items: [
+            { name: 'Billing', href: '#', icon: CreditCard },
+            { name: 'Messages', href: '#', icon: MessageSquare },
+            { name: 'Settings', href: '/portal/settings', icon: SettingsIcon },
+        ],
+    },
 ];
 
 function isActive(currentUrl, href) {
     if (href === '#') return false;
     return currentUrl === href || currentUrl.startsWith(`${href}/`);
+}
+
+function SidebarNavLink({ item, active, onNavigate }) {
+    return (
+        <Link
+            href={item.href}
+            onClick={onNavigate}
+            className={`group relative flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--umahz-sidebar-active-bar)] ${
+                active ? 'font-bold' : 'font-medium'
+            }`}
+            style={active
+                ? { background: 'var(--umahz-sidebar-active-bg)', color: '#FFFFFF' }
+                : { color: 'var(--umahz-sidebar-text)' }}
+            onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--umahz-sidebar-hover)'; }}
+            onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+        >
+            {active && (
+                <span
+                    aria-hidden="true"
+                    className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r"
+                    style={{ background: 'var(--umahz-sidebar-active-bar)' }}
+                />
+            )}
+            <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
+            {item.name}
+        </Link>
+    );
 }
 
 function SidebarContent({ currentUrl, onNavigate }) {
@@ -44,28 +83,30 @@ function SidebarContent({ currentUrl, onNavigate }) {
                 </Link>
             </div>
 
-            <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
-                {NAV.map((item) => {
-                    const active = isActive(currentUrl, item.href);
-                    return (
-                        <Link
-                            key={item.name}
-                            href={item.href}
-                            onClick={onNavigate}
-                            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5B9BFF] ${
-                                active ? 'font-bold' : 'font-medium'
-                            }`}
-                            style={active
-                                ? { background: 'var(--umahz-sidebar-active-bg)', color: '#FFFFFF' }
-                                : { color: 'var(--umahz-sidebar-text)' }}
-                            onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--umahz-sidebar-hover)'; }}
-                            onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+            <nav className="flex-1 px-3 overflow-y-auto">
+                {NAV_GROUPS.map((group, gi) => (
+                    <div key={group.label}>
+                        {gi > 0 && (
+                            <div className="mx-3 my-3 border-t" style={{ borderColor: 'var(--umahz-sidebar-border)' }} />
+                        )}
+                        <p
+                            className="px-3.5 pt-2 pb-1.5 text-[10px] font-semibold uppercase tracking-widest"
+                            style={{ color: 'var(--umahz-sidebar-heading)' }}
                         >
-                            <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
-                            {item.name}
-                        </Link>
-                    );
-                })}
+                            {group.label}
+                        </p>
+                        <div className="space-y-1">
+                            {group.items.map((item) => (
+                                <SidebarNavLink
+                                    key={item.name}
+                                    item={item}
+                                    active={isActive(currentUrl, item.href)}
+                                    onNavigate={onNavigate}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                ))}
             </nav>
 
             <div className="px-4 pb-5 pt-3">
@@ -220,7 +261,7 @@ function PortalShell({ children, title }) {
 
 export default function PortalLayout({ children, title, themePreference = 'system' }) {
     return (
-        <ThemeProvider initialPreference={themePreference}>
+        <ThemeProvider initialPreference={themePreference} persistUrl="/portal/settings/theme">
             <PortalShell title={title}>{children}</PortalShell>
         </ThemeProvider>
     );

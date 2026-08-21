@@ -30,8 +30,10 @@
      needs its own text/hover tokens rather than the ones above. */
   --umahz-sidebar-text: #C9D6E4;
   --umahz-sidebar-text-muted: #7C93AC;
+  --umahz-sidebar-heading: #5C7391;
   --umahz-sidebar-hover: rgba(255,255,255,0.06);
   --umahz-sidebar-active-bg: rgba(37,99,235,0.28);
+  --umahz-sidebar-active-bar: #2563EB;
   --umahz-sidebar-border: rgba(255,255,255,0.08);
 
   background: var(--umahz-bg);
@@ -50,9 +52,78 @@
   --umahz-accent-text: #5B9BFF;
   --umahz-track-off: #1E2E40;
   --umahz-hover: rgba(255,255,255,0.04);
+  --umahz-sidebar-active-bar: #5B9BFF;
 }
 
 .umahz-portal input::placeholder {
+  color: var(--umahz-text-tertiary);
+}
+
+/* UMAHZ staff / owner dashboard theme tokens (light + dark).
+   Parallel scope to .umahz-portal, reusing the same variable NAMES so the
+   staff layout + pages read one token set regardless of theme. Persistence
+   for this shell is localStorage-only (staff Users have no theme column). */
+.umahz-app {
+  --umahz-bg: #F1F5F9;
+  --umahz-surface: #FFFFFF;
+  --umahz-surface-2: #F8FAFC;
+  --umahz-border: #E2E8F0;
+  --umahz-text-primary: #0D1B2A;
+  --umahz-text-secondary: #64748B;
+  --umahz-text-tertiary: #94A3B8;
+  --umahz-hover: #F1F5F9;
+
+  --umahz-accent: #2563EB;         /* Royal Blue */
+  --umahz-accent-teal: #06B6D4;    /* Teal */
+  --umahz-accent-emerald: #16A34A; /* Emerald, darkened for text contrast on light */
+
+  --umahz-warn: #B45309;           /* amber-700 — AA on white */
+  --umahz-warn-mid: #C2410C;       /* orange-700 */
+  --umahz-danger: #DC2626;         /* red-600 */
+
+  /* Sidebar stays Deep Navy in BOTH modes; it carries its own tokens. */
+  --umahz-sidebar-bg: #0D1B2A;
+  --umahz-sidebar-text: #C9D6E4;
+  --umahz-sidebar-text-muted: #7C93AC;
+  --umahz-sidebar-heading: #5C7391;
+  --umahz-sidebar-hover: rgba(255,255,255,0.06);
+  --umahz-sidebar-active-bg: rgba(37,99,235,0.20);
+  --umahz-sidebar-active-bar: #2563EB;
+  --umahz-sidebar-border: rgba(255,255,255,0.08);
+
+  background: var(--umahz-bg);
+  transition: background-color 0.25s ease;
+}
+
+.umahz-app.dark {
+  --umahz-bg: #0B1524;
+  --umahz-surface: #13263C;
+  --umahz-surface-2: #0F1E30;
+  --umahz-border: #223751;
+  --umahz-text-primary: #E6EDF5;
+  --umahz-text-secondary: #9DB0C6;
+  --umahz-text-tertiary: #6B7F97;
+  --umahz-hover: rgba(255,255,255,0.05);
+
+  --umahz-accent: #5B9BFF;
+  --umahz-accent-teal: #22D3EE;
+  --umahz-accent-emerald: #34D399;
+
+  --umahz-warn: #FBBF24;
+  --umahz-warn-mid: #FB923C;
+  --umahz-danger: #F87171;
+
+  --umahz-sidebar-bg: #0A1220;
+  --umahz-sidebar-text: #C9D6E4;
+  --umahz-sidebar-text-muted: #7C93AC;
+  --umahz-sidebar-heading: #5C7391;
+  --umahz-sidebar-hover: rgba(255,255,255,0.06);
+  --umahz-sidebar-active-bg: rgba(91,155,255,0.18);
+  --umahz-sidebar-active-bar: #5B9BFF;
+  --umahz-sidebar-border: rgba(255,255,255,0.08);
+}
+
+.umahz-app input::placeholder {
   color: var(--umahz-text-tertiary);
 }
 

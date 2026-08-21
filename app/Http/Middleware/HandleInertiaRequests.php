@@ -71,6 +71,9 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
             ],
+            'app' => [
+                'isLocal' => app()->environment('local'),
+            ],
         ]);
     }
 }
