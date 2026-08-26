@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\VerifyEmailNotification;
 use Illuminate\Auth\MustVerifyEmail as MustVerifyEmailTrait;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -65,6 +66,15 @@ class User extends Authenticatable implements MustVerifyEmail
             'marketing_opt_in' => 'boolean',
             'marketing_opt_in_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Send the UMAHZ-branded email verification notification instead of the
+     * framework default.
+     */
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new VerifyEmailNotification());
     }
 
     public function staffMemberships(): HasMany
