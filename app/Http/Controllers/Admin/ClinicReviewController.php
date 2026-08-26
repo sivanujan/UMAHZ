@@ -106,23 +106,29 @@ class ClinicReviewController extends Controller
     {
         $this->authorize('review', $tenant);
 
-        $tenant->update([
-            'status' => Tenant::STATUS_APPROVED,
-            'reviewed_at' => now(),
-            'reviewed_by' => $request->user()->id,
-            'review_note' => null,
-        ]);
-
-        PractitionerProfile::where('is_primary_contact', true)
-            ->whereHas('staffMembership', fn ($q) => $q->where('tenant_id', $tenant->id))
-            ->update([
-                'verification_status' => PractitionerProfile::VERIFICATION_VERIFIED,
+        // Status change + primary-practitioner verification + audit insert must
+        // all land together or not at all.
+        DB::transaction(function () use ($request, $tenant) {
+            $tenant->update([
+                'status' => Tenant::STATUS_APPROVED,
                 'reviewed_at' => now(),
                 'reviewed_by' => $request->user()->id,
+                'review_note' => null,
             ]);
 
-        $this->logAuditEvent($request, $tenant, 'clinic.approved');
+            PractitionerProfile::where('is_primary_contact', true)
+                ->whereHas('staffMembership', fn ($q) => $q->where('tenant_id', $tenant->id))
+                ->update([
+                    'verification_status' => PractitionerProfile::VERIFICATION_VERIFIED,
+                    'reviewed_at' => now(),
+                    'reviewed_by' => $request->user()->id,
+                ]);
 
+            $this->logAuditEvent($request, $tenant, 'clinic.approved');
+        });
+
+        // Kept OUTSIDE the transaction: a mail/queue failure must never roll back
+        // a completed approval.
         $owner = $tenant->staffMemberships()->where('role', 'clinic_owner')->first()?->user;
         $this->notifySafely($owner, new ClinicApplicationApprovedNotification($tenant));
 
@@ -133,19 +139,23 @@ class ClinicReviewController extends Controller
     {
         $this->authorize('review', $tenant);
 
+        // Note stays required — validation runs before any writes.
         $data = $request->validate([
             'note' => ['required', 'string', 'max:2000'],
         ]);
 
-        $tenant->update([
-            'status' => Tenant::STATUS_NEEDS_MORE_INFO,
-            'reviewed_at' => now(),
-            'reviewed_by' => $request->user()->id,
-            'review_note' => $data['note'],
-        ]);
+        DB::transaction(function () use ($request, $tenant, $data) {
+            $tenant->update([
+                'status' => Tenant::STATUS_NEEDS_MORE_INFO,
+                'reviewed_at' => now(),
+                'reviewed_by' => $request->user()->id,
+                'review_note' => $data['note'],
+            ]);
 
-        $this->logAuditEvent($request, $tenant, 'clinic.needs_more_info', $data['note']);
+            $this->logAuditEvent($request, $tenant, 'clinic.needs_more_info', $data['note']);
+        });
 
+        // Outside the transaction: mail/queue failure must not roll back the review.
         $owner = $tenant->staffMemberships()->where('role', 'clinic_owner')->first()?->user;
         $this->notifySafely($owner, new ClinicApplicationNeedsInfoNotification($tenant));
 
@@ -156,19 +166,23 @@ class ClinicReviewController extends Controller
     {
         $this->authorize('review', $tenant);
 
+        // Note stays required — validation runs before any writes.
         $data = $request->validate([
             'note' => ['required', 'string', 'max:2000'],
         ]);
 
-        $tenant->update([
-            'status' => Tenant::STATUS_REJECTED,
-            'reviewed_at' => now(),
-            'reviewed_by' => $request->user()->id,
-            'review_note' => $data['note'],
-        ]);
+        DB::transaction(function () use ($request, $tenant, $data) {
+            $tenant->update([
+                'status' => Tenant::STATUS_REJECTED,
+                'reviewed_at' => now(),
+                'reviewed_by' => $request->user()->id,
+                'review_note' => $data['note'],
+            ]);
 
-        $this->logAuditEvent($request, $tenant, 'clinic.rejected', $data['note']);
+            $this->logAuditEvent($request, $tenant, 'clinic.rejected', $data['note']);
+        });
 
+        // Outside the transaction: mail/queue failure must not roll back the review.
         $owner = $tenant->staffMemberships()->where('role', 'clinic_owner')->first()?->user;
         $this->notifySafely($owner, new ClinicApplicationRejectedNotification($tenant));
 
