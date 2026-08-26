@@ -4,6 +4,8 @@ use App\Http\Controllers\Admin\ClinicReviewController;
 use App\Http\Controllers\Admin\PractitionerReviewController;
 use App\Http\Controllers\ClinicStatusController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\LocationController;
+use App\Http\Controllers\RoomController;
 use App\Http\Controllers\Onboarding\OnboardingController;
 use App\Http\Controllers\Portal\SettingsController;
 use App\Http\Controllers\Settings\StaffInvitationController;
@@ -118,6 +120,19 @@ Route::middleware(['auth', 'verified', 'staff.role'])->prefix('app')->name('app.
     Route::middleware('staff.role:clinic_owner')->group(function () {
         Route::get('/staff', [StaffInvitationController::class, 'index'])->name('staff.index');
         Route::post('/staff', [StaffInvitationController::class, 'store'])->name('staff.store');
+
+        // Locations & Rooms — owner-only management.
+        Route::get('/locations', [LocationController::class, 'index'])->name('locations.index');
+        Route::post('/locations', [LocationController::class, 'store'])->name('locations.store');
+        Route::get('/locations/{location}', [LocationController::class, 'show'])->name('locations.show');
+        Route::patch('/locations/{location}', [LocationController::class, 'update'])->name('locations.update');
+        Route::patch('/locations/{location}/toggle', [LocationController::class, 'toggle'])->name('locations.toggle');
+        Route::delete('/locations/{location}', [LocationController::class, 'destroy'])->name('locations.destroy');
+
+        Route::post('/locations/{location}/rooms', [RoomController::class, 'store'])->name('rooms.store');
+        Route::patch('/rooms/{room}', [RoomController::class, 'update'])->name('rooms.update');
+        Route::patch('/rooms/{room}/toggle', [RoomController::class, 'toggle'])->name('rooms.toggle');
+        Route::delete('/rooms/{room}', [RoomController::class, 'destroy'])->name('rooms.destroy');
     });
 
     // Example of a per-route Spatie permission gate on top of the tenant
