@@ -6,7 +6,7 @@ import PasswordStrengthMeter from '@/Components/UI/PasswordStrengthMeter';
 
 const ROYAL_BLUE = '#5B2EFF';
 const DEEP_NAVY = '#1E0B3C';
-const MANROPE = "'Manrope', system-ui, -apple-system, sans-serif";
+const UI_FONT = "'Satoshi', system-ui, -apple-system, sans-serif";
 
 const CONTACT_METHODS = [
     { value: 'email', label: 'Email' },
@@ -338,7 +338,7 @@ export default function Register({ tenants, preselectedTenantSlug, tosVersion })
     return (
         <div
             className="min-h-screen antialiased text-slate-800 flex items-center justify-center px-6 py-16 relative overflow-hidden"
-            style={{ fontFamily: MANROPE, background: '#F8FAFC' }}
+            style={{ fontFamily: UI_FONT, background: '#F8FAFC' }}
         >
             <Head title="Create Account" />
 

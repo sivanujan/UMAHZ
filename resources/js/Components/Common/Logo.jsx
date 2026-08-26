@@ -26,7 +26,7 @@ export default function Logo({ size = 'md', theme = 'light', tagline = false, cl
             />
             <span className="flex flex-col leading-tight">
                 <span className={`font-bold tracking-tight ${wordmark} ${wordmarkColor}`}>
-                    UMAHZ<span className="text-[#5B2EFF]">.</span>
+                    UMAHZ<span className="text-[#2563EB]">.</span>
                 </span>
                 {tagline && (
                     <span className={`font-medium ${taglineSize} ${taglineColor}`}>

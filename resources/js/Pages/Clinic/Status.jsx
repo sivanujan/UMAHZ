@@ -8,7 +8,7 @@ import Logo from '@/Components/Common/Logo';
 
 const ROYAL_BLUE = '#5B2EFF';
 const DEEP_NAVY = '#1E0B3C';
-const MANROPE = "'Manrope', system-ui, -apple-system, sans-serif";
+const UI_FONT = "'Satoshi', system-ui, -apple-system, sans-serif";
 
 const DISCIPLINE_LABELS = {
     massage_therapy: 'Massage Therapy',
@@ -179,7 +179,7 @@ export default function ClinicStatus({ tenant, canEdit, disciplines = [] }) {
     const Icon = meta.icon;
 
     return (
-        <div className="min-h-screen antialiased text-slate-800 flex items-center justify-center px-6 py-16 relative overflow-hidden" style={{ fontFamily: MANROPE, background: '#F8FAFC' }}>
+        <div className="min-h-screen antialiased text-slate-800 flex items-center justify-center px-6 py-16 relative overflow-hidden" style={{ fontFamily: UI_FONT, background: '#F8FAFC' }}>
             <Head title="Application Status" />
 
             <div className="absolute inset-0 pointer-events-none">

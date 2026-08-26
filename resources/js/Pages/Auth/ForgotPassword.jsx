@@ -5,7 +5,7 @@ import Logo from '@/Components/Common/Logo';
 
 const ROYAL_BLUE = '#5B2EFF';
 const DEEP_NAVY = '#1E0B3C';
-const MANROPE = "'Manrope', system-ui, -apple-system, sans-serif";
+const UI_FONT = "'Satoshi', system-ui, -apple-system, sans-serif";
 
 const labelStyle = { display: 'block', fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#64748b', marginBottom: 9 };
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -35,7 +35,7 @@ export default function ForgotPassword({ status }) {
     return (
         <div
             className="min-h-screen antialiased text-slate-800 flex items-center justify-center px-6 py-16 relative overflow-hidden"
-            style={{ fontFamily: MANROPE, background: '#F8FAFC' }}
+            style={{ fontFamily: UI_FONT, background: '#F8FAFC' }}
         >
             <Head title="Forgot Password" />
 

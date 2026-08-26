@@ -19,7 +19,7 @@
 
         <!-- Clash Display (display headings) -->
         <link rel="preconnect" href="https://api.fontshare.com">
-        <link href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&display=swap" rel="stylesheet">
+        <link href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&f[]=satoshi@300,400,500,700,900&display=swap" rel="stylesheet">
 
         <!-- Scripts -->
         @routes

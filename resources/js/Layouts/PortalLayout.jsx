@@ -7,7 +7,7 @@ import {
 import Logo from '@/Components/Common/Logo';
 import { ThemeProvider, useTheme } from '@/Contexts/ThemeContext';
 
-const MANROPE = "'Manrope', system-ui, -apple-system, sans-serif";
+const UI_FONT = "'Satoshi', system-ui, -apple-system, sans-serif";
 
 /* Grouped so navigation state reads at a glance and matches the Owner
    dashboard's sidebar structure (headings + divider + active accent bar). */
@@ -144,7 +144,7 @@ function PortalShell({ children, title }) {
     return (
         <div
             className={`umahz-portal min-h-screen font-sans antialiased transition-colors duration-300 ${resolved === 'dark' ? 'dark' : ''}`}
-            style={{ fontFamily: MANROPE, background: 'var(--umahz-bg)', color: 'var(--umahz-text-primary)' }}
+            style={{ fontFamily: UI_FONT, background: 'var(--umahz-bg)', color: 'var(--umahz-text-primary)' }}
         >
             {/* Desktop sidebar */}
             <aside

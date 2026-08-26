@@ -12,7 +12,7 @@ const NAVY = '#0D1B2A';
 const BLUE = '#2563EB';
 const GREEN = '#22C55E';
 const TEAL = '#06B6D4';
-const MANROPE = "'Manrope', system-ui, -apple-system, sans-serif";
+const UI_FONT = "'Satoshi', system-ui, -apple-system, sans-serif";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png'];
@@ -106,7 +106,7 @@ function StepHeading({ stepId, title, subtitle }) {
                 <Icon className="w-5 h-5" style={{ color: BLUE }} />
             </span>
             <div>
-                <h2 className="text-[15px]" style={{ color: NAVY, fontFamily: MANROPE, fontWeight: 700 }}>{title}</h2>
+                <h2 className="text-[15px]" style={{ color: NAVY, fontFamily: UI_FONT, fontWeight: 700 }}>{title}</h2>
                 {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
             </div>
         </div>
@@ -545,7 +545,7 @@ export default function ClinicRegister({ disciplines = [] }) {
     return (
         <div
             className="min-h-screen antialiased text-slate-800 px-6 py-16"
-            style={{ fontFamily: MANROPE, background: '#F1F5F9' }}
+            style={{ fontFamily: UI_FONT, background: '#F1F5F9' }}
         >
             <Head title="Apply to Join UMAHZ" />
             <style>{TRANSITION_STYLES}</style>
@@ -562,7 +562,7 @@ export default function ClinicRegister({ disciplines = [] }) {
                     </Link>
 
                     <div className="relative text-center">
-                        <h1 className="text-[34px] sm:text-[38px] leading-[1.1]" style={{ fontFamily: MANROPE, fontWeight: 800, letterSpacing: '-0.02em' }}>
+                        <h1 className="text-[34px] sm:text-[38px] leading-[1.1]" style={{ fontFamily: UI_FONT, fontWeight: 800, letterSpacing: '-0.02em' }}>
                             <span style={{ color: NAVY }}>Apply to Join </span>
                             <span style={{ color: BLUE }}>UMAHZ</span>
                         </h1>

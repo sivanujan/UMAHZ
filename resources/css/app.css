@@ -7,9 +7,9 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: 'Manrope', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Satoshi', system-ui, -apple-system, sans-serif;
   --font-serif: 'Playfair Display', Georgia, serif;
-  --font-display: 'Clash Display', 'Manrope', system-ui, sans-serif;
+  --font-display: 'Clash Display', 'Satoshi', system-ui, sans-serif;
 }
 
 /* UMAHZ client portal theme tokens (light + dark) */
@@ -129,7 +129,7 @@
 
 @layer base {
   body {
-    font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+    font-family: 'Satoshi', system-ui, -apple-system, sans-serif;
     font-weight: 400;
     line-height: 1.6;
   }
@@ -139,7 +139,7 @@
   }
 
   h1, h2 {
-    font-family: 'Clash Display', 'Manrope', system-ui, sans-serif;
+    font-family: 'Clash Display', 'Satoshi', system-ui, sans-serif;
     font-weight: 700;
     line-height: 1.15;
   }
