@@ -126,7 +126,7 @@ class LocationController extends Controller
             $location->delete();
         });
 
-        return redirect()->route('app.locations.index')->with('success', "Location \"{$name}\" deleted.");
+        return redirect('/app/locations')->with('success', "Location \"{$name}\" deleted.");
     }
 
     protected function summary(Location $location): array

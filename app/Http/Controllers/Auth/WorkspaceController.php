@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Support\Tenancy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class WorkspaceController extends Controller
 {
@@ -14,13 +16,19 @@ class WorkspaceController extends Controller
      * Show the "select a workspace" screen for users with active staff
      * memberships at more than one tenant.
      */
-    public function index(Request $request): Response|RedirectResponse
+    public function index(Request $request): Response|HttpResponse|RedirectResponse
     {
         $user = $request->user();
         $memberships = $user->activeWorkspaceMemberships()->with('tenant')->get();
 
+        // Nothing to choose between: go straight into the single workspace's
+        // subdomain (or home if, somehow, there are none).
         if ($memberships->count() < 2) {
-            return redirect()->route('app.dashboard');
+            $tenant = $memberships->first()?->tenant;
+
+            return $tenant
+                ? Tenancy::redirectTo($request, $tenant->appUrl('/app/dashboard'))
+                : redirect()->route('home');
         }
 
         return Inertia::render('Auth/SelectWorkspace', [
@@ -36,7 +44,7 @@ class WorkspaceController extends Controller
     /**
      * Persist the chosen tenant as the user's current workspace.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): HttpResponse|RedirectResponse
     {
         $data = $request->validate([
             'tenant_id' => ['required', 'uuid'],
@@ -51,6 +59,8 @@ class WorkspaceController extends Controller
 
         $request->session()->put('current_tenant_id', $membership->tenant_id);
 
-        return redirect()->route('app.dashboard');
+        // Enter the chosen clinic on its own subdomain (cross-host: Inertia
+        // location visit).
+        return Tenancy::redirectTo($request, $membership->tenant->appUrl('/app/dashboard'));
     }
 }

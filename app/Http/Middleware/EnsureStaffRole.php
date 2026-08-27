@@ -56,19 +56,25 @@ class EnsureStaffRole
         // /portal route is reachable — checked here so every request that
         // resolves a membership passes through this one gate. Exempt the
         // status page itself, or an unapproved tenant could never reach it.
+        // Host-relative redirects: these routes now live on the clinic
+        // subdomain (a {tenant} domain parameter), so route() can't name them
+        // without that value — and a relative path correctly stays on the
+        // subdomain the request already arrived on.
         if (!$membership->tenant->isApproved() && !$request->routeIs('clinic.status*')) {
-            return redirect()->route('clinic.status');
+            return redirect('/clinic/status');
         }
 
-        // A clinic_owner whose tenant hasn't finished the setup wizard is
-        // sent there first — except for the wizard's own routes, or every
-        // request would loop.
+        // A clinic_owner whose APPROVED tenant hasn't finished the setup wizard
+        // is sent there first — except for the wizard's own routes, or every
+        // request would loop. Gated on approval so a pending owner rests on the
+        // status page instead of bouncing between it and onboarding.
         if (
-            $membership->role === StaffMembership::ROLE_CLINIC_OWNER
+            $membership->tenant->isApproved()
+            && $membership->role === StaffMembership::ROLE_CLINIC_OWNER
             && !$request->routeIs('app.onboarding.*')
             && !$membership->tenant->hasCompletedOnboarding()
         ) {
-            return redirect()->route('app.onboarding.show');
+            return redirect('/app/onboarding');
         }
 
         return $next($request);

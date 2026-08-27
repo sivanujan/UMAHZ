@@ -6,6 +6,7 @@ use App\Http\Controllers\Onboarding\ClinicRegistrationController;
 use App\Models\PractitionerProfile;
 use App\Http\Controllers\Controller;
 use App\Models\StaffMembership;
+use App\Support\Tenancy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,6 +16,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class AcceptInviteController extends Controller
 {
@@ -51,7 +53,7 @@ class AcceptInviteController extends Controller
      * Activate the invited account: set a real password, mark the
      * membership active, and sign the user in.
      */
-    public function store(Request $request, StaffMembership $staffMembership): RedirectResponse
+    public function store(Request $request, StaffMembership $staffMembership): HttpResponse|RedirectResponse
     {
         if ($staffMembership->status !== StaffMembership::STATUS_INVITED) {
             return redirect()->route('login')->with('status', 'This invitation has already been used or is no longer valid.');
@@ -118,6 +120,11 @@ class AcceptInviteController extends Controller
             ? 'Your account is active. Your license is pending verification by our team, but you have full access in the meantime.'
             : 'Your account is now active. Welcome aboard!';
 
-        return redirect()->route('app.dashboard')->with('success', $message);
+        // Invite acceptance happens on the central domain; send the new staff
+        // member into their clinic's subdomain workspace (cross-host: Inertia
+        // location visit).
+        $request->session()->flash('success', $message);
+
+        return Tenancy::redirectTo($request, $staffMembership->tenant->appUrl('/app/dashboard'));
     }
 }

@@ -3,7 +3,7 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import {
     User, Mail, Lock, Building2, Check, Eye, EyeOff, AlertCircle, Loader2,
     MapPin, Phone, IdCard, Upload, FileText, X, Hand, Flame, Dumbbell, Apple,
-    Droplets, ShieldCheck, Clock, Stethoscope,
+    Droplets, ShieldCheck, Clock, Stethoscope, Globe,
 } from 'lucide-react';
 import Logo from '@/Components/Common/Logo';
 import PasswordStrengthMeter from '@/Components/UI/PasswordStrengthMeter';
@@ -14,6 +14,10 @@ const GREEN = '#22C55E';
 const TEAL = '#06B6D4';
 const UI_FONT = "'Satoshi', system-ui, -apple-system, sans-serif";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Mirrors the server rule (config/tenancy.php): 3–40 chars, lowercase
+// alnum/hyphen, no leading/trailing hyphen. Authoritative availability
+// (taken / reserved) is still confirmed by the server endpoint.
+const SUBDOMAIN_RE = /^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png'];
 
@@ -58,7 +62,7 @@ const STEP_ICONS = {
  * step that actually owns it. */
 const STEP_FIELDS = {
     account: ['name', 'email', 'password', 'password_confirmation'],
-    clinic: ['clinic_name', 'business_registration_number', 'address_line1', 'address_city', 'address_region', 'address_country'],
+    clinic: ['clinic_name', 'subdomain', 'business_registration_number', 'address_line1', 'address_city', 'address_region', 'address_country'],
     contact: ['primary_contact_name', 'primary_contact_email', 'primary_contact_phone'],
     practice: ['requested_disciplines', 'estimated_practitioner_count'],
     license: ['license_number', 'licensing_body', 'license_document'],
@@ -144,6 +148,174 @@ function Field({ id, icon: Icon, label, type = 'text', value, onChange, onBlur, 
             ) : helper ? (
                 <p id={`${id}-hint`} className="text-[11px] text-slate-400 mt-1.5">{helper}</p>
             ) : null}
+        </div>
+    );
+}
+
+/** Jane-style subdomain picker: the applicant types the left-hand label and
+ * sees the full "name.umahz.com" host preview, with a live availability
+ * status underneath (checked against the server so "available" is truthful). */
+function SubdomainField({ id, value, onChange, onBlur, suffix, error, status, message }) {
+    const showError = !!error || status === 'invalid' || status === 'taken';
+    const showValid = status === 'available' && !error;
+    return (
+        <div>
+            <label htmlFor={id} style={labelStyle(true)}>Clinic Web Address<RequiredDot required /></label>
+            <div className={`flex items-stretch rounded-2xl border overflow-hidden bg-white transition-all duration-200 focus-within:ring-4 ${
+                showError
+                    ? 'border-rose-300 focus-within:border-rose-400 focus-within:ring-rose-400/15'
+                    : showValid
+                        ? 'border-emerald-300 focus-within:border-emerald-400 focus-within:ring-emerald-400/15'
+                        : 'border-slate-200 focus-within:border-[#2563EB] focus-within:ring-[#2563EB]/20'
+            }`}>
+                <span className="flex items-center pl-4 pr-1 text-[#2563EB]/50">
+                    <Globe className="w-4 h-4" />
+                </span>
+                <input
+                    id={id}
+                    type="text"
+                    value={value}
+                    onChange={onChange}
+                    onBlur={onBlur}
+                    required
+                    inputMode="url"
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    placeholder="lotus-wellness"
+                    aria-invalid={showError}
+                    aria-describedby={`${id}-hint`}
+                    className="flex-1 min-w-0 py-3.5 pl-2 pr-2 text-sm font-medium text-[#0D1B2A] bg-transparent outline-none"
+                />
+                <span className="flex items-center pr-3 pl-1 text-sm font-medium text-slate-400 select-none whitespace-nowrap">
+                    {suffix}
+                    {status === 'checking' && <Loader2 className="w-3.5 h-3.5 animate-spin ml-2 text-slate-300" />}
+                    {showValid && <Check className="w-4 h-4 ml-2 text-emerald-500" strokeWidth={2.5} />}
+                    {showError && <AlertCircle className="w-4 h-4 ml-2 text-rose-500" strokeWidth={2} />}
+                </span>
+            </div>
+            <p id={`${id}-hint`} className={`text-[11px] mt-1.5 ${
+                showError ? 'text-rose-600 font-medium' : showValid ? 'text-emerald-600 font-medium' : 'text-slate-400'
+            }`}>
+                {error || message || 'Lowercase letters, numbers and hyphens — this is where your staff sign in.'}
+            </p>
+        </div>
+    );
+}
+
+/** Step 1 email gate: sends a 6-digit code to the typed address and only lets
+ * the applicant continue once they enter it. Ownership is proven before the
+ * account is ever created — the server enforces the same check on submit. */
+function EmailVerification({ email, emailValid, verified, onVerifiedChange }) {
+    const [sent, setSent] = useState(false);
+    const [code, setCode] = useState('');
+    const [status, setStatus] = useState('idle'); // idle | sending | sent | verifying | error
+    const [message, setMessage] = useState(null);
+    const [resendIn, setResendIn] = useState(0);
+
+    // Any change to the email invalidates a prior verification.
+    useEffect(() => {
+        setSent(false); setCode(''); setStatus('idle'); setMessage(null); setResendIn(0);
+        onVerifiedChange(false);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [email]);
+
+    useEffect(() => {
+        if (resendIn <= 0) return undefined;
+        const t = setInterval(() => setResendIn((s) => Math.max(0, s - 1)), 1000);
+        return () => clearInterval(t);
+    }, [resendIn]);
+
+    const send = async () => {
+        setStatus('sending'); setMessage(null);
+        try {
+            const { data } = await window.axios.post('/clinics/register/send-code', { email });
+            if (data.sent) {
+                setSent(true); setStatus('sent');
+                setResendIn(data.cooldown || 60);
+                setMessage(`We sent a 6-digit code to ${email}.`);
+            }
+        } catch (e) {
+            const r = e.response?.data;
+            setStatus('error');
+            if (r?.cooldown) { setSent(true); setResendIn(r.cooldown); }
+            setMessage(r?.reason || 'Could not send the code — please try again.');
+        }
+    };
+
+    const verify = async () => {
+        if (code.length !== 6) return;
+        setStatus('verifying'); setMessage(null);
+        try {
+            const { data } = await window.axios.post('/clinics/register/verify-code', { email, code });
+            if (data.verified) {
+                setStatus('verified'); setMessage(null);
+                onVerifiedChange(true);
+            } else {
+                setStatus('error'); setMessage(data.reason || 'That code is incorrect.');
+            }
+        } catch (e) {
+            setStatus('error'); setMessage('Could not verify the code — please try again.');
+        }
+    };
+
+    if (verified) {
+        return (
+            <div className="flex items-center gap-2 px-4 py-3 rounded-2xl border border-emerald-200 bg-emerald-50/60">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" strokeWidth={2.5} />
+                <span className="text-xs font-semibold text-emerald-700">Email verified</span>
+            </div>
+        );
+    }
+
+    // Nothing to do until the email itself is well-formed.
+    if (!emailValid) return null;
+
+    return (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3.5 space-y-3">
+            {!sent ? (
+                <button
+                    type="button" onClick={send} disabled={status === 'sending'}
+                    className="w-full py-3 px-4 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-70 active:scale-[0.99]"
+                    style={{ background: `linear-gradient(135deg, ${BLUE} 0%, ${TEAL} 100%)` }}
+                >
+                    {status === 'sending' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                    {status === 'sending' ? 'Sending code…' : 'Send verification code'}
+                </button>
+            ) : (
+                <>
+                    <p className="text-[11px] text-slate-500">Enter the 6-digit code we emailed you.</p>
+                    <div className="flex items-stretch gap-2">
+                        <input
+                            type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6}
+                            value={code}
+                            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            placeholder="123456"
+                            className="flex-1 min-w-0 py-3 px-4 rounded-xl border border-slate-200 bg-white text-sm font-semibold tracking-[0.3em] text-[#0D1B2A] outline-none focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/20"
+                        />
+                        <button
+                            type="button" onClick={verify} disabled={code.length !== 6 || status === 'verifying'}
+                            className="px-5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50"
+                            style={{ background: NAVY }}
+                        >
+                            {status === 'verifying' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify'}
+                        </button>
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-slate-400">Didn’t get it? Check spam.</span>
+                        {resendIn > 0 ? (
+                            <span className="text-[11px] text-slate-400">Resend in {resendIn}s</span>
+                        ) : (
+                            <button type="button" onClick={send} className="text-[11px] font-semibold" style={{ color: BLUE }}>
+                                Resend code
+                            </button>
+                        )}
+                    </div>
+                </>
+            )}
+            {message && (
+                <p className={`text-[11px] ${status === 'error' ? 'text-rose-600 font-medium' : 'text-slate-500'}`}>{message}</p>
+            )}
         </div>
     );
 }
@@ -398,7 +570,7 @@ function StepIndicator({ current, onJump }) {
     );
 }
 
-export default function ClinicRegister({ disciplines = [] }) {
+export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.umahz.com' }) {
     const { data, setData, post, processing, progress, errors } = useForm({
         name: '',
         email: '',
@@ -406,6 +578,7 @@ export default function ClinicRegister({ disciplines = [] }) {
         password_confirmation: '',
 
         clinic_name: '',
+        subdomain: '',
         business_registration_number: '',
         address_line1: '',
         address_city: '',
@@ -430,9 +603,54 @@ export default function ClinicRegister({ disciplines = [] }) {
     const [direction, setDirection] = useState('forward');
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
+    const [emailVerified, setEmailVerified] = useState(false);
+    // Subdomain availability: 'idle' | 'invalid' | 'checking' | 'available' | 'taken'
+    const [subdomainStatus, setSubdomainStatus] = useState('idle');
+    const [subdomainMessage, setSubdomainMessage] = useState(null);
     const cardRef = useRef(null);
 
     const markTouched = (name) => setTouched((t) => ({ ...t, [name]: true }));
+
+    // Strip to the allowed alphabet as the user types, and lowercase — so the
+    // preview and the value we submit always match what the server accepts.
+    const onSubdomainChange = (raw) => {
+        const cleaned = raw.toLowerCase().replace(/[^a-z0-9-]/g, '');
+        setData('subdomain', cleaned);
+    };
+
+    // Debounced availability check against the server (authoritative for
+    // "taken" and reserved names). Local format check gates the network call.
+    useEffect(() => {
+        const value = data.subdomain;
+        if (!value) { setSubdomainStatus('idle'); setSubdomainMessage(null); return; }
+        if (!SUBDOMAIN_RE.test(value)) {
+            setSubdomainStatus('invalid');
+            setSubdomainMessage(value.length < 3 ? 'At least 3 characters.' : 'Use lowercase letters, numbers and hyphens (no leading or trailing hyphen).');
+            return;
+        }
+        setSubdomainStatus('checking');
+        setSubdomainMessage(null);
+        const controller = new AbortController();
+        const t = setTimeout(async () => {
+            try {
+                const res = await fetch(`/clinics/register/subdomain?subdomain=${encodeURIComponent(value)}`, {
+                    headers: { Accept: 'application/json' },
+                    signal: controller.signal,
+                });
+                const json = await res.json();
+                if (json.available) {
+                    setSubdomainStatus('available');
+                    setSubdomainMessage(`${value}${subdomainSuffix} is available`);
+                } else {
+                    setSubdomainStatus('taken');
+                    setSubdomainMessage(json.reason || 'That address is not available.');
+                }
+            } catch (e) {
+                if (e.name !== 'AbortError') { setSubdomainStatus('idle'); setSubdomainMessage(null); }
+            }
+        }, 400);
+        return () => { clearTimeout(t); controller.abort(); };
+    }, [data.subdomain, subdomainSuffix]);
 
     useEffect(() => {
         cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -461,6 +679,8 @@ export default function ClinicRegister({ disciplines = [] }) {
 
     const clinicNameError = errors.clinic_name || (touched.clinic_name && !data.clinic_name.trim() ? 'Required' : null);
     const clinicNameValid = !!data.clinic_name.trim() && !errors.clinic_name;
+
+    const subdomainValid = subdomainStatus === 'available';
 
     const passwordFormatError = touched.password && data.password.length < 8 ? 'At least 8 characters' : null;
     const passwordError = errors.password || passwordFormatError;
@@ -500,8 +720,8 @@ export default function ClinicRegister({ disciplines = [] }) {
     };
 
     const completion = {
-        account: nameValid && emailValid && passwordValid && confirmValid,
-        clinic: clinicNameValid,
+        account: nameValid && emailValid && emailVerified && passwordValid && confirmValid,
+        clinic: clinicNameValid && subdomainValid,
         contact: contactNameValid && contactEmailValid && contactPhoneValid,
         practice: data.requested_disciplines.length > 0 && practitionerCountValid,
         license: licenseNumberValid && licensingBodyValid && !!data.license_document,
@@ -594,6 +814,10 @@ export default function ClinicRegister({ disciplines = [] }) {
                                         onChange={(e) => setData('email', e.target.value)} onBlur={() => markTouched('email')}
                                         error={emailError} valid={emailValid} required autoComplete="email"
                                     />
+                                    <EmailVerification
+                                        email={data.email} emailValid={emailValid}
+                                        verified={emailVerified} onVerifiedChange={setEmailVerified}
+                                    />
                                     <PasswordField
                                         id="password" label="Password" value={data.password}
                                         onChange={(e) => setData('password', e.target.value)} onBlur={() => markTouched('password')}
@@ -617,6 +841,12 @@ export default function ClinicRegister({ disciplines = [] }) {
                                         id="clinic_name" icon={Building2} label="Clinic Name" value={data.clinic_name}
                                         onChange={(e) => setData('clinic_name', e.target.value)} onBlur={() => markTouched('clinic_name')}
                                         error={clinicNameError} valid={clinicNameValid} required placeholder="Lotus Wellness Studio"
+                                    />
+                                    <SubdomainField
+                                        id="subdomain" value={data.subdomain}
+                                        onChange={(e) => onSubdomainChange(e.target.value)} onBlur={() => markTouched('subdomain')}
+                                        suffix={subdomainSuffix} error={errors.subdomain}
+                                        status={subdomainStatus} message={subdomainMessage}
                                     />
                                     <Field
                                         id="business_registration_number" icon={IdCard} label="Business Registration Number" value={data.business_registration_number}
