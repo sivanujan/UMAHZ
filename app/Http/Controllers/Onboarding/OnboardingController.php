@@ -16,13 +16,13 @@ class OnboardingController extends Controller
 {
     protected const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
-    protected const TIMEZONES = [
-        'America/St_Johns', 'America/Halifax', 'America/Toronto', 'America/Winnipeg',
-        'America/Regina', 'America/Edmonton', 'America/Vancouver', 'America/New_York',
-        'America/Chicago', 'America/Denver', 'America/Los_Angeles',
-    ];
-
-    protected const CURRENCIES = ['CAD', 'USD'];
+    // Option lists live in App\Support\ClinicOptions so the onboarding wizard
+    // and the Clinic Settings page share one source of truth.
+    protected const TIMEZONES = \App\Support\ClinicOptions::TIMEZONES;
+    protected const CURRENCIES = \App\Support\ClinicOptions::CURRENCIES;
+    protected const CANADIAN_PROVINCES = \App\Support\ClinicOptions::PROVINCES;
+    protected const COUNTRIES = \App\Support\ClinicOptions::COUNTRIES;
+    protected const CANADIAN_CITIES = \App\Support\ClinicOptions::CITIES;
 
     /**
      * Show the setup wizard. The current tenant is resolved from the
@@ -36,6 +36,9 @@ class OnboardingController extends Controller
             'tenant' => $tenant,
             'timezones' => self::TIMEZONES,
             'currencies' => self::CURRENCIES,
+            'provinces' => self::CANADIAN_PROVINCES,
+            'countries' => self::COUNTRIES,
+            'cities' => self::CANADIAN_CITIES,
             'days' => self::DAYS,
         ]);
     }
@@ -50,11 +53,11 @@ class OnboardingController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:50'],
-            'address_line1' => ['nullable', 'string', 'max:255'],
-            'address_city' => ['nullable', 'string', 'max:120'],
-            'address_region' => ['nullable', 'string', 'max:120'],
-            'address_country' => ['nullable', 'string', 'max:120'],
+            'phone' => ['required', 'string', 'max:50'],
+            'address_line1' => ['required', 'string', 'max:255'],
+            'address_city' => ['required', 'string', 'max:120'],
+            'address_region' => ['required', Rule::in(self::CANADIAN_PROVINCES)],
+            'address_country' => ['required', Rule::in(self::COUNTRIES)],
             'timezone' => ['required', Rule::in(self::TIMEZONES)],
             'currency' => ['required', Rule::in(self::CURRENCIES)],
         ]);
@@ -123,7 +126,7 @@ class OnboardingController extends Controller
             'onboarding_completed_at' => now(),
         ]);
 
-        return redirect()->route('app.dashboard')->with('success', 'Your clinic is all set up!');
+        return redirect('/app/dashboard')->with('success', 'Your clinic is all set up!');
     }
 
     protected function currentTenant(Request $request): Tenant

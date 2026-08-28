@@ -24,6 +24,7 @@ class Tenant extends Model
     protected $fillable = [
         'name',
         'slug',
+        'subdomain',
         'timezone',
         'currency',
         'tax_settings',
@@ -68,6 +69,23 @@ class Tenant extends Model
     public function isApproved(): bool
     {
         return $this->status === self::STATUS_APPROVED;
+    }
+
+    /**
+     * The clinic's staff subdomain host, e.g. "lotus.umahz.com".
+     */
+    public function subdomainHost(): string
+    {
+        return \App\Support\Tenancy::hostFor($this->subdomain);
+    }
+
+    /**
+     * An absolute URL into this clinic's staff workspace, e.g.
+     * "https://lotus.umahz.com/app/dashboard".
+     */
+    public function appUrl(string $path = ''): string
+    {
+        return \App\Support\Tenancy::urlFor($this->subdomain, $path);
     }
 
     public function reviewedBy(): BelongsTo

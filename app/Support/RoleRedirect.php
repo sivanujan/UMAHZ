@@ -28,11 +28,15 @@ class RoleRedirect
             $membership = $workspaceMemberships->first();
             $request->session()->put('current_tenant_id', $membership->tenant_id);
 
-            return route('app.dashboard', absolute: false);
+            // Staff work on their clinic's subdomain — send them to the
+            // absolute subdomain URL, not a central-domain relative path.
+            return $membership->tenant->appUrl('/app/dashboard');
         }
 
         if ($user->clients()->exists()) {
-            return route('portal.dashboard', absolute: false);
+            // Patients live on the common portal host, tenant resolved from
+            // their client account (login-based), not a subdomain.
+            return Tenancy::portalUrl('/portal/dashboard');
         }
 
         $request->session()->flash('error', 'Your account is not yet linked to a clinic workspace. Please contact your administrator.');

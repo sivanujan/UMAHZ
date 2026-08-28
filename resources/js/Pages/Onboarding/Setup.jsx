@@ -25,17 +25,19 @@ function defaultHours(days, existing) {
     return hours;
 }
 
-export default function OnboardingSetup({ tenant, timezones, currencies, days }) {
+export default function OnboardingSetup({ tenant, timezones, currencies, provinces = [], countries = [], cities = [], days }) {
     const [step, setStep] = useState(1);
 
     const profileForm = useForm({
         name: tenant.name || '',
-        email: tenant.email || '',
-        phone: tenant.phone || '',
+        // Pre-fill from what was already collected at registration so the
+        // owner isn't re-typing details they've already given.
+        email: tenant.email || tenant.primary_contact_email || '',
+        phone: tenant.phone || tenant.primary_contact_phone || '',
         address_line1: tenant.address?.line1 || '',
         address_city: tenant.address?.city || '',
         address_region: tenant.address?.region || '',
-        address_country: tenant.address?.country || '',
+        address_country: tenant.address?.country || countries[0] || 'Canada',
         timezone: tenant.timezone || 'America/Toronto',
         currency: tenant.currency || 'CAD',
     });
@@ -120,14 +122,16 @@ export default function OnboardingSetup({ tenant, timezones, currencies, days })
                                     type="tel"
                                     value={profileForm.data.phone}
                                     onChange={(e) => profileForm.setData('phone', e.target.value)}
+                                    required
                                     className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 text-[#1E0B3C] rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF]"
                                 />
                             </div>
+                            {profileForm.errors.phone && <div className="text-xs text-rose-600 mt-1">{profileForm.errors.phone}</div>}
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-1.5">Address (optional for now)</label>
+                        <label className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-1.5">Address</label>
                         <div className="relative mb-3">
                             <MapPin className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                             <input
@@ -135,32 +139,51 @@ export default function OnboardingSetup({ tenant, timezones, currencies, days })
                                 placeholder="Street address"
                                 value={profileForm.data.address_line1}
                                 onChange={(e) => profileForm.setData('address_line1', e.target.value)}
+                                required
                                 className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 text-[#1E0B3C] rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF]"
                             />
                         </div>
+                        {profileForm.errors.address_line1 && <div className="text-xs text-rose-600 mb-2">{profileForm.errors.address_line1}</div>}
                         <div className="grid grid-cols-3 gap-3">
-                            <input
-                                type="text"
-                                placeholder="City"
-                                value={profileForm.data.address_city}
-                                onChange={(e) => profileForm.setData('address_city', e.target.value)}
-                                className="px-3 py-3 bg-slate-50 border border-slate-200 text-[#1E0B3C] rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF]"
-                            />
-                            <input
-                                type="text"
-                                placeholder="Province"
-                                value={profileForm.data.address_region}
-                                onChange={(e) => profileForm.setData('address_region', e.target.value)}
-                                className="px-3 py-3 bg-slate-50 border border-slate-200 text-[#1E0B3C] rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF]"
-                            />
-                            <input
-                                type="text"
-                                placeholder="Country"
-                                value={profileForm.data.address_country}
-                                onChange={(e) => profileForm.setData('address_country', e.target.value)}
-                                className="px-3 py-3 bg-slate-50 border border-slate-200 text-[#1E0B3C] rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF]"
-                            />
+                            <div>
+                                <input
+                                    type="text"
+                                    list="ca-cities"
+                                    placeholder="City"
+                                    value={profileForm.data.address_city}
+                                    onChange={(e) => profileForm.setData('address_city', e.target.value)}
+                                    required
+                                    className="w-full px-3 py-3 bg-slate-50 border border-slate-200 text-[#1E0B3C] rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF]"
+                                />
+                                {profileForm.errors.address_city && <div className="text-xs text-rose-600 mt-1">{profileForm.errors.address_city}</div>}
+                            </div>
+                            <div>
+                                <select
+                                    value={profileForm.data.address_region}
+                                    onChange={(e) => profileForm.setData('address_region', e.target.value)}
+                                    required
+                                    className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF] text-[#1E0B3C]"
+                                >
+                                    <option value="" disabled>Province</option>
+                                    {provinces.map((p) => <option key={p} value={p}>{p}</option>)}
+                                </select>
+                                {profileForm.errors.address_region && <div className="text-xs text-rose-600 mt-1">{profileForm.errors.address_region}</div>}
+                            </div>
+                            <div>
+                                <select
+                                    value={profileForm.data.address_country}
+                                    onChange={(e) => profileForm.setData('address_country', e.target.value)}
+                                    required
+                                    className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF] text-[#1E0B3C]"
+                                >
+                                    {countries.map((c) => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                                {profileForm.errors.address_country && <div className="text-xs text-rose-600 mt-1">{profileForm.errors.address_country}</div>}
+                            </div>
                         </div>
+                        <datalist id="ca-cities">
+                            {cities.map((c) => <option key={c} value={c} />)}
+                        </datalist>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

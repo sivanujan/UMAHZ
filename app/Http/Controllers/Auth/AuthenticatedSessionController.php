@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -26,7 +27,7 @@ class AuthenticatedSessionController extends Controller
     /**
      * Handle an incoming authentication request.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): HttpResponse|RedirectResponse
     {
         $credentials = $request->validate([
             'email' => ['required', 'string', 'email'],
@@ -41,7 +42,18 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(RoleRedirect::path($request, $request->user()));
+        $target = RoleRedirect::path($request, $request->user());
+        $host = parse_url($target, PHP_URL_HOST);
+
+        // A staff/patient target lives on another host (clinic subdomain /
+        // portal). The login form is an Inertia XHR, which can't follow a
+        // cross-origin redirect — hand it a full-page location visit instead.
+        // Same-host targets (admin, home) keep the normal intended() flow.
+        if ($host && $host !== $request->getHost()) {
+            return Inertia::location($target);
+        }
+
+        return redirect()->intended($target);
     }
 
     /**

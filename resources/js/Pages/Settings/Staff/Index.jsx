@@ -1,7 +1,43 @@
 import React from 'react';
-import { Head, useForm, usePage } from '@inertiajs/react';
+import { Head, useForm, usePage, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { UserPlus, Mail } from 'lucide-react';
+
+const actionBtn = 'text-xs font-semibold px-2.5 py-1 rounded-md border transition-colors';
+
+/** Per-row management actions, gated by the member's status. The owner's own
+ * row shows nothing (you can't act on yourself — enforced server-side too). */
+function StaffActions({ member }) {
+    if (member.is_self) {
+        return <span className="text-xs text-slate-400">You</span>;
+    }
+
+    const setStatus = (status) => router.patch(`/app/staff/${member.id}`, { status }, { preserveScroll: true });
+    const remove = () => {
+        const msg = member.status === 'invited'
+            ? `Cancel the invitation for ${member.email}?`
+            : `Remove ${member.name}? They lose access immediately; their records are kept.`;
+        if (window.confirm(msg)) {
+            router.delete(`/app/staff/${member.id}`, { preserveScroll: true });
+        }
+    };
+
+    return (
+        <div className="flex items-center justify-end gap-2">
+            {member.status === 'active' && (
+                <button onClick={() => setStatus('suspended')} className={`${actionBtn} border-amber-200 text-amber-700 hover:bg-amber-50`}>Suspend</button>
+            )}
+            {(member.status === 'suspended' || member.status === 'deactivated') && (
+                <button onClick={() => setStatus('active')} className={`${actionBtn} border-emerald-200 text-emerald-700 hover:bg-emerald-50`}>Reactivate</button>
+            )}
+            {member.status !== 'deactivated' && (
+                <button onClick={remove} className={`${actionBtn} border-rose-200 text-rose-600 hover:bg-rose-50`}>
+                    {member.status === 'invited' ? 'Cancel' : 'Remove'}
+                </button>
+            )}
+        </div>
+    );
+}
 
 const ROLE_LABELS = {
     clinic_owner: 'Clinic Owner',
@@ -100,6 +136,7 @@ export default function StaffIndex({ staff, roles }) {
                                         <th className="py-3 px-6">Name</th>
                                         <th className="py-3 px-6">Role</th>
                                         <th className="py-3 px-6">Status</th>
+                                        <th className="py-3 px-6 text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 text-sm">
@@ -116,11 +153,14 @@ export default function StaffIndex({ staff, roles }) {
                                                         {member.status}
                                                     </span>
                                                 </td>
+                                                <td className="py-4 px-6 text-right">
+                                                    <StaffActions member={member} />
+                                                </td>
                                             </tr>
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan="3" className="py-8 text-center text-slate-500 text-sm">
+                                            <td colSpan="4" className="py-8 text-center text-slate-500 text-sm">
                                                 No staff members yet.
                                             </td>
                                         </tr>

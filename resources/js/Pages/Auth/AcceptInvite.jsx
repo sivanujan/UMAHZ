@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { User, Lock, Building2, Check, IdCard, Upload, FileText, X } from 'lucide-react';
+import { User, Lock, Building2, Check, IdCard, Upload, FileText, X, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import Logo from '@/Components/Common/Logo';
+import PasswordStrengthMeter from '@/Components/UI/PasswordStrengthMeter';
 
 const ROLE_LABELS = {
     clinic_owner: 'Clinic Owner',
@@ -19,6 +20,49 @@ const DISCIPLINE_LABELS = {
 
 const fieldLabelStyle = { display: 'block', fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#64748b', marginBottom: 6 };
 
+/** Password input matching the registration wizard: show/hide toggle, inline
+ * valid/error state, themed to the invite page's purple. */
+function PasswordField({ label, value, onChange, onBlur, error, valid, show, onToggleShow, autoComplete, helper }) {
+    const showError = !!error;
+    const showValid = valid && !showError;
+    return (
+        <div>
+            <label style={fieldLabelStyle}>{label}</label>
+            <div className="relative">
+                <Lock className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                <input
+                    type={show ? 'text' : 'password'}
+                    value={value}
+                    onChange={onChange}
+                    onBlur={onBlur}
+                    required
+                    autoComplete={autoComplete}
+                    aria-invalid={showError}
+                    className={`w-full pl-11 pr-16 py-3 bg-slate-50 border rounded-xl text-sm text-[#1E0B3C] focus:outline-none focus:ring-2 transition-colors ${
+                        showError ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-400/15' : 'border-slate-200 focus:border-[#5B2EFF]'
+                    }`}
+                />
+                {showValid && <Check className="w-4 h-4 text-emerald-500 absolute right-10 top-1/2 -translate-y-1/2" strokeWidth={2.5} />}
+                {showError && <AlertCircle className="w-4 h-4 text-rose-500 absolute right-10 top-1/2 -translate-y-1/2" strokeWidth={2} />}
+                <button
+                    type="button"
+                    onClick={onToggleShow}
+                    aria-label={show ? 'Hide password' : 'Show password'}
+                    aria-pressed={show}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#5B2EFF] transition-colors rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5B2EFF]"
+                >
+                    {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+            </div>
+            {showError ? (
+                <div className="text-xs text-rose-600 mt-1">{error}</div>
+            ) : helper ? (
+                <p className="text-[11px] text-slate-400 mt-1">{helper}</p>
+            ) : null}
+        </div>
+    );
+}
+
 export default function AcceptInvite({ staffMembership, name, email, tenantName, role, signature, expires, requiresLicense, disciplines = [] }) {
     const { data, setData, post, processing, errors } = useForm({
         name: name || '',
@@ -29,6 +73,19 @@ export default function AcceptInvite({ staffMembership, name, email, tenantName,
         licensing_body: '',
         license_document: null,
     });
+
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
+    const [touched, setTouched] = useState({});
+    const markTouched = (name) => setTouched((t) => ({ ...t, [name]: true }));
+
+    const passwordFormatError = touched.password && data.password.length < 8 ? 'At least 8 characters' : null;
+    const passwordError = errors.password || passwordFormatError;
+    const passwordValid = data.password.length >= 8 && !errors.password;
+
+    const confirmFormatError = touched.password_confirmation && data.password_confirmation && data.password_confirmation !== data.password ? 'Passwords must match' : null;
+    const confirmError = errors.password_confirmation || confirmFormatError;
+    const confirmValid = !!data.password_confirmation && data.password_confirmation === data.password && !errors.password_confirmation;
 
     const submit = (e) => {
         e.preventDefault();
@@ -94,37 +151,32 @@ export default function AcceptInvite({ staffMembership, name, email, tenantName,
                         </div>
 
                         <div>
-                            <label style={{ display: 'block', fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#64748b', marginBottom: 6 }}>
-                                Password
-                            </label>
-                            <div className="relative">
-                                <Lock className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                                <input
-                                    type="password"
-                                    value={data.password}
-                                    onChange={(e) => setData('password', e.target.value)}
-                                    required
-                                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 text-[#1E0B3C] rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF] transition-colors"
-                                />
-                            </div>
-                            {errors.password && <div className="text-xs text-rose-600 mt-1">{errors.password}</div>}
+                            <PasswordField
+                                label="Password"
+                                value={data.password}
+                                onChange={(e) => setData('password', e.target.value)}
+                                onBlur={() => markTouched('password')}
+                                error={passwordError}
+                                valid={passwordValid}
+                                show={showPassword}
+                                onToggleShow={() => setShowPassword((s) => !s)}
+                                autoComplete="new-password"
+                                helper="Minimum 8 characters."
+                            />
+                            <PasswordStrengthMeter password={data.password} />
                         </div>
 
-                        <div>
-                            <label style={{ display: 'block', fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#64748b', marginBottom: 6 }}>
-                                Confirm Password
-                            </label>
-                            <div className="relative">
-                                <Lock className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                                <input
-                                    type="password"
-                                    value={data.password_confirmation}
-                                    onChange={(e) => setData('password_confirmation', e.target.value)}
-                                    required
-                                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 text-[#1E0B3C] rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-[#5B2EFF] transition-colors"
-                                />
-                            </div>
-                        </div>
+                        <PasswordField
+                            label="Confirm Password"
+                            value={data.password_confirmation}
+                            onChange={(e) => setData('password_confirmation', e.target.value)}
+                            onBlur={() => markTouched('password_confirmation')}
+                            error={confirmError}
+                            valid={confirmValid}
+                            show={showConfirm}
+                            onToggleShow={() => setShowConfirm((s) => !s)}
+                            autoComplete="new-password"
+                        />
 
                         {requiresLicense && (
                             <>

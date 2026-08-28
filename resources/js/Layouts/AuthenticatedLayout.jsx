@@ -102,7 +102,7 @@ function AppShell({ children, title }) {
     const management = [
         { name: 'Locations & Rooms', href: '/app/locations', icon: MapPin, show: isOwnerOrAdmin },
         { name: 'Staff Members', href: '/app/staff', icon: UserCheck, show: isOwnerOrAdmin },
-        { name: 'Clinic Settings', href: '#', icon: Building2, show: isOwnerOrAdmin },
+        { name: 'Clinic Settings', href: '/app/settings', icon: Building2, show: isOwnerOrAdmin },
     ].filter((i) => i.show);
 
     return (

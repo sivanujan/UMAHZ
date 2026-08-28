@@ -4,6 +4,8 @@ use App\Http\Middleware\EnsureClientAccess;
 use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\EnsureStaffRole;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\RedirectIfAuthenticated;
+use App\Http\Middleware\ResolveTenantFromSubdomain;
 use App\Http\Middleware\SetTenantContext;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -31,6 +33,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'platform.admin' => EnsurePlatformAdmin::class,
             'staff.role' => EnsureStaffRole::class,
             'client.access' => EnsureClientAccess::class,
+            'tenant.subdomain' => ResolveTenantFromSubdomain::class,
+            // Override the framework default so already-authenticated visitors
+            // hitting a guest route land in their workspace, not the home page.
+            'guest' => RedirectIfAuthenticated::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

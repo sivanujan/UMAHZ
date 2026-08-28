@@ -31,7 +31,7 @@ class ClinicApplicationApprovedNotification extends Notification implements Shou
             ->subject("{$this->tenant->name} is approved — you're live on UMAHZ")
             ->greeting('Good news,')
             ->line("**{$this->tenant->name}** has been approved. Your workspace is active and ready to use.")
-            ->action('Go to your dashboard', url('/app/dashboard'))
+            ->action('Go to your dashboard', $this->tenant->appUrl('/app/dashboard'))
             ->line("Next step: finish the short setup wizard (business hours, branding) — you'll land there automatically when you sign in.");
     }
 }

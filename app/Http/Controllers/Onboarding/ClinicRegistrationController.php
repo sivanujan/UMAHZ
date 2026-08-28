@@ -8,15 +8,22 @@ use App\Models\StaffMembership;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Notifications\ClinicApplicationReceivedNotification;
+use App\Notifications\ClinicVerificationCodeNotification;
+use App\Support\EmailVerificationCode;
+use App\Support\Tenancy;
 use Illuminate\Auth\Events\Registered;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -40,6 +47,93 @@ class ClinicRegistrationController extends Controller
     {
         return Inertia::render('Onboarding/Register', [
             'disciplines' => self::DISCIPLINES,
+            'subdomainSuffix' => '.'.Tenancy::centralDomain(),
+        ]);
+    }
+
+    /**
+     * Live availability + validity check for the subdomain field in the
+     * wizard. Applies the same rules as store() so the client can never get a
+     * "looks available" answer that the server would then reject.
+     */
+    public function checkSubdomain(Request $request): JsonResponse
+    {
+        $subdomain = Tenancy::normalize($request->query('subdomain'));
+
+        $validator = Validator::make(
+            ['subdomain' => $subdomain],
+            ['subdomain' => Tenancy::rules()],
+        );
+
+        return response()->json([
+            'subdomain' => $subdomain,
+            'available' => $validator->passes(),
+            'reason' => $validator->errors()->first('subdomain'),
+        ]);
+    }
+
+    /**
+     * Email an applicant a fresh verification code (step 1 of the wizard).
+     * The account doesn't exist yet, so the code lives in the cache and the
+     * mail is sent on-demand. Rate-limited by route middleware plus a
+     * per-email resend cooldown.
+     */
+    public function sendCode(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $email = strtolower(trim($data['email']));
+
+        if (User::where('email', $email)->exists()) {
+            return response()->json([
+                'sent' => false,
+                'reason' => 'An account with this email already exists. Please sign in instead.',
+            ], 422);
+        }
+
+        $wait = EmailVerificationCode::remainingCooldown($email);
+
+        if ($wait > 0) {
+            return response()->json([
+                'sent' => false,
+                'reason' => "Please wait {$wait}s before requesting another code.",
+                'cooldown' => $wait,
+            ], 429);
+        }
+
+        $code = EmailVerificationCode::generate($email);
+
+        Notification::route('mail', $email)->notify(new ClinicVerificationCodeNotification($code));
+
+        return response()->json([
+            'sent' => true,
+            'cooldown' => EmailVerificationCode::RESEND_COOLDOWN,
+        ]);
+    }
+
+    /**
+     * Check a submitted verification code. On success a short-lived "verified"
+     * marker is written that store() later requires.
+     */
+    public function verifyCode(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+            'code' => ['required', 'string'],
+        ]);
+
+        $status = EmailVerificationCode::verify(strtolower(trim($data['email'])), $data['code']);
+
+        return response()->json([
+            'verified' => $status === 'ok',
+            'reason' => match ($status) {
+                'ok' => null,
+                'expired' => 'That code has expired — request a new one.',
+                'locked' => 'Too many attempts — request a new code.',
+                default => 'That code is incorrect.',
+            },
         ]);
     }
 
@@ -50,14 +144,19 @@ class ClinicRegistrationController extends Controller
      * here grants workspace access — EnsureStaffRole blocks every /app
      * route until a super admin approves the tenant.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): \Symfony\Component\HttpFoundation\Response
     {
+        // Normalise before validation so the `lowercase` rule reflects intent,
+        // not casing the user happened to type.
+        $request->merge(['subdomain' => Tenancy::normalize($request->input('subdomain'))]);
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
 
             'clinic_name' => ['required', 'string', 'max:255'],
+            'subdomain' => Tenancy::rules(),
             'business_registration_number' => ['nullable', 'string', 'max:100'],
             'address_line1' => ['nullable', 'string', 'max:255'],
             'address_city' => ['nullable', 'string', 'max:120'],
@@ -77,6 +176,14 @@ class ClinicRegistrationController extends Controller
             'license_document' => ['required', 'file', 'extensions:pdf,jpg,jpeg,png', 'max:10240'],
         ]);
 
+        // The client can't be trusted to have completed the code step — the
+        // email must carry a server-side "verified" marker or we refuse.
+        if (! EmailVerificationCode::isVerified($data['email'])) {
+            throw ValidationException::withMessages([
+                'email' => 'Please verify your email with the code we sent you before submitting.',
+            ]);
+        }
+
         $primaryDiscipline = $data['requested_disciplines'][0];
         $document = $request->file('license_document');
 
@@ -87,9 +194,14 @@ class ClinicRegistrationController extends Controller
                 'password' => Hash::make($data['password']),
             ]);
 
+            // Email ownership was already proven by the code at step 1, so the
+            // account starts verified — no after-the-fact verification link.
+            $user->markEmailAsVerified();
+
             $tenant = Tenant::create([
                 'name' => $data['clinic_name'],
                 'slug' => $this->uniqueSlug($data['clinic_name']),
+                'subdomain' => $data['subdomain'],
                 'status' => Tenant::STATUS_PENDING_REVIEW,
                 'business_registration_number' => $data['business_registration_number'] ?? null,
                 'address' => [
@@ -141,11 +253,21 @@ class ClinicRegistrationController extends Controller
 
         event(new Registered($user));
 
+        // One-time markers are spent — drop them.
+        EmailVerificationCode::clear($data['email']);
+
         Auth::login($user);
 
-        $this->notifySafely($user, new ClinicApplicationReceivedNotification($user->tenants()->first()));
+        $tenant = $user->tenants()->first();
 
-        return redirect()->route('clinic.status');
+        $this->notifySafely($user, new ClinicApplicationReceivedNotification($tenant));
+
+        // Registration happens on the central domain; the owner's application
+        // status page lives on their new clinic subdomain. The session cookie
+        // is shared across *.<central> so the login carries across. Cross-host,
+        // so an Inertia location visit (not a plain redirect the XHR can't
+        // follow across origins).
+        return Tenancy::redirectTo($request, $tenant->appUrl('/clinic/status'));
     }
 
     protected function uniqueSlug(string $name): string
