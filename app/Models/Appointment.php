@@ -29,6 +29,9 @@ class Appointment extends Model
         'starts_at',
         'ends_at',
         'status',
+        'notes',
+        'cancelled_at',
+        'cancellation_reason',
     ];
 
     protected function casts(): array
@@ -36,6 +39,7 @@ class Appointment extends Model
         return [
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
+            'cancelled_at' => 'datetime',
         ];
     }
 

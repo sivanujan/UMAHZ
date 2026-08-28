@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\ClinicReviewController;
 use App\Http\Controllers\Admin\PractitionerReviewController;
+use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\ClinicSettingsController;
 use App\Http\Controllers\ClinicStatusController;
 use App\Http\Controllers\DashboardController;
@@ -178,6 +179,15 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
                 'clients' => Client::latest()->get(),
             ]);
         })->name('clients.index');
+
+        // Calendar & booking — available to any active workspace role
+        // (owner, practitioner, receptionist). Every action is tenant-scoped
+        // by the Appointment global scope + BookingService boundary checks.
+        Route::get('/calendar', [AppointmentController::class, 'index'])->name('calendar');
+        Route::post('/appointments', [AppointmentController::class, 'store'])->name('appointments.store');
+        Route::patch('/appointments/{appointment}', [AppointmentController::class, 'update'])->name('appointments.update');
+        Route::patch('/appointments/{appointment}/status', [AppointmentController::class, 'status'])->name('appointments.status');
+        Route::patch('/appointments/{appointment}/cancel', [AppointmentController::class, 'cancel'])->name('appointments.cancel');
 
         // Staff invitations are owner-only.
         Route::middleware('staff.role:clinic_owner')->group(function () {

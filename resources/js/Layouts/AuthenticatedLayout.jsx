@@ -96,7 +96,7 @@ function AppShell({ children, title }) {
     const overview = [
         { name: 'Dashboard', href: '/app/dashboard', icon: LayoutDashboard, show: true },
         { name: 'Clients', href: '/app/clients', icon: Users, show: true },
-        { name: 'Appointments', href: '#', icon: Calendar, show: true },
+        { name: 'Appointments', href: '/app/calendar', icon: Calendar, show: true },
     ].filter((i) => i.show);
 
     const management = [
