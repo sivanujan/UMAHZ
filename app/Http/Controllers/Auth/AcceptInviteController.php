@@ -10,6 +10,7 @@ use App\Support\Tenancy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -83,37 +84,43 @@ class AcceptInviteController extends Controller
         $staffMembership->loadMissing('user');
         $user = $staffMembership->user;
 
-        $user->forceFill([
-            'name' => $data['name'],
-            'password' => Hash::make($data['password']),
-            'email_verified_at' => $user->email_verified_at ?? now(),
-        ])->save();
+        // Activating the account, the membership and (for practitioners) the
+        // license profile must all land together or not at all — otherwise a
+        // failure mid-way leaves an "active" member with no practitioner
+        // profile and no way to retry (the invite is already consumed).
+        DB::transaction(function () use ($request, $data, $isPractitioner, $staffMembership, $user) {
+            $user->forceFill([
+                'name' => $data['name'],
+                'password' => Hash::make($data['password']),
+                'email_verified_at' => $user->email_verified_at ?? now(),
+            ])->save();
 
-        $staffMembership->forceFill([
-            'status' => StaffMembership::STATUS_ACTIVE,
-            'joined_at' => now(),
-        ])->save();
+            $staffMembership->forceFill([
+                'status' => StaffMembership::STATUS_ACTIVE,
+                'joined_at' => now(),
+            ])->save();
 
-        if ($isPractitioner) {
-            $document = $request->file('license_document');
-            $path = $document->storeAs(
-                "licenses/{$staffMembership->tenant_id}",
-                Str::uuid().'.'.$document->getClientOriginalExtension(),
-                'local'
-            );
+            if ($isPractitioner) {
+                $document = $request->file('license_document');
+                $path = $document->storeAs(
+                    "licenses/{$staffMembership->tenant_id}",
+                    Str::uuid().'.'.$document->getClientOriginalExtension(),
+                    'local'
+                );
 
-            PractitionerProfile::create([
-                'staff_membership_id' => $staffMembership->id,
-                'profession' => $data['discipline'],
-                'verification_status' => PractitionerProfile::VERIFICATION_PENDING,
-                'license_number' => $data['license_number'],
-                'licensing_body' => $data['licensing_body'],
-                'license_document_path' => $path,
-                'license_document_original_name' => $document->getClientOriginalName(),
-                'license_document_mime' => $document->getClientMimeType(),
-                'is_primary_contact' => false,
-            ]);
-        }
+                PractitionerProfile::create([
+                    'staff_membership_id' => $staffMembership->id,
+                    'profession' => $data['discipline'],
+                    'verification_status' => PractitionerProfile::VERIFICATION_PENDING,
+                    'license_number' => $data['license_number'],
+                    'licensing_body' => $data['licensing_body'],
+                    'license_document_path' => $path,
+                    'license_document_original_name' => $document->getClientOriginalName(),
+                    'license_document_mime' => $document->getClientMimeType(),
+                    'is_primary_contact' => false,
+                ]);
+            }
+        });
 
         Auth::login($user);
         $request->session()->regenerate();
