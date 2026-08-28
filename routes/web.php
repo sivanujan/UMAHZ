@@ -179,6 +179,8 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
         Route::middleware('staff.role:clinic_owner')->group(function () {
             Route::get('/staff', [StaffInvitationController::class, 'index'])->name('staff.index');
             Route::post('/staff', [StaffInvitationController::class, 'store'])->name('staff.store');
+            Route::patch('/staff/{membership}', [StaffInvitationController::class, 'updateStatus'])->name('staff.update');
+            Route::delete('/staff/{membership}', [StaffInvitationController::class, 'destroy'])->name('staff.destroy');
 
             // Clinic Settings — owner-only profile, branding & disciplines.
             Route::get('/settings', [ClinicSettingsController::class, 'show'])->name('settings');

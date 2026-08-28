@@ -10,6 +10,7 @@ use App\Scopes\TenantScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -40,6 +41,8 @@ class StaffInvitationController extends Controller
                 'status' => $membership->status,
                 'invited_at' => $membership->invited_at?->diffForHumans(),
                 'joined_at' => $membership->joined_at?->diffForHumans(),
+                // The owner can't act on their own row.
+                'is_self' => $membership->user_id === $request->user()->id,
             ]);
 
         return Inertia::render('Settings/Staff/Index', [
@@ -89,5 +92,75 @@ class StaffInvitationController extends Controller
         $this->notifySafely($user, new StaffInvitationNotification($membership));
 
         return back()->with('success', "Invitation sent to {$data['email']}.");
+    }
+
+    /**
+     * Suspend / reactivate a staff member (toggle their access without losing
+     * their records).
+     */
+    public function updateStatus(Request $request, StaffMembership $membership): RedirectResponse
+    {
+        $data = $request->validate([
+            'status' => ['required', Rule::in([StaffMembership::STATUS_ACTIVE, StaffMembership::STATUS_SUSPENDED])],
+        ]);
+
+        // The last-owner guard only applies when we're REVOKING access.
+        $this->authorizeManage($request, $membership, revoking: $data['status'] !== StaffMembership::STATUS_ACTIVE);
+
+        $membership->update([
+            'status' => $data['status'],
+            'joined_at' => $membership->joined_at ?? now(),
+        ]);
+
+        $verb = $data['status'] === StaffMembership::STATUS_ACTIVE ? 'reactivated' : 'suspended';
+
+        return back()->with('success', "Staff member {$verb}.");
+    }
+
+    /**
+     * Remove a staff member from the clinic. A pending invite is deleted
+     * outright; an active/suspended member is DEACTIVATED (access revoked) so
+     * their appointments and clinical notes — which cascade-delete with the
+     * membership — are preserved.
+     */
+    public function destroy(Request $request, StaffMembership $membership): RedirectResponse
+    {
+        $this->authorizeManage($request, $membership, revoking: true);
+
+        if ($membership->status === StaffMembership::STATUS_INVITED) {
+            $membership->delete();
+
+            return back()->with('success', 'Invitation cancelled.');
+        }
+
+        $membership->update(['status' => StaffMembership::STATUS_DEACTIVATED]);
+
+        return back()->with('success', 'Staff member removed. Their records are retained.');
+    }
+
+    /**
+     * Shared guardrails for staff management: the membership must belong to the
+     * current tenant (subdomain identifies the clinic but never authorizes
+     * cross-tenant access), the owner can't act on their own membership, and
+     * the clinic's last active owner can't be removed.
+     */
+    protected function authorizeManage(Request $request, StaffMembership $membership, bool $revoking): void
+    {
+        $tenantId = TenantScope::getTenantId();
+
+        // Row-level isolation: a {membership} id from another clinic is a 404.
+        abort_unless($membership->tenant_id === $tenantId, 404);
+
+        abort_if($membership->user_id === $request->user()->id, 403, 'You cannot change your own membership.');
+
+        if ($revoking && $membership->role === StaffMembership::ROLE_CLINIC_OWNER) {
+            $anotherOwner = StaffMembership::where('tenant_id', $tenantId)
+                ->where('role', StaffMembership::ROLE_CLINIC_OWNER)
+                ->where('status', StaffMembership::STATUS_ACTIVE)
+                ->whereKeyNot($membership->id)
+                ->exists();
+
+            abort_unless($anotherOwner, 403, "You cannot remove the clinic's only owner.");
+        }
     }
 }
