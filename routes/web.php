@@ -90,10 +90,14 @@ Route::domain($central)->group(function () {
         Route::prefix('clinics')->name('clinics.')->group(function () {
             Route::get('/', [ClinicReviewController::class, 'index'])->name('index');
             Route::get('/{tenant}', [ClinicReviewController::class, 'show'])->name('show');
+            Route::get('/{tenant}/edit', [ClinicReviewController::class, 'edit'])->name('edit');
+            Route::patch('/{tenant}', [ClinicReviewController::class, 'update'])->name('update');
             Route::get('/{tenant}/document', [ClinicReviewController::class, 'document'])->middleware('signed')->name('document');
             Route::post('/{tenant}/approve', [ClinicReviewController::class, 'approve'])->name('approve');
             Route::post('/{tenant}/request-info', [ClinicReviewController::class, 'requestMoreInfo'])->name('request-info');
             Route::post('/{tenant}/reject', [ClinicReviewController::class, 'reject'])->name('reject');
+            Route::patch('/{tenant}/suspend', [ClinicReviewController::class, 'suspend'])->name('suspend');
+            Route::patch('/{tenant}/reactivate', [ClinicReviewController::class, 'reactivate'])->name('reactivate');
             Route::delete('/{tenant}', [ClinicReviewController::class, 'destroy'])->name('destroy');
         });
 

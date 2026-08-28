@@ -3,7 +3,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import {
     ArrowLeft, Building2, MapPin, IdCard, User, Mail, Phone, Users, Stethoscope,
-    Check, AlertTriangle, XCircle, FileText, Loader2, Trash2,
+    Check, AlertTriangle, XCircle, FileText, Loader2, Trash2, Pencil, Ban, RotateCcw,
 } from 'lucide-react';
 
 const DISCIPLINE_LABELS = {
@@ -62,6 +62,7 @@ function NoteModal({ title, confirmLabel, confirmClass, onCancel, onConfirm, pro
 export default function ClinicShow({ tenant, primaryPractitioner }) {
     const [modal, setModal] = useState(null); // 'needs_more_info' | 'reject' | 'remove' | null
     const [processing, setProcessing] = useState(false);
+    const [confirmName, setConfirmName] = useState('');
 
     const approve = () => {
         setProcessing(true);
@@ -74,13 +75,20 @@ export default function ClinicShow({ tenant, primaryPractitioner }) {
         router.post(url, { note }, { onFinish: () => { setProcessing(false); setModal(null); } });
     };
 
+    const setStatus = (action) => {
+        setProcessing(true);
+        router.patch(`/admin/clinics/${tenant.id}/${action}`, {}, { preserveScroll: true, onFinish: () => setProcessing(false) });
+    };
+
     const remove = () => {
         setProcessing(true);
-        router.delete(`/admin/clinics/${tenant.id}`, { onFinish: () => { setProcessing(false); setModal(null); } });
+        router.delete(`/admin/clinics/${tenant.id}`, {
+            data: { confirmation: confirmName },
+            onFinish: () => setProcessing(false),
+        });
     };
 
     const isPending = tenant.status === 'pending_review' || tenant.status === 'needs_more_info';
-    const canRemove = tenant.status !== 'approved';
 
     return (
         <AdminLayout title={tenant.name}>
@@ -188,18 +196,43 @@ export default function ClinicShow({ tenant, primaryPractitioner }) {
                             </div>
                         )}
 
-                        {canRemove && (
-                            <>
-                                <div className="h-px bg-slate-800 my-4" />
+                        <div className="h-px bg-slate-800 my-4" />
+                        <h3 className="text-white font-semibold text-sm mb-3">Manage</h3>
+                        <div className="space-y-2.5">
+                            <Link
+                                href={`/admin/clinics/${tenant.id}/edit`}
+                                className="w-full py-2.5 rounded-lg text-sm font-semibold text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors flex items-center justify-center gap-2"
+                            >
+                                <Pencil className="w-4 h-4" /> Edit Clinic Details
+                            </Link>
+
+                            {tenant.status === 'approved' && (
                                 <button
-                                    onClick={() => setModal('remove')}
+                                    onClick={() => setStatus('suspend')}
                                     disabled={processing}
-                                    className="w-full py-2.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 border border-slate-800 hover:border-rose-500/20 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                                    className="w-full py-2.5 rounded-lg text-sm font-semibold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                                 >
-                                    <Trash2 className="w-3.5 h-3.5" /> Remove Application &amp; Owner Account
+                                    <Ban className="w-4 h-4" /> Suspend Clinic
                                 </button>
-                            </>
-                        )}
+                            )}
+                            {tenant.status === 'suspended' && (
+                                <button
+                                    onClick={() => setStatus('reactivate')}
+                                    disabled={processing}
+                                    className="w-full py-2.5 rounded-lg text-sm font-semibold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                                >
+                                    <RotateCcw className="w-4 h-4" /> Reactivate Clinic
+                                </button>
+                            )}
+
+                            <button
+                                onClick={() => { setConfirmName(''); setModal('remove'); }}
+                                disabled={processing}
+                                className="w-full py-2.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 border border-slate-800 hover:border-rose-500/20 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" /> Delete Permanently
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -218,19 +251,31 @@ export default function ClinicShow({ tenant, primaryPractitioner }) {
             {modal === 'remove' && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
                     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md">
-                        <h3 className="text-white font-semibold text-base mb-1">Remove this application?</h3>
+                        <h3 className="text-white font-semibold text-base mb-1">Permanently delete this clinic?</h3>
                         <p className="text-xs text-slate-500 mb-4">
-                            This permanently deletes <span className="text-slate-300 font-medium">{tenant.name}</span>'s
-                            owner account and removes the application from the queue. This can't be undone.
+                            This <span className="text-rose-400 font-semibold">permanently erases</span>{' '}
+                            <span className="text-slate-300 font-medium">{tenant.name}</span> and <span className="text-slate-300">all of its data</span> —
+                            staff, clients, appointments, clinical notes and invoices. This cannot be undone.
+                            {tenant.status === 'approved' && ' Consider suspending instead.'}
                         </p>
+                        <label className="block text-[11px] uppercase tracking-wider text-slate-500 font-semibold mb-1.5">
+                            Type <span className="text-slate-300 normal-case">{tenant.name}</span> to confirm
+                        </label>
+                        <input
+                            autoFocus
+                            value={confirmName}
+                            onChange={(e) => setConfirmName(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:ring-2 focus:ring-rose-500/40 mb-4"
+                            placeholder={tenant.name}
+                        />
                         <div className="flex items-center gap-2">
                             <button
-                                disabled={processing}
+                                disabled={processing || confirmName !== tenant.name}
                                 onClick={remove}
-                                className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white bg-rose-600 hover:bg-rose-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white bg-rose-600 hover:bg-rose-500 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
                             >
                                 {processing && <Loader2 className="w-4 h-4 animate-spin" />}
-                                Remove Permanently
+                                Delete Permanently
                             </button>
                             <button
                                 onClick={() => setModal(null)}
