@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import AddressPicker from '@/Components/AddressPicker';
 import { MapPin, Plus, Pencil, Power, Trash2, DoorOpen, Phone, Clock, X, ArrowRight } from 'lucide-react';
 
 const BRAND_GRADIENT = 'linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)';
@@ -23,14 +24,26 @@ function StatusPill({ active }) {
     );
 }
 
-function LocationModal({ location, timezones, onClose }) {
+function LocationModal({ location, timezones, provinces, onClose }) {
     const editing = Boolean(location);
     const { data, setData, post, patch, processing, errors } = useForm({
         name: location?.name || '',
         address: location?.address || '',
+        latitude: location?.latitude ?? null,
+        longitude: location?.longitude ?? null,
         phone: location?.phone || '',
         timezone: location?.timezone || 'UTC',
     });
+
+    const onPick = (a) => {
+        const line = [a.line1, a.city, a.region, a.country].filter(Boolean).join(', ');
+        setData((prev) => ({
+            ...prev,
+            address: line || prev.address,
+            latitude: a.lat,
+            longitude: a.lng,
+        }));
+    };
 
     const submit = (e) => {
         e.preventDefault();
@@ -63,6 +76,9 @@ function LocationModal({ location, timezones, onClose }) {
                     </div>
                     <div>
                         <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>Address</label>
+                        <div className="mb-3">
+                            <AddressPicker provinces={provinces} lat={data.latitude} lng={data.longitude} onPick={onPick} />
+                        </div>
                         <textarea className={fieldClass} style={fieldStyle} rows={2} value={data.address}
                             onChange={(e) => setData('address', e.target.value)} placeholder="123 Wellness Ave, Suite 200" />
                         {errors.address && <p className="text-xs mt-1" style={{ color: 'var(--umahz-danger)' }}>{errors.address}</p>}
@@ -102,7 +118,7 @@ function LocationModal({ location, timezones, onClose }) {
     );
 }
 
-export default function LocationsIndex({ locations, timezones }) {
+export default function LocationsIndex({ locations, timezones, provinces = [] }) {
     const { flash, errors } = usePage().props;
     const [modal, setModal] = useState(null); // null | 'new' | location object
 
@@ -204,6 +220,7 @@ export default function LocationsIndex({ locations, timezones }) {
                 <LocationModal
                     location={modal === 'new' ? null : modal}
                     timezones={timezones}
+                    provinces={provinces}
                     onClose={() => setModal(null)}
                 />
             )}

@@ -35,6 +35,7 @@ class LocationController extends Controller
         return Inertia::render('Locations/Index', [
             'locations' => $locations,
             'timezones' => timezone_identifiers_list(),
+            'provinces' => \App\Support\ClinicOptions::PROVINCES,
         ]);
     }
 
@@ -135,6 +136,8 @@ class LocationController extends Controller
             'id' => $location->id,
             'name' => $location->name,
             'address' => $location->address,
+            'latitude' => $location->latitude,
+            'longitude' => $location->longitude,
             'phone' => $location->phone,
             'timezone' => $location->timezone,
             'is_active' => $location->is_active,
@@ -148,6 +151,8 @@ class LocationController extends Controller
         return $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'address' => ['nullable', 'string', 'max:2000'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'phone' => ['nullable', 'string', 'max:50'],
             'timezone' => ['required', 'string', Rule::in(timezone_identifiers_list())],
         ]);
