@@ -45,6 +45,27 @@ class LoginRedirectTest extends TestCase
         $response->assertredirect('http://acme.umahz.test/app/dashboard');
     }
 
+    public function test_already_authenticated_owner_hitting_login_goes_to_their_subdomain(): void
+    {
+        // The bug: an already-signed-in staff user clicking "Login" was sent to
+        // the marketing home by the default guest middleware. They should land
+        // in their clinic instead.
+        $tenant = Tenant::create([
+            'name' => 'Acme Clinic', 'slug' => 'acme', 'subdomain' => 'acme',
+            'status' => Tenant::STATUS_APPROVED,
+        ]);
+        $user = User::factory()->create(['email_verified_at' => now()]);
+        StaffMembership::create([
+            'tenant_id' => $tenant->id, 'user_id' => $user->id,
+            'role' => StaffMembership::ROLE_CLINIC_OWNER,
+            'status' => StaffMembership::STATUS_ACTIVE, 'joined_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->get('http://umahz.test/login')
+            ->assertRedirect('http://acme.umahz.test/app/dashboard');
+    }
+
     public function test_inertia_login_returns_a_location_visit_for_the_cross_host_target(): void
     {
         $tenant = Tenant::create([
