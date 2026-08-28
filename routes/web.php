@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\ClinicReviewController;
 use App\Http\Controllers\Admin\PractitionerReviewController;
+use App\Http\Controllers\ClinicSettingsController;
 use App\Http\Controllers\ClinicStatusController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LocationController;
@@ -178,6 +179,12 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
         Route::middleware('staff.role:clinic_owner')->group(function () {
             Route::get('/staff', [StaffInvitationController::class, 'index'])->name('staff.index');
             Route::post('/staff', [StaffInvitationController::class, 'store'])->name('staff.store');
+
+            // Clinic Settings — owner-only profile, branding & disciplines.
+            Route::get('/settings', [ClinicSettingsController::class, 'show'])->name('settings');
+            Route::patch('/settings/profile', [ClinicSettingsController::class, 'updateProfile'])->name('settings.profile');
+            Route::patch('/settings/disciplines', [ClinicSettingsController::class, 'updateDisciplines'])->name('settings.disciplines');
+            Route::post('/settings/branding', [ClinicSettingsController::class, 'updateBranding'])->name('settings.branding');
 
             // Locations & Rooms — owner-only management.
             Route::get('/locations', [LocationController::class, 'index'])->name('locations.index');

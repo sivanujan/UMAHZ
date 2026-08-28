@@ -16,35 +16,13 @@ class OnboardingController extends Controller
 {
     protected const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
-    protected const TIMEZONES = [
-        'America/St_Johns', 'America/Halifax', 'America/Toronto', 'America/Winnipeg',
-        'America/Regina', 'America/Edmonton', 'America/Vancouver', 'America/New_York',
-        'America/Chicago', 'America/Denver', 'America/Los_Angeles',
-    ];
-
-    protected const CURRENCIES = ['CAD', 'USD'];
-
-    /** This is a Canada-based platform: provinces/territories are a fixed set. */
-    protected const CANADIAN_PROVINCES = [
-        'Alberta', 'British Columbia', 'Manitoba', 'New Brunswick',
-        'Newfoundland and Labrador', 'Northwest Territories', 'Nova Scotia',
-        'Nunavut', 'Ontario', 'Prince Edward Island', 'Quebec',
-        'Saskatchewan', 'Yukon',
-    ];
-
-    protected const COUNTRIES = ['Canada'];
-
-    /** Suggestions only (a <datalist>) — the city field still accepts free text. */
-    protected const CANADIAN_CITIES = [
-        'Toronto', 'Montreal', 'Vancouver', 'Calgary', 'Edmonton', 'Ottawa',
-        'Winnipeg', 'Quebec City', 'Hamilton', 'Kitchener', 'London', 'Victoria',
-        'Halifax', 'Oshawa', 'Windsor', 'Saskatoon', 'Regina', "St. John's",
-        'Barrie', 'Kelowna', 'Guelph', 'Kingston', 'Mississauga', 'Brampton',
-        'Surrey', 'Burnaby', 'Richmond', 'Markham', 'Vaughan', 'Gatineau',
-        'Longueuil', 'Burlington', 'Sherbrooke', 'Oakville', 'Waterloo',
-        'Cambridge', 'Abbotsford', 'Sudbury', 'Trois-Rivières', 'Fredericton',
-        'Moncton', 'Charlottetown', 'Whitehorse', 'Yellowknife', 'Iqaluit',
-    ];
+    // Option lists live in App\Support\ClinicOptions so the onboarding wizard
+    // and the Clinic Settings page share one source of truth.
+    protected const TIMEZONES = \App\Support\ClinicOptions::TIMEZONES;
+    protected const CURRENCIES = \App\Support\ClinicOptions::CURRENCIES;
+    protected const CANADIAN_PROVINCES = \App\Support\ClinicOptions::PROVINCES;
+    protected const COUNTRIES = \App\Support\ClinicOptions::COUNTRIES;
+    protected const CANADIAN_CITIES = \App\Support\ClinicOptions::CITIES;
 
     /**
      * Show the setup wizard. The current tenant is resolved from the

@@ -45,7 +45,9 @@ class AcceptInviteController extends Controller
             // accepting — this is the "lighter secondary" verification
             // queue the clinic's own operation never blocks on.
             'requiresLicense' => $staffMembership->role === StaffMembership::ROLE_PRACTITIONER,
-            'disciplines' => ClinicRegistrationController::DISCIPLINES,
+            // Only the disciplines this clinic actually offers (chosen at
+            // registration, editable later in clinic settings).
+            'disciplines' => $staffMembership->tenant->requested_disciplines ?: ClinicRegistrationController::DISCIPLINES,
         ]);
     }
 
@@ -67,8 +69,9 @@ class AcceptInviteController extends Controller
         ];
 
         if ($isPractitioner) {
+            $clinicDisciplines = $staffMembership->tenant->requested_disciplines ?: ClinicRegistrationController::DISCIPLINES;
             $rules += [
-                'discipline' => ['required', Rule::in(ClinicRegistrationController::DISCIPLINES)],
+                'discipline' => ['required', Rule::in($clinicDisciplines)],
                 'license_number' => ['required', 'string', 'max:100'],
                 'licensing_body' => ['required', 'string', 'max:255'],
                 'license_document' => ['required', 'file', 'extensions:pdf,jpg,jpeg,png', 'max:10240'],
