@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import Logo from '@/Components/Common/Logo';
 import PasswordStrengthMeter from '@/Components/UI/PasswordStrengthMeter';
+import AddressPicker from '@/Components/AddressPicker';
 
 const NAVY = '#0D1B2A';
 const BLUE = '#2563EB';
@@ -570,7 +571,7 @@ function StepIndicator({ current, onJump }) {
     );
 }
 
-export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.umahz.com' }) {
+export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.umahz.com', provinces = [] }) {
     const { data, setData, post, processing, progress, errors } = useForm({
         name: '',
         email: '',
@@ -584,6 +585,8 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
         address_city: '',
         address_region: '',
         address_country: '',
+        address_lat: null,
+        address_lng: null,
 
         primary_contact_name: '',
         primary_contact_email: '',
@@ -712,6 +715,16 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
     const licensingBodyValid = !!data.licensing_body.trim() && !errors.licensing_body;
 
     const licenseDocumentError = errors.license_document || (attemptedSteps.license && !data.license_document ? 'Upload your license document.' : null);
+
+    const onPickAddress = (a) => setData((prev) => ({
+        ...prev,
+        address_line1: a.line1 || prev.address_line1,
+        address_city: a.city || prev.address_city,
+        address_region: a.region || prev.address_region,
+        address_country: a.country || prev.address_country,
+        address_lat: a.lat,
+        address_lng: a.lng,
+    }));
 
     const toggleDiscipline = (d) => {
         setData('requested_disciplines', data.requested_disciplines.includes(d)
@@ -853,6 +866,7 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
                                         onChange={(e) => setData('business_registration_number', e.target.value)}
                                         error={errors.business_registration_number}
                                     />
+                                    <AddressPicker provinces={provinces} lat={data.address_lat} lng={data.address_lng} onPick={onPickAddress} />
                                     <Field
                                         id="address_line1" icon={MapPin} label="Address" value={data.address_line1}
                                         onChange={(e) => setData('address_line1', e.target.value)}

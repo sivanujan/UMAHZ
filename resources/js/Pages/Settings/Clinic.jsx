@@ -1,6 +1,7 @@
 import React from 'react';
 import { Head, useForm, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import AddressPicker from '@/Components/AddressPicker';
 import { Building2, Mail, Phone, MapPin, Stethoscope, Palette, Upload, Check } from 'lucide-react';
 
 const DISCIPLINE_LABELS = {
@@ -50,9 +51,21 @@ function ProfileSection({ tenant, timezones, currencies, provinces, countries, c
         address_city: tenant.address?.city || '',
         address_region: tenant.address?.region || '',
         address_country: tenant.address?.country || countries[0] || 'Canada',
+        address_lat: tenant.address?.lat ?? null,
+        address_lng: tenant.address?.lng ?? null,
         timezone: tenant.timezone || 'America/Toronto',
         currency: tenant.currency || 'CAD',
     });
+
+    const onPick = (a) => setData((prev) => ({
+        ...prev,
+        address_line1: a.line1 || prev.address_line1,
+        address_city: a.city || prev.address_city,
+        address_region: a.region || prev.address_region,
+        address_country: a.country || prev.address_country,
+        address_lat: a.lat,
+        address_lng: a.lng,
+    }));
 
     const submit = (e) => {
         e.preventDefault();
@@ -86,6 +99,8 @@ function ProfileSection({ tenant, timezones, currencies, provinces, countries, c
                         {errors.phone && <p className="text-xs text-rose-600 mt-1">{errors.phone}</p>}
                     </div>
                 </div>
+
+                <AddressPicker provinces={provinces} lat={data.address_lat} lng={data.address_lng} onPick={onPick} />
 
                 <div>
                     <label className={labelClass}>Street Address</label>

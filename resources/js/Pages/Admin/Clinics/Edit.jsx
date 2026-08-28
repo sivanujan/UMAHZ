@@ -1,6 +1,7 @@
 import React from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
+import AddressPicker from '@/Components/AddressPicker';
 import { ArrowLeft, Globe, Check, Loader2 } from 'lucide-react';
 
 const DISCIPLINE_LABELS = {
@@ -35,10 +36,22 @@ export default function ClinicEdit({ tenant, subdomainSuffix, provinces = [], co
         address_city: tenant.address?.city || '',
         address_region: tenant.address?.region || '',
         address_country: tenant.address?.country || countries[0] || 'Canada',
+        address_lat: tenant.address?.lat ?? null,
+        address_lng: tenant.address?.lng ?? null,
         timezone: tenant.timezone || 'America/Toronto',
         currency: tenant.currency || 'CAD',
         requested_disciplines: tenant.requested_disciplines || [],
     });
+
+    const onPick = (a) => setData((prev) => ({
+        ...prev,
+        address_line1: a.line1 || prev.address_line1,
+        address_city: a.city || prev.address_city,
+        address_region: a.region || prev.address_region,
+        address_country: a.country || prev.address_country,
+        address_lat: a.lat,
+        address_lng: a.lng,
+    }));
 
     const toggle = (d) => {
         setData('requested_disciplines', data.requested_disciplines.includes(d)
@@ -95,6 +108,8 @@ export default function ClinicEdit({ tenant, subdomainSuffix, provinces = [], co
                     <Field label="Business Registration Number" error={errors.business_registration_number}>
                         <input type="text" value={data.business_registration_number} onChange={(e) => setData('business_registration_number', e.target.value)} className={inputClass} />
                     </Field>
+
+                    <AddressPicker dark provinces={provinces} lat={data.address_lat} lng={data.address_lng} onPick={onPick} />
 
                     <Field label="Street Address" error={errors.address_line1}>
                         <input type="text" value={data.address_line1} onChange={(e) => setData('address_line1', e.target.value)} className={inputClass} />

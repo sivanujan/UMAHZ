@@ -58,6 +58,8 @@ class OnboardingController extends Controller
             'address_city' => ['required', 'string', 'max:120'],
             'address_region' => ['required', Rule::in(self::CANADIAN_PROVINCES)],
             'address_country' => ['required', Rule::in(self::COUNTRIES)],
+            'address_lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'address_lng' => ['nullable', 'numeric', 'between:-180,180'],
             'timezone' => ['required', Rule::in(self::TIMEZONES)],
             'currency' => ['required', Rule::in(self::CURRENCIES)],
         ]);
@@ -71,6 +73,8 @@ class OnboardingController extends Controller
                 'city' => $data['address_city'] ?? null,
                 'region' => $data['address_region'] ?? null,
                 'country' => $data['address_country'] ?? null,
+                'lat' => $data['address_lat'] ?? null,
+                'lng' => $data['address_lng'] ?? null,
             ],
             'timezone' => $data['timezone'],
             'currency' => $data['currency'],
