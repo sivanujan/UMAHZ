@@ -8,9 +8,12 @@ use App\Models\PractitionerProfile;
 use App\Models\StaffMembership;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Http\Controllers\Onboarding\ClinicRegistrationController;
 use App\Notifications\ClinicApplicationApprovedNotification;
 use App\Notifications\ClinicApplicationNeedsInfoNotification;
 use App\Notifications\ClinicApplicationRejectedNotification;
+use App\Support\ClinicOptions;
+use App\Support\Tenancy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -102,6 +105,120 @@ class ClinicReviewController extends Controller
         ]);
     }
 
+    /**
+     * The edit form — the site owner can correct any clinic's profile,
+     * disciplines and subdomain.
+     */
+    public function edit(Request $request, Tenant $tenant): Response
+    {
+        $this->authorize('review', $tenant);
+
+        return Inertia::render('Admin/Clinics/Edit', [
+            'tenant' => [
+                'id' => $tenant->id,
+                'name' => $tenant->name,
+                'subdomain' => $tenant->subdomain,
+                'email' => $tenant->email,
+                'phone' => $tenant->phone,
+                'address' => $tenant->address,
+                'timezone' => $tenant->timezone,
+                'currency' => $tenant->currency,
+                'requested_disciplines' => $tenant->requested_disciplines,
+                'business_registration_number' => $tenant->business_registration_number,
+            ],
+            'subdomainSuffix' => '.'.Tenancy::centralDomain(),
+            'provinces' => ClinicOptions::PROVINCES,
+            'countries' => ClinicOptions::COUNTRIES,
+            'cities' => ClinicOptions::CITIES,
+            'timezones' => ClinicOptions::TIMEZONES,
+            'currencies' => ClinicOptions::CURRENCIES,
+            'allDisciplines' => ClinicOptions::disciplines(),
+        ]);
+    }
+
+    public function update(Request $request, Tenant $tenant): RedirectResponse
+    {
+        $this->authorize('review', $tenant);
+
+        $request->merge(['subdomain' => Tenancy::normalize($request->input('subdomain'))]);
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'subdomain' => Tenancy::rules($tenant->id),
+            'email' => ['nullable', 'string', 'email', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'business_registration_number' => ['nullable', 'string', 'max:100'],
+            'address_line1' => ['nullable', 'string', 'max:255'],
+            'address_city' => ['nullable', 'string', 'max:120'],
+            'address_region' => ['nullable', Rule::in(ClinicOptions::PROVINCES)],
+            'address_country' => ['nullable', Rule::in(ClinicOptions::COUNTRIES)],
+            'address_lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'address_lng' => ['nullable', 'numeric', 'between:-180,180'],
+            'timezone' => ['required', Rule::in(ClinicOptions::TIMEZONES)],
+            'currency' => ['required', Rule::in(ClinicOptions::CURRENCIES)],
+            'requested_disciplines' => ['required', 'array', 'min:1'],
+            'requested_disciplines.*' => [Rule::in(ClinicRegistrationController::DISCIPLINES)],
+        ]);
+
+        DB::transaction(function () use ($request, $tenant, $data) {
+            $tenant->update([
+                'name' => $data['name'],
+                'subdomain' => $data['subdomain'],
+                'email' => $data['email'] ?? null,
+                'phone' => $data['phone'] ?? null,
+                'business_registration_number' => $data['business_registration_number'] ?? null,
+                'address' => [
+                    'line1' => $data['address_line1'] ?? null,
+                    'city' => $data['address_city'] ?? null,
+                    'region' => $data['address_region'] ?? null,
+                    'country' => $data['address_country'] ?? null,
+                    'lat' => $data['address_lat'] ?? null,
+                    'lng' => $data['address_lng'] ?? null,
+                ],
+                'timezone' => $data['timezone'],
+                'currency' => $data['currency'],
+                'requested_disciplines' => array_values($data['requested_disciplines']),
+            ]);
+
+            $this->logAuditEvent($request, $tenant, 'clinic.updated');
+        });
+
+        return redirect()->route('admin.clinics.show', $tenant->id)->with('success', "{$tenant->name} updated.");
+    }
+
+    /**
+     * Suspend an active clinic — blocks all staff and client access
+     * immediately (EnsureStaffRole / EnsureClientAccess require an approved
+     * tenant) while keeping the data. Reversible via reactivate().
+     */
+    public function suspend(Request $request, Tenant $tenant): RedirectResponse
+    {
+        $this->authorize('review', $tenant);
+
+        abort_unless($tenant->status === Tenant::STATUS_APPROVED, 403, 'Only an approved clinic can be suspended.');
+
+        DB::transaction(function () use ($request, $tenant) {
+            $tenant->update(['status' => Tenant::STATUS_SUSPENDED]);
+            $this->logAuditEvent($request, $tenant, 'clinic.suspended');
+        });
+
+        return back()->with('success', "{$tenant->name} suspended.");
+    }
+
+    public function reactivate(Request $request, Tenant $tenant): RedirectResponse
+    {
+        $this->authorize('review', $tenant);
+
+        abort_unless($tenant->status === Tenant::STATUS_SUSPENDED, 403, 'Only a suspended clinic can be reactivated.');
+
+        DB::transaction(function () use ($request, $tenant) {
+            $tenant->update(['status' => Tenant::STATUS_APPROVED]);
+            $this->logAuditEvent($request, $tenant, 'clinic.reactivated');
+        });
+
+        return back()->with('success', "{$tenant->name} reactivated.");
+    }
+
     public function approve(Request $request, Tenant $tenant): RedirectResponse
     {
         $this->authorize('review', $tenant);
@@ -190,30 +307,42 @@ class ClinicReviewController extends Controller
     }
 
     /**
-     * Permanently remove an application: the tenant and its owner's user
-     * account. For cleaning up test signups, duplicates, or spam before
-     * they ever go live — deliberately refuses to touch an approved tenant,
-     * since that's a real operating clinic with real client data and
-     * removal isn't the right tool for that (suspension is).
+     * PERMANENTLY delete a clinic and everything it owns. This is irreversible:
+     * force-deleting the tenant cascades to wipe staff, clients, appointments,
+     * clinical notes, invoices, etc. (audit events are kept with a nulled
+     * tenant reference). The site owner must type the clinic's name to confirm.
+     * Prefer suspend() for an operating clinic — this is the "wipe it" tool.
      */
     public function destroy(Request $request, Tenant $tenant): RedirectResponse
     {
         $this->authorize('review', $tenant);
 
-        abort_if($tenant->status === Tenant::STATUS_APPROVED, 403, 'Approved clinics cannot be removed this way.');
+        $request->validate(
+            ['confirmation' => ['required', 'string', Rule::in([$tenant->name])]],
+            ['confirmation.in' => 'The clinic name you typed does not match.'],
+        );
 
         $tenantName = $tenant->name;
+        $previousStatus = $tenant->status;
         $ownerIds = $tenant->staffMemberships()->where('role', StaffMembership::ROLE_CLINIC_OWNER)->pluck('user_id');
 
-        $this->logAuditEvent($request, $tenant, 'clinic.removed');
+        $this->logAuditEvent($request, $tenant, 'clinic.deleted');
 
         DB::transaction(function () use ($tenant, $ownerIds) {
-            $tenant->delete();
-            User::whereIn('id', $ownerIds)->delete();
+            // Real delete → DB cascade wipes all of this clinic's data.
+            $tenant->forceDelete();
+
+            // Remove owner accounts left orphaned (no other clinic membership,
+            // not a client anywhere) — never delete a shared account.
+            User::whereIn('id', $ownerIds)->get()->each(function (User $owner) {
+                if (! $owner->staffMemberships()->exists() && ! $owner->clients()->exists()) {
+                    $owner->delete();
+                }
+            });
         });
 
-        return redirect()->route('admin.clinics.index', ['status' => $tenant->status])
-            ->with('success', "{$tenantName} and its owner account were removed.");
+        return redirect()->route('admin.clinics.index', ['status' => $previousStatus])
+            ->with('success', "{$tenantName} was permanently deleted.");
     }
 
     /**

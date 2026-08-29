@@ -1,7 +1,8 @@
 import React from 'react';
-import { Head, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Building2, Mail, Phone, MapPin, Stethoscope, Palette, Upload, Check } from 'lucide-react';
+import AddressPicker from '@/Components/AddressPicker';
+import { Building2, Mail, Phone, MapPin, Stethoscope, Palette, Upload, Check, ShieldCheck } from 'lucide-react';
 
 const DISCIPLINE_LABELS = {
     massage_therapy: 'Massage Therapy',
@@ -50,9 +51,21 @@ function ProfileSection({ tenant, timezones, currencies, provinces, countries, c
         address_city: tenant.address?.city || '',
         address_region: tenant.address?.region || '',
         address_country: tenant.address?.country || countries[0] || 'Canada',
+        address_lat: tenant.address?.lat ?? null,
+        address_lng: tenant.address?.lng ?? null,
         timezone: tenant.timezone || 'America/Toronto',
         currency: tenant.currency || 'CAD',
     });
+
+    const onPick = (a) => setData((prev) => ({
+        ...prev,
+        address_line1: a.line1 || prev.address_line1,
+        address_city: a.city || prev.address_city,
+        address_region: a.region || prev.address_region,
+        address_country: a.country || prev.address_country,
+        address_lat: a.lat,
+        address_lng: a.lng,
+    }));
 
     const submit = (e) => {
         e.preventDefault();
@@ -86,6 +99,8 @@ function ProfileSection({ tenant, timezones, currencies, provinces, countries, c
                         {errors.phone && <p className="text-xs text-rose-600 mt-1">{errors.phone}</p>}
                     </div>
                 </div>
+
+                <AddressPicker provinces={provinces} lat={data.address_lat} lng={data.address_lng} onPick={onPick} />
 
                 <div>
                     <label className={labelClass}>Street Address</label>
@@ -252,6 +267,20 @@ export default function ClinicSettings({ tenant, timezones, currencies, province
                 <ProfileSection tenant={tenant} timezones={timezones} currencies={currencies} provinces={provinces} countries={countries} cities={cities} />
                 <DisciplinesSection tenant={tenant} allDisciplines={allDisciplines} />
                 <BrandingSection tenant={tenant} />
+
+                <Card icon={ShieldCheck} title="Informed Consent Agreements" subtitle="Configure legal agreement texts and consent forms for your clinic.">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <p className="text-xs text-slate-600 dark:text-slate-400 max-w-lg leading-relaxed">
+                            Set up the required consent agreements that patients must sign prior to treatment, including general treatment and sensitive-area agreements.
+                        </p>
+                        <Link
+                            href="/app/settings/consents"
+                            className="inline-flex items-center px-4 py-2 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 text-violet-700 dark:text-violet-400 text-xs font-semibold rounded-xl border border-violet-200 dark:border-violet-800 transition shrink-0"
+                        >
+                            Configure Consents &rarr;
+                        </Link>
+                    </div>
+                </Card>
             </div>
         </AuthenticatedLayout>
     );

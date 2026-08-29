@@ -9,12 +9,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Notifications\Notifiable;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
 class Client extends Model
 {
-    use HasFactory, HasUuids, BelongsToTenant, LogsActivity, SoftDeletes;
+    use BelongsToTenant, HasFactory, HasUuids, LogsActivity, Notifiable, SoftDeletes;
 
     protected $fillable = [
         'tenant_id',
@@ -29,6 +30,7 @@ class Client extends Model
         'notification_preferences',
         'deletion_requested_at',
         'theme_preference',
+        'is_active',
     ];
 
     protected function casts(): array
@@ -38,7 +40,18 @@ class Client extends Model
             'emergency_contact' => 'array',
             'notification_preferences' => 'array',
             'deletion_requested_at' => 'datetime',
+            'is_active' => 'boolean',
         ];
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function getFullNameAttribute(): string
+    {
+        return trim($this->first_name.' '.$this->last_name);
     }
 
     /**
@@ -89,5 +102,10 @@ class Client extends Model
     public function messages(): HasMany
     {
         return $this->hasMany(Message::class);
+    }
+
+    public function consents(): HasMany
+    {
+        return $this->hasMany(Consent::class)->latest('agreed_at');
     }
 }

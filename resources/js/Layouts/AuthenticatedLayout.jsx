@@ -92,11 +92,12 @@ function AppShell({ children, title }) {
     const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
     const isOwnerOrAdmin = user?.role === 'clinic_owner' || user?.is_platform_admin;
+    const appointmentsHref = user?.role === 'practitioner' ? '/app/practitioner/appointments' : '/app/calendar';
 
     const overview = [
         { name: 'Dashboard', href: '/app/dashboard', icon: LayoutDashboard, show: true },
         { name: 'Clients', href: '/app/clients', icon: Users, show: true },
-        { name: 'Appointments', href: '#', icon: Calendar, show: true },
+        { name: 'Appointments', href: appointmentsHref, icon: Calendar, show: true },
     ].filter((i) => i.show);
 
     const management = [

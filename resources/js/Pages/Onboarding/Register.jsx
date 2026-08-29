@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import Logo from '@/Components/Common/Logo';
 import PasswordStrengthMeter from '@/Components/UI/PasswordStrengthMeter';
+import AddressPicker from '@/Components/AddressPicker';
 
 const NAVY = '#0D1B2A';
 const BLUE = '#2563EB';
@@ -570,7 +571,7 @@ function StepIndicator({ current, onJump }) {
     );
 }
 
-export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.umahz.com' }) {
+export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.umahz.com', provinces = [] }) {
     const { data, setData, post, processing, progress, errors } = useForm({
         name: '',
         email: '',
@@ -584,6 +585,8 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
         address_city: '',
         address_region: '',
         address_country: '',
+        address_lat: null,
+        address_lng: null,
 
         primary_contact_name: '',
         primary_contact_email: '',
@@ -713,6 +716,16 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
 
     const licenseDocumentError = errors.license_document || (attemptedSteps.license && !data.license_document ? 'Upload your license document.' : null);
 
+    const onPickAddress = (a) => setData((prev) => ({
+        ...prev,
+        address_line1: a.line1 || prev.address_line1,
+        address_city: a.city || prev.address_city,
+        address_region: a.region || prev.address_region,
+        address_country: a.country || prev.address_country,
+        address_lat: a.lat,
+        address_lng: a.lng,
+    }));
+
     const toggleDiscipline = (d) => {
         setData('requested_disciplines', data.requested_disciplines.includes(d)
             ? data.requested_disciplines.filter((x) => x !== d)
@@ -728,6 +741,10 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
     };
 
     const isLastStep = currentStep === SECTIONS.length - 1;
+    // Whether the current step's required fields are satisfied — drives the
+    // "Next" button's enabled/disabled appearance (e.g. email must be verified
+    // on step 1 before it looks clickable).
+    const stepComplete = completion[SECTIONS[currentStep].id];
 
     const goNext = () => {
         const sectionId = SECTIONS[currentStep].id;
@@ -853,6 +870,7 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
                                         onChange={(e) => setData('business_registration_number', e.target.value)}
                                         error={errors.business_registration_number}
                                     />
+                                    <AddressPicker provinces={provinces} lat={data.address_lat} lng={data.address_lng} onPick={onPickAddress} />
                                     <Field
                                         id="address_line1" icon={MapPin} label="Address" value={data.address_line1}
                                         onChange={(e) => setData('address_line1', e.target.value)}
@@ -948,10 +966,18 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
                                 <button
                                     type="button"
                                     onClick={goNext}
-                                    className="flex-1 py-3.5 px-4 text-white font-semibold text-sm rounded-full transition-all duration-300 ease-out flex items-center justify-center gap-2 hover:shadow-lg active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0D1B2A]"
-                                    style={{
+                                    aria-disabled={!stepComplete}
+                                    className={`flex-1 py-3.5 px-4 font-semibold text-sm rounded-full transition-all duration-300 ease-out flex items-center justify-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0D1B2A] ${
+                                        stepComplete
+                                            ? 'text-white hover:shadow-lg active:scale-[0.98]'
+                                            : 'text-slate-400 cursor-not-allowed'
+                                    }`}
+                                    style={stepComplete ? {
                                         background: `linear-gradient(135deg, ${BLUE} 0%, ${TEAL} 100%)`,
                                         boxShadow: '0 10px 30px -8px rgba(37,99,235,0.45)',
+                                    } : {
+                                        background: '#E2E8F0',
+                                        boxShadow: 'none',
                                     }}
                                 >
                                     Next

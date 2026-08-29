@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import OnboardingLayout from '@/Layouts/OnboardingLayout';
+import AddressPicker from '@/Components/AddressPicker';
 import { Building2, Mail, Phone, MapPin, Upload, Clock } from 'lucide-react';
 
 const DAY_LABELS = {
@@ -38,9 +39,21 @@ export default function OnboardingSetup({ tenant, timezones, currencies, provinc
         address_city: tenant.address?.city || '',
         address_region: tenant.address?.region || '',
         address_country: tenant.address?.country || countries[0] || 'Canada',
+        address_lat: tenant.address?.lat ?? null,
+        address_lng: tenant.address?.lng ?? null,
         timezone: tenant.timezone || 'America/Toronto',
         currency: tenant.currency || 'CAD',
     });
+
+    const onPickAddress = (a) => profileForm.setData((prev) => ({
+        ...prev,
+        address_line1: a.line1 || prev.address_line1,
+        address_city: a.city || prev.address_city,
+        address_region: a.region || prev.address_region,
+        address_country: a.country || prev.address_country,
+        address_lat: a.lat,
+        address_lng: a.lng,
+    }));
 
     const brandingForm = useForm({
         logo: null,
@@ -129,6 +142,8 @@ export default function OnboardingSetup({ tenant, timezones, currencies, provinc
                             {profileForm.errors.phone && <div className="text-xs text-rose-600 mt-1">{profileForm.errors.phone}</div>}
                         </div>
                     </div>
+
+                    <AddressPicker provinces={provinces} lat={profileForm.data.address_lat} lng={profileForm.data.address_lng} onPick={onPickAddress} />
 
                     <div>
                         <label className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-1.5">Address</label>

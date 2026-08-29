@@ -29,7 +29,7 @@ const GoogleIcon = () => (
     </svg>
 );
 
-export default function Login({ status, demoCredentialsEnabled }) {
+export default function Login({ status, demoCredentialsEnabled, canRegisterClient = true, canRegisterClinic = true }) {
     const { data, setData, post, processing, errors } = useForm({
         email: 'owner@lotuswellness.com',
         password: 'password',
@@ -194,15 +194,19 @@ export default function Login({ status, demoCredentialsEnabled }) {
                         </button>
                     </form>
 
-                    <p className="text-center text-sm text-slate-400">
-                        Don't have an account?{' '}
-                        <Link href="/register" className="font-semibold transition-opacity duration-200 hover:opacity-75" style={{ color: ROYAL_BLUE }}>Create one</Link>
-                    </p>
+                    {canRegisterClient && (
+                        <p className="text-center text-sm text-slate-400">
+                            Don't have an account?{' '}
+                            <Link href="/register" className="font-semibold transition-opacity duration-200 hover:opacity-75" style={{ color: ROYAL_BLUE }}>Create one</Link>
+                        </p>
+                    )}
 
-                    <p className="text-center text-xs text-slate-400">
-                        Own a wellness clinic?{' '}
-                        <Link href="/clinics/register" className="font-semibold transition-opacity duration-200 hover:opacity-75" style={{ color: ROYAL_BLUE }}>Set up your clinic</Link>
-                    </p>
+                    {canRegisterClinic && (
+                        <p className="text-center text-xs text-slate-400">
+                            Own a wellness clinic?{' '}
+                            <Link href="/clinics/register" className="font-semibold transition-opacity duration-200 hover:opacity-75" style={{ color: ROYAL_BLUE }}>Set up your clinic</Link>
+                        </p>
+                    )}
 
                     {demoCredentialsEnabled && (
                         <div className="pt-5 border-t border-slate-100">

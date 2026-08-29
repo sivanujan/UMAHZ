@@ -47,6 +47,8 @@ class ClinicSettingsController extends Controller
             'address_city' => ['required', 'string', 'max:120'],
             'address_region' => ['required', Rule::in(ClinicOptions::PROVINCES)],
             'address_country' => ['required', Rule::in(ClinicOptions::COUNTRIES)],
+            'address_lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'address_lng' => ['nullable', 'numeric', 'between:-180,180'],
             'timezone' => ['required', Rule::in(ClinicOptions::TIMEZONES)],
             'currency' => ['required', Rule::in(ClinicOptions::CURRENCIES)],
         ]);
@@ -60,6 +62,8 @@ class ClinicSettingsController extends Controller
                 'city' => $data['address_city'],
                 'region' => $data['address_region'],
                 'country' => $data['address_country'],
+                'lat' => $data['address_lat'] ?? null,
+                'lng' => $data['address_lng'] ?? null,
             ],
             'timezone' => $data['timezone'],
             'currency' => $data['currency'],

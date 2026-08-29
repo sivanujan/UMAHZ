@@ -95,6 +95,8 @@ class ClinicSettingsTest extends TestCase
                 'address_city' => 'Toronto',
                 'address_region' => 'Ontario',
                 'address_country' => 'Canada',
+                'address_lat' => 43.6532,
+                'address_lng' => -79.3832,
                 'timezone' => 'America/Toronto',
                 'currency' => 'CAD',
             ])
@@ -103,5 +105,8 @@ class ClinicSettingsTest extends TestCase
         $tenant->refresh();
         $this->assertSame('Acme Wellness', $tenant->name);
         $this->assertSame('Ontario', $tenant->address['region']);
+        // Coordinates from the map picker are stored alongside the address.
+        $this->assertEquals(43.6532, $tenant->address['lat']);
+        $this->assertEquals(-79.3832, $tenant->address['lng']);
     }
 }

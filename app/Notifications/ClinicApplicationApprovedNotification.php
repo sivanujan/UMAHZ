@@ -4,14 +4,15 @@ namespace App\Notifications;
 
 use App\Models\Tenant;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
-use Illuminate\Queue\SerializesModels;
 
-class ClinicApplicationApprovedNotification extends Notification implements ShouldQueue
+// Sent synchronously (not ShouldQueue) so the email is delivered the moment an
+// admin approves, without depending on a running queue worker — consistent with
+// ClinicApplicationReceivedNotification.
+class ClinicApplicationApprovedNotification extends Notification
 {
-    use Queueable, SerializesModels;
+    use Queueable;
 
     public function __construct(protected Tenant $tenant)
     {

@@ -16,6 +16,8 @@ class Location extends Model
         'tenant_id',
         'name',
         'address',
+        'latitude',
+        'longitude',
         'timezone',
         'phone',
         'is_active',
@@ -23,6 +25,8 @@ class Location extends Model
 
     protected $casts = [
         'is_active' => 'boolean',
+        'latitude' => 'float',
+        'longitude' => 'float',
     ];
 
     public function rooms(): HasMany

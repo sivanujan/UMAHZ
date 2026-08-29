@@ -7,6 +7,7 @@ use App\Models\PractitionerProfile;
 use App\Models\StaffMembership;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Rules\NotDisposableEmail;
 use App\Notifications\ClinicApplicationReceivedNotification;
 use App\Notifications\ClinicVerificationCodeNotification;
 use App\Support\EmailVerificationCode;
@@ -48,6 +49,7 @@ class ClinicRegistrationController extends Controller
         return Inertia::render('Onboarding/Register', [
             'disciplines' => self::DISCIPLINES,
             'subdomainSuffix' => '.'.Tenancy::centralDomain(),
+            'provinces' => \App\Support\ClinicOptions::PROVINCES,
         ]);
     }
 
@@ -81,7 +83,7 @@ class ClinicRegistrationController extends Controller
     public function sendCode(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'email' => ['required', 'email'],
+            'email' => ['required', 'email', new NotDisposableEmail()],
         ]);
 
         $email = strtolower(trim($data['email']));
@@ -152,7 +154,7 @@ class ClinicRegistrationController extends Controller
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class, new NotDisposableEmail()],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
 
             'clinic_name' => ['required', 'string', 'max:255'],
@@ -162,9 +164,11 @@ class ClinicRegistrationController extends Controller
             'address_city' => ['nullable', 'string', 'max:120'],
             'address_region' => ['nullable', 'string', 'max:120'],
             'address_country' => ['nullable', 'string', 'max:120'],
+            'address_lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'address_lng' => ['nullable', 'numeric', 'between:-180,180'],
 
             'primary_contact_name' => ['required', 'string', 'max:255'],
-            'primary_contact_email' => ['required', 'email', 'max:255'],
+            'primary_contact_email' => ['required', 'email', 'max:255', new NotDisposableEmail()],
             'primary_contact_phone' => ['required', 'string', 'max:50'],
 
             'requested_disciplines' => ['required', 'array', 'min:1'],
@@ -209,6 +213,8 @@ class ClinicRegistrationController extends Controller
                     'city' => $data['address_city'] ?? null,
                     'region' => $data['address_region'] ?? null,
                     'country' => $data['address_country'] ?? null,
+                    'lat' => $data['address_lat'] ?? null,
+                    'lng' => $data['address_lng'] ?? null,
                 ],
                 'primary_contact_name' => $data['primary_contact_name'],
                 'primary_contact_email' => $data['primary_contact_email'],

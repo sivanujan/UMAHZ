@@ -335,23 +335,48 @@ class DatabaseSeeder extends Seeder
 
         // A batch of completed sessions earlier this month, so "Revenue
         // (MTD)" on the owner dashboard reflects real paid invoices.
+        // Non-overlapping past sessions: each takes a distinct (practitioner,
+        // day, whole-hour) and (room, day, hour) slot, so the appointment
+        // exclusion constraint is never violated no matter which day we seed on.
+        // Whole-hour starts with 45-min durations can never overlap each other,
+        // and we stay strictly in the past so we never collide with today's
+        // fixed appointments above.
         $allClients = $extraClients->push($sophia)->push($marcus)->push($ravi);
-        for ($i = 0; $i < 18; $i++) {
-            $client = $allClients->random();
-            $daysAgo = random_int(0, (int) now()->day - 1);
-            $startsAt = $today->copy()->subDays($daysAgo)->setTime(random_int(9, 16), [0, 15, 30, 45][random_int(0, 3)]);
+        $practitionerIds = [$practitionerMembership->id, $ownerMembership->id];
+        $roomIds = [$roomA->id, $roomB->id];
+        $maxDaysAgo = max(1, (int) now()->day - 1);
+        $usedSlots = [];
+        $made = 0;
+        $attempts = 0;
+
+        while ($made < 18 && $attempts < 500) {
+            $attempts++;
+            $staffId = $practitionerIds[random_int(0, 1)];
+            $roomId = $roomIds[random_int(0, 1)];
+            $daysAgo = random_int(1, $maxDaysAgo);
+            $hour = random_int(9, 16);
+
+            $practitionerKey = "p:{$staffId}:{$daysAgo}:{$hour}";
+            $roomKey = "r:{$roomId}:{$daysAgo}:{$hour}";
+            if (isset($usedSlots[$practitionerKey]) || isset($usedSlots[$roomKey])) {
+                continue;
+            }
+            $usedSlots[$practitionerKey] = $usedSlots[$roomKey] = true;
+
+            $startsAt = $today->copy()->subDays($daysAgo)->setTime($hour, 0);
 
             Appointment::create([
                 'tenant_id' => $tenant->id,
-                'client_id' => $client->id,
-                'staff_membership_id' => [$practitionerMembership->id, $ownerMembership->id][random_int(0, 1)],
+                'client_id' => $allClients->random()->id,
+                'staff_membership_id' => $staffId,
                 'location_id' => $location->id,
-                'room_id' => [$roomA->id, $roomB->id][random_int(0, 1)],
+                'room_id' => $roomId,
                 'service_name' => ['Acupuncture Session', 'Herbal Consultation', 'Follow-up Treatment', 'Initial Assessment'][random_int(0, 3)],
                 'starts_at' => $startsAt,
                 'ends_at' => $startsAt->copy()->addMinutes(45),
                 'status' => Appointment::STATUS_COMPLETED,
             ]);
+            $made++;
         }
 
         // 12. Invoices — outstanding balances for the owner/receptionist/
