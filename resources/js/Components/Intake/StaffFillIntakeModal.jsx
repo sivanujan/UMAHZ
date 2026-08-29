@@ -25,7 +25,22 @@ export default function StaffFillIntakeModal({
     const [submitting, setSubmitting] = useState(false);
 
     const activeTemplate = intakeTemplates.find((t) => t.discipline === selectedDiscipline) || intakeTemplates[0];
-    const schema = activeTemplate?.schema || { sections: [] };
+    const rawSchema = activeTemplate?.schema || { sections: [] };
+
+    // Filter questions based on client.sex (female_only, male_only, fail-open if unset or other)
+    const clientSex = client?.sex;
+    const schema = {
+        ...rawSchema,
+        sections: (rawSchema.sections || []).map((sec) => ({
+            ...sec,
+            fields: (sec.fields || []).filter((f) => {
+                const appliesTo = f.applies_to || 'all';
+                if (clientSex === 'male' && appliesTo === 'female_only') return false;
+                if (clientSex === 'female' && appliesTo === 'male_only') return false;
+                return true;
+            }),
+        })).filter((sec) => sec.fields.length > 0),
+    };
 
     const handleDisciplineChange = (disc) => {
         setSelectedDiscipline(disc);
@@ -93,6 +108,11 @@ export default function StaffFillIntakeModal({
                             </h2>
                             <p className="text-xs text-slate-500 dark:text-slate-400">
                                 Staff-completed questionnaire for <span className="font-semibold text-slate-700 dark:text-slate-200">{client.name}</span>
+                                {client.sex && (
+                                    <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 capitalize">
+                                        {client.sex.replace(/_/g, ' ')}
+                                    </span>
+                                )}
                             </p>
                         </div>
                     </div>

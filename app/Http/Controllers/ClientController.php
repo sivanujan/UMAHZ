@@ -250,6 +250,7 @@ class ClientController extends Controller
             'email' => ['nullable', 'string', 'email', 'max:255', new NotDisposableEmail],
             'phone' => ['nullable', 'string', 'max:50'],
             'date_of_birth' => ['nullable', 'date', 'before:today'],
+            'sex' => ['nullable', 'string', Rule::in(Client::SEXES)],
             'preferred_contact_method' => ['nullable', 'string', Rule::in(['email', 'phone', 'sms'])],
             'emergency_contact_name' => ['nullable', 'string', 'max:255'],
             'emergency_contact_phone' => ['nullable', 'string', 'max:50'],
@@ -271,6 +272,7 @@ class ClientController extends Controller
             'email' => ! empty($validated['email']) ? strtolower(trim($validated['email'])) : null,
             'phone' => ! empty($validated['phone']) ? trim($validated['phone']) : null,
             'date_of_birth' => $validated['date_of_birth'] ?? null,
+            'sex' => $validated['sex'] ?? null,
             'preferred_contact_method' => $validated['preferred_contact_method'] ?? 'email',
             'emergency_contact' => $emergencyContact,
         ];
@@ -289,6 +291,7 @@ class ClientController extends Controller
             'email' => $client->email,
             'phone' => $client->phone,
             'date_of_birth' => $client->date_of_birth?->format('Y-m-d'),
+            'sex' => $client->sex,
             'preferred_contact_method' => $client->preferred_contact_method ?? 'email',
             'emergency_contact' => $client->emergency_contact ?? null,
             'is_active' => (bool) $client->is_active,

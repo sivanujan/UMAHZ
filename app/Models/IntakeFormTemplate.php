@@ -20,6 +20,15 @@ class IntakeFormTemplate extends Model
     public const DISCIPLINE_NUTRITION = PractitionerProfile::PROFESSION_NUTRITION;
     public const DISCIPLINE_COLON_HYDROTHERAPY = PractitionerProfile::PROFESSION_COLON_HYDROTHERAPY;
 
+    public const APPLIES_TO_ALL = 'all';
+    public const APPLIES_TO_FEMALE = 'female_only';
+    public const APPLIES_TO_MALE = 'male_only';
+    public const APPLIES_TO_OPTIONS = [
+        self::APPLIES_TO_ALL,
+        self::APPLIES_TO_FEMALE,
+        self::APPLIES_TO_MALE,
+    ];
+
     protected $fillable = [
         'tenant_id',
         'discipline',
@@ -154,6 +163,7 @@ class IntakeFormTemplate extends Model
                                     'type' => 'radio',
                                     'options' => ['no', 'yes'],
                                     'required' => true,
+                                    'applies_to' => self::APPLIES_TO_FEMALE,
                                     'is_contraindication' => true,
                                     'flag_trigger' => 'yes',
                                     'flag_warning' => 'Pregnancy indicated. Requires specialized prenatal positioning, pillowing, and avoidance of contraindicated acupressure points.',
@@ -257,6 +267,7 @@ class IntakeFormTemplate extends Model
                                     'type' => 'radio',
                                     'options' => ['no', 'yes'],
                                     'required' => true,
+                                    'applies_to' => self::APPLIES_TO_FEMALE,
                                     'is_contraindication' => true,
                                     'flag_trigger' => 'yes',
                                     'flag_warning' => 'Pregnancy indicated. Strictly avoid points that induce uterine contractions (e.g. LI4, SP6, BL60, BL67, lower abdomen/sacrum).',
@@ -488,5 +499,48 @@ class IntakeFormTemplate extends Model
 
             default => null,
         };
+    }
+
+    /**
+     * Conditionally filter schema questions based on client's explicitly set sex.
+     * Fails open (shows all questions) if sex is unset, unspecified, or non-binary.
+     */
+    public static function filterSchemaForSex(?array $schema, ?string $sex): array
+    {
+        if (! $schema || empty($schema['sections'])) {
+            return $schema ?? [];
+        }
+
+        // If sex is not strictly male or female, fail open (show all questions for safety)
+        if ($sex !== Client::SEX_FEMALE && $sex !== Client::SEX_MALE) {
+            return $schema;
+        }
+
+        $filteredSections = [];
+        foreach ($schema['sections'] as $section) {
+            $filteredFields = [];
+            foreach ($section['fields'] ?? [] as $field) {
+                $appliesTo = $field['applies_to'] ?? self::APPLIES_TO_ALL;
+
+                if ($sex === Client::SEX_MALE && $appliesTo === self::APPLIES_TO_FEMALE) {
+                    continue; // Skip female-only questions for male patients
+                }
+
+                if ($sex === Client::SEX_FEMALE && $appliesTo === self::APPLIES_TO_MALE) {
+                    continue; // Skip male-only questions for female patients
+                }
+
+                $filteredFields[] = $field;
+            }
+
+            if (! empty($filteredFields)) {
+                $section['fields'] = $filteredFields;
+                $filteredSections[] = $section;
+            }
+        }
+
+        $schema['sections'] = $filteredSections;
+
+        return $schema;
     }
 }

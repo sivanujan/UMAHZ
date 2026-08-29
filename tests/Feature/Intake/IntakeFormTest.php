@@ -385,4 +385,165 @@ class IntakeFormTest extends TestCase
         $response->assertRedirect();
         $this->assertDatabaseMissing('client_intakes', ['id' => $pendingIntake->id]);
     }
+
+    public function test_client_sex_can_be_stored_and_edited(): void
+    {
+        $clinic = $this->clinic('lotus');
+        [$owner] = $this->staff($clinic, 'clinic_owner');
+
+        $response = $this->actingAs($owner)
+            ->withServerVariables(['HTTP_HOST' => 'lotus.umahz.test'])
+            ->post('http://lotus.umahz.test/app/clients', [
+                'first_name' => 'John',
+                'last_name' => 'Smith',
+                'email' => 'john.smith@example.com',
+                'sex' => 'male',
+            ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('clients', [
+            'first_name' => 'John',
+            'last_name' => 'Smith',
+            'sex' => 'male',
+            'tenant_id' => $clinic->id,
+        ]);
+    }
+
+    public function test_female_client_sees_pregnancy_question(): void
+    {
+        $clinic = $this->clinic('lotus');
+        IntakeFormTemplate::ensureDefaultsForTenant($clinic->id);
+        $femaleClient = $this->client($clinic);
+        $femaleClient->update(['sex' => 'female']);
+
+        $token = ClientIntake::makeToken();
+        $intake = ClientIntake::create([
+            'tenant_id' => $clinic->id,
+            'client_id' => $femaleClient->id,
+            'discipline' => IntakeFormTemplate::DISCIPLINE_MASSAGE_THERAPY,
+            'template_name' => 'Massage Intake',
+            'status' => ClientIntake::STATUS_PENDING,
+            'submission_type' => ClientIntake::SUBMISSION_PATIENT_LINK,
+            'token' => $token,
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        $response = $this->withServerVariables(['HTTP_HOST' => 'lotus.umahz.test'])
+            ->get("/intake/{$token}");
+
+        $response->assertOk();
+        $response->assertInertia(function ($page) {
+            $page->component('Public/IntakeForm');
+            $schema = $page->toArray()['props']['schema'];
+            $allFieldIds = collect($schema['sections'])->flatMap(fn ($s) => collect($s['fields'])->pluck('id'))->all();
+            $this->assertContains('is_pregnant', $allFieldIds);
+        });
+    }
+
+    public function test_male_client_does_not_see_pregnancy_question(): void
+    {
+        $clinic = $this->clinic('lotus');
+        IntakeFormTemplate::ensureDefaultsForTenant($clinic->id);
+        $maleClient = $this->client($clinic);
+        $maleClient->update(['sex' => 'male']);
+
+        $token = ClientIntake::makeToken();
+        $intake = ClientIntake::create([
+            'tenant_id' => $clinic->id,
+            'client_id' => $maleClient->id,
+            'discipline' => IntakeFormTemplate::DISCIPLINE_MASSAGE_THERAPY,
+            'template_name' => 'Massage Intake',
+            'status' => ClientIntake::STATUS_PENDING,
+            'submission_type' => ClientIntake::SUBMISSION_PATIENT_LINK,
+            'token' => $token,
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        $response = $this->withServerVariables(['HTTP_HOST' => 'lotus.umahz.test'])
+            ->get("/intake/{$token}");
+
+        $response->assertOk();
+        $response->assertInertia(function ($page) {
+            $page->component('Public/IntakeForm');
+            $schema = $page->toArray()['props']['schema'];
+            $allFieldIds = collect($schema['sections'])->flatMap(fn ($s) => collect($s['fields'])->pluck('id'))->all();
+            $this->assertNotContains('is_pregnant', $allFieldIds);
+        });
+    }
+
+    public function test_unset_sex_client_sees_all_questions_fail_open(): void
+    {
+        $clinic = $this->clinic('lotus');
+        IntakeFormTemplate::ensureDefaultsForTenant($clinic->id);
+        $client = $this->client($clinic);
+        $client->update(['sex' => null]);
+
+        $token = ClientIntake::makeToken();
+        $intake = ClientIntake::create([
+            'tenant_id' => $clinic->id,
+            'client_id' => $client->id,
+            'discipline' => IntakeFormTemplate::DISCIPLINE_MASSAGE_THERAPY,
+            'template_name' => 'Massage Intake',
+            'status' => ClientIntake::STATUS_PENDING,
+            'submission_type' => ClientIntake::SUBMISSION_PATIENT_LINK,
+            'token' => $token,
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        $response = $this->withServerVariables(['HTTP_HOST' => 'lotus.umahz.test'])
+            ->get("/intake/{$token}");
+
+        $response->assertOk();
+        $response->assertInertia(function ($page) {
+            $page->component('Public/IntakeForm');
+            $schema = $page->toArray()['props']['schema'];
+            $allFieldIds = collect($schema['sections'])->flatMap(fn ($s) => collect($s['fields'])->pluck('id'))->all();
+            $this->assertContains('is_pregnant', $allFieldIds);
+        });
+    }
+
+    public function test_submitting_intake_for_male_client_snapshots_only_shown_questions(): void
+    {
+        $clinic = $this->clinic('lotus');
+        IntakeFormTemplate::ensureDefaultsForTenant($clinic->id);
+        $maleClient = $this->client($clinic);
+        $maleClient->update(['sex' => 'male']);
+
+        $token = ClientIntake::makeToken();
+        $intake = ClientIntake::create([
+            'tenant_id' => $clinic->id,
+            'client_id' => $maleClient->id,
+            'discipline' => IntakeFormTemplate::DISCIPLINE_MASSAGE_THERAPY,
+            'template_name' => 'Massage Intake',
+            'status' => ClientIntake::STATUS_PENDING,
+            'submission_type' => ClientIntake::SUBMISSION_PATIENT_LINK,
+            'token' => $token,
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        $responses = [
+            'chief_complaint' => 'Upper neck tension',
+            'pain_severity' => '4-6 (Moderate)',
+            'pressure_preference' => 'Medium Pressure',
+            'has_blood_clots' => 'no',
+            'contagious_skin_condition' => 'no',
+            'uncontrolled_blood_pressure' => 'no',
+        ];
+
+        $response = $this->withServerVariables(['HTTP_HOST' => 'lotus.umahz.test'])
+            ->post("/intake/{$token}", [
+                'responses' => $responses,
+            ]);
+
+        $response->assertRedirect("/intake/{$token}");
+
+        $intake->refresh();
+        $this->assertSame(ClientIntake::STATUS_COMPLETED, $intake->status);
+
+        $snapshot = $intake->schema_snapshot;
+        $snapshotFieldIds = collect($snapshot['sections'])->flatMap(fn ($s) => collect($s['fields'])->pluck('id'))->all();
+
+        $this->assertNotContains('is_pregnant', $snapshotFieldIds);
+        $this->assertContains('has_blood_clots', $snapshotFieldIds);
+    }
 }

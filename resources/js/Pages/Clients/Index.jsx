@@ -33,6 +33,7 @@ function ClientModal({ client, onClose }) {
         email: client?.email || '',
         phone: client?.phone || '',
         date_of_birth: client?.date_of_birth || '',
+        sex: client?.sex || '',
         preferred_contact_method: client?.preferred_contact_method || 'email',
         emergency_contact_name: client?.emergency_contact?.name || '',
         emergency_contact_phone: client?.emergency_contact?.phone || '',
@@ -150,7 +151,7 @@ function ClientModal({ client, onClose }) {
                     </div>
 
                     {/* Demographics & Preferences */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div>
                             <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>
                                 Date of Birth
@@ -164,6 +165,25 @@ function ClientModal({ client, onClose }) {
                                 max={new Date().toISOString().split('T')[0]}
                             />
                             {errors.date_of_birth && <p className="text-xs mt-1 text-rose-500">{errors.date_of_birth}</p>}
+                        </div>
+
+                        <div>
+                            <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>
+                                Sex / Gender
+                            </label>
+                            <select
+                                className={fieldClass}
+                                style={fieldStyle}
+                                value={data.sex}
+                                onChange={(e) => setData('sex', e.target.value)}
+                            >
+                                <option value="">Select Sex...</option>
+                                <option value="female">Female</option>
+                                <option value="male">Male</option>
+                                <option value="other">Other</option>
+                                <option value="prefer_not_to_say">Prefer not to say</option>
+                            </select>
+                            {errors.sex && <p className="text-xs mt-1 text-rose-500">{errors.sex}</p>}
                         </div>
 
                         <div>

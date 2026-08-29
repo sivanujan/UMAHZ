@@ -39,6 +39,7 @@ function EditClientModal({ client, onClose }) {
         email: client.email || '',
         phone: client.phone || '',
         date_of_birth: client.date_of_birth || '',
+        sex: client.sex || '',
         preferred_contact_method: client.preferred_contact_method || 'email',
         emergency_contact_name: client.emergency_contact?.name || '',
         emergency_contact_phone: client.emergency_contact?.phone || '',
@@ -122,7 +123,7 @@ function EditClientModal({ client, onClose }) {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div>
                             <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>Date of Birth</label>
                             <input
@@ -134,6 +135,22 @@ function EditClientModal({ client, onClose }) {
                                 max={new Date().toISOString().split('T')[0]}
                             />
                             {errors.date_of_birth && <p className="text-xs mt-1 text-rose-500">{errors.date_of_birth}</p>}
+                        </div>
+                        <div>
+                            <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>Sex / Gender</label>
+                            <select
+                                className={fieldClass}
+                                style={fieldStyle}
+                                value={data.sex}
+                                onChange={(e) => setData('sex', e.target.value)}
+                            >
+                                <option value="">Select Sex...</option>
+                                <option value="female">Female</option>
+                                <option value="male">Male</option>
+                                <option value="other">Other</option>
+                                <option value="prefer_not_to_say">Prefer not to say</option>
+                            </select>
+                            {errors.sex && <p className="text-xs mt-1 text-rose-500">{errors.sex}</p>}
                         </div>
                         <div>
                             <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>Preferred Contact</label>
@@ -404,6 +421,12 @@ export default function ClientsShow({
                             <dt className="text-slate-500 font-medium">Date of Birth</dt>
                             <dd className="font-semibold text-slate-800 dark:text-slate-200">
                                 {client.date_of_birth || <span className="text-slate-400">Not provided</span>}
+                            </dd>
+                        </div>
+                        <div className="py-3 flex justify-between">
+                            <dt className="text-slate-500 font-medium">Sex / Gender</dt>
+                            <dd className="font-semibold text-slate-800 dark:text-slate-200 capitalize">
+                                {client.sex ? client.sex.replace(/_/g, ' ') : <span className="text-slate-400">Not specified</span>}
                             </dd>
                         </div>
                         <div className="py-3 flex justify-between">

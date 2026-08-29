@@ -48,9 +48,12 @@ class PublicIntakeController extends Controller
             ]);
         }
 
-        $schema = $intake->schema_snapshot
+        $baseSchema = $intake->schema_snapshot
             ?: $intake->intakeFormTemplate?->schema
             ?: IntakeFormTemplate::starterTemplateFor($intake->discipline)['schema'];
+
+        $clientSex = $intake->client?->sex;
+        $schema = IntakeFormTemplate::filterSchemaForSex($baseSchema, $clientSex);
 
         return Inertia::render('Public/IntakeForm', [
             'state' => 'active',
@@ -74,7 +77,7 @@ class PublicIntakeController extends Controller
 
         $intake = ClientIntake::withoutGlobalScopes()
             ->where('token', $token)
-            ->with(['intakeFormTemplate', 'tenant'])
+            ->with(['intakeFormTemplate', 'tenant', 'client'])
             ->firstOrFail();
 
         if ($intake->isCompleted() || $intake->isExpired()) {
@@ -85,9 +88,13 @@ class PublicIntakeController extends Controller
             'responses' => ['required', 'array'],
         ]);
 
-        $schema = $intake->schema_snapshot
+        $baseSchema = $intake->schema_snapshot
             ?: $intake->intakeFormTemplate?->schema
             ?: IntakeFormTemplate::starterTemplateFor($intake->discipline)['schema'];
+
+        // Snapshot ONLY the questions shown to this client based on their sex
+        $clientSex = $intake->client?->sex;
+        $schema = IntakeFormTemplate::filterSchemaForSex($baseSchema, $clientSex);
 
         $flags = $this->evaluateContraindications($schema, $data['responses']);
         $status = count($flags) > 0 ? ClientIntake::STATUS_FLAGGED : ClientIntake::STATUS_COMPLETED;

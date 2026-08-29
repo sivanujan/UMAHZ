@@ -17,6 +17,18 @@ class Client extends Model
 {
     use BelongsToTenant, HasFactory, HasUuids, LogsActivity, Notifiable, SoftDeletes;
 
+    public const SEX_FEMALE = 'female';
+    public const SEX_MALE = 'male';
+    public const SEX_OTHER = 'other';
+    public const SEX_PREFER_NOT_TO_SAY = 'prefer_not_to_say';
+
+    public const SEXES = [
+        self::SEX_FEMALE,
+        self::SEX_MALE,
+        self::SEX_OTHER,
+        self::SEX_PREFER_NOT_TO_SAY,
+    ];
+
     protected $fillable = [
         'tenant_id',
         'user_id',
@@ -25,6 +37,7 @@ class Client extends Model
         'email',
         'phone',
         'date_of_birth',
+        'sex',
         'preferred_contact_method',
         'emergency_contact',
         'notification_preferences',

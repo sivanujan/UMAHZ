@@ -135,10 +135,13 @@ class ClientIntakeController extends Controller
             ->where('discipline', $data['discipline'])
             ->firstOrFail();
 
-        $flags = $this->evaluateContraindications($template->schema, $data['responses']);
+        // Snapshot ONLY the questions applicable to this client based on their sex
+        $filteredSchema = IntakeFormTemplate::filterSchemaForSex($template->schema, $client->sex);
+
+        $flags = $this->evaluateContraindications($filteredSchema, $data['responses']);
         $status = count($flags) > 0 ? ClientIntake::STATUS_FLAGGED : ClientIntake::STATUS_COMPLETED;
 
-        $intake = DB::transaction(function () use ($tenantId, $client, $data, $template, $flags, $status, $request) {
+        $intake = DB::transaction(function () use ($tenantId, $client, $data, $template, $filteredSchema, $flags, $status, $request) {
             $record = ClientIntake::create([
                 'tenant_id' => $tenantId,
                 'client_id' => $client->id,
@@ -146,7 +149,7 @@ class ClientIntakeController extends Controller
                 'intake_form_template_id' => $template->id,
                 'discipline' => $data['discipline'],
                 'template_name' => $template->name,
-                'schema_snapshot' => $template->schema,
+                'schema_snapshot' => $filteredSchema,
                 'responses' => $data['responses'],
                 'contraindication_flags' => $flags,
                 'status' => $status,

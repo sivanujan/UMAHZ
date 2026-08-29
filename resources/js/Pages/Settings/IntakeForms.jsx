@@ -65,6 +65,7 @@ export default function IntakeForms({ tenant, templates = [], offeredDisciplines
             label: 'New Clinical Question',
             type: 'textarea',
             required: false,
+            applies_to: 'all',
             placeholder: '',
             is_contraindication: false,
             flag_trigger: 'yes',
@@ -300,30 +301,47 @@ export default function IntakeForms({ tenant, templates = [], offeredDisciplines
                                             </button>
                                         </div>
 
-                                        {/* Toggles: Required & Contraindication Flag */}
-                                        <div className="flex flex-wrap items-center gap-4 text-xs pt-1">
-                                            <label className="flex items-center gap-2 cursor-pointer select-none text-slate-600 dark:text-slate-400">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={Boolean(field.required)}
-                                                    onChange={(e) => handleFieldChange(sIdx, fIdx, 'required', e.target.checked)}
-                                                    className="w-4 h-4 rounded text-violet-600 focus:ring-violet-500"
-                                                />
-                                                <span>Mandatory Question</span>
-                                            </label>
+                                        {/* Toggles: Required, Contraindication Flag, & Applies To */}
+                                        <div className="flex flex-wrap items-center justify-between gap-4 text-xs pt-1 border-t border-slate-100 dark:border-slate-800/60 mt-2">
+                                            <div className="flex flex-wrap items-center gap-4">
+                                                <label className="flex items-center gap-2 cursor-pointer select-none text-slate-600 dark:text-slate-400">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={Boolean(field.required)}
+                                                        onChange={(e) => handleFieldChange(sIdx, fIdx, 'required', e.target.checked)}
+                                                        className="w-4 h-4 rounded text-violet-600 focus:ring-violet-500"
+                                                    />
+                                                    <span>Mandatory Question</span>
+                                                </label>
 
-                                            <label className="flex items-center gap-2 cursor-pointer select-none text-rose-700 dark:text-rose-400 font-semibold">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={Boolean(field.is_contraindication)}
-                                                    onChange={(e) => handleFieldChange(sIdx, fIdx, 'is_contraindication', e.target.checked)}
-                                                    className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500"
-                                                />
-                                                <span className="flex items-center gap-1">
-                                                    <ShieldAlert className="w-3.5 h-3.5" />
-                                                    Flag as Clinical Contraindication Warning
+                                                <label className="flex items-center gap-2 cursor-pointer select-none text-rose-700 dark:text-rose-400 font-semibold">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={Boolean(field.is_contraindication)}
+                                                        onChange={(e) => handleFieldChange(sIdx, fIdx, 'is_contraindication', e.target.checked)}
+                                                        className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500"
+                                                    />
+                                                    <span className="flex items-center gap-1">
+                                                        <ShieldAlert className="w-3.5 h-3.5" />
+                                                        Flag as Clinical Contraindication Warning
+                                                    </span>
+                                                </label>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                                                    Applies To:
                                                 </span>
-                                            </label>
+                                                <select
+                                                    value={field.applies_to || 'all'}
+                                                    onChange={(e) => handleFieldChange(sIdx, fIdx, 'applies_to', e.target.value)}
+                                                    className="px-2.5 py-1 rounded-lg text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-medium outline-none focus:border-violet-500"
+                                                >
+                                                    <option value="all">Everyone (Default)</option>
+                                                    <option value="female_only">Female only</option>
+                                                    <option value="male_only">Male only</option>
+                                                </select>
+                                            </div>
                                         </div>
 
                                         {/* Contraindication Trigger Details */}
