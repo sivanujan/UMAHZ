@@ -46,6 +46,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(PractitionerProfile::class, PractitionerProfilePolicy::class);
         Gate::policy(Appointment::class, AppointmentPolicy::class);
         Gate::policy(Consent::class, ConsentPolicy::class);
+        Gate::policy(\App\Models\IntakeFormTemplate::class, \App\Policies\IntakeFormTemplatePolicy::class);
+        Gate::policy(\App\Models\ClientIntake::class, \App\Policies\ClientIntakePolicy::class);
 
         $caPath = storage_path('cacert.pem');
         if (file_exists($caPath)) {

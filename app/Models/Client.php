@@ -108,4 +108,9 @@ class Client extends Model
     {
         return $this->hasMany(Consent::class)->latest('agreed_at');
     }
+
+    public function intakes(): HasMany
+    {
+        return $this->hasMany(ClientIntake::class)->latest('created_at');
+    }
 }

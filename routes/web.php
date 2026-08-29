@@ -153,6 +153,10 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
     // because its {tenant} domain parameter is unknown at this point.
     Route::get('/', fn () => redirect('/app/dashboard'));
 
+    // Public unauthenticated patient intake form completion
+    Route::get('/intake/{token}', [\App\Http\Controllers\PublicIntakeController::class, 'show'])->name('intake.public.show');
+    Route::post('/intake/{token}', [\App\Http\Controllers\PublicIntakeController::class, 'submit'])->name('intake.public.submit');
+
     /*
     | Clinic application status — /clinic/status
     | The one route EnsureStaffRole exempts from its approval gate, so an
@@ -193,6 +197,12 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
         Route::get('/consents/{consent}', [ConsentController::class, 'show'])->name('consents.show');
         Route::patch('/consents/{consent}/withdraw', [ConsentController::class, 'withdraw'])->name('consents.withdraw');
 
+        // Client intake forms — link generation, staff-fill, record view, and pending link deletion
+        Route::post('/clients/{client}/intakes/link', [\App\Http\Controllers\ClientIntakeController::class, 'storeLink'])->name('clients.intakes.link');
+        Route::post('/clients/{client}/intakes/staff', [\App\Http\Controllers\ClientIntakeController::class, 'storeStaff'])->name('clients.intakes.staff');
+        Route::get('/clients/{client}/intakes/{intake}', [\App\Http\Controllers\ClientIntakeController::class, 'show'])->name('clients.intakes.show');
+        Route::delete('/clients/{client}/intakes/{intake}', [\App\Http\Controllers\ClientIntakeController::class, 'destroy'])->name('clients.intakes.destroy');
+
         // Calendar & booking — available to any active workspace role
         // (owner, practitioner, receptionist). Every action is tenant-scoped
         // by the Appointment global scope + BookingService boundary checks.
@@ -227,6 +237,11 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
             Route::post('/settings/consents', [ConsentTypeController::class, 'store'])->name('settings.consents.store');
             Route::patch('/settings/consents/{consentType}', [ConsentTypeController::class, 'update'])->name('settings.consents.update');
 
+            // Intake Form Templates configuration
+            Route::get('/settings/intake-forms', [\App\Http\Controllers\IntakeTemplateController::class, 'index'])->name('settings.intake_forms.index');
+            Route::patch('/settings/intake-forms/{template}', [\App\Http\Controllers\IntakeTemplateController::class, 'update'])->name('settings.intake_forms.update');
+            Route::post('/settings/intake-forms/{template}/reset', [\App\Http\Controllers\IntakeTemplateController::class, 'reset'])->name('settings.intake_forms.reset');
+
             // Locations & Rooms — owner-only management.
             Route::get('/locations', [LocationController::class, 'index'])->name('locations.index');
             Route::post('/locations', [LocationController::class, 'store'])->name('locations.store');
@@ -253,3 +268,7 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
 });
 
 require __DIR__.'/auth.php';
+
+// Global fallback for public intake links (resolves token and tenant anywhere)
+Route::get('/intake/{token}', [\App\Http\Controllers\PublicIntakeController::class, 'show'])->name('intake.public.global.show');
+Route::post('/intake/{token}', [\App\Http\Controllers\PublicIntakeController::class, 'submit'])->name('intake.public.global.submit');

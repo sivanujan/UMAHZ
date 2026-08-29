@@ -2,7 +2,7 @@ import React from 'react';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AddressPicker from '@/Components/AddressPicker';
-import { Building2, Mail, Phone, MapPin, Stethoscope, Palette, Upload, Check, ShieldCheck } from 'lucide-react';
+import { Building2, Mail, Phone, MapPin, Stethoscope, Palette, Upload, Check, ShieldCheck, ClipboardList } from 'lucide-react';
 
 const DISCIPLINE_LABELS = {
     massage_therapy: 'Massage Therapy',
@@ -278,6 +278,20 @@ export default function ClinicSettings({ tenant, timezones, currencies, province
                             className="inline-flex items-center px-4 py-2 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 text-violet-700 dark:text-violet-400 text-xs font-semibold rounded-xl border border-violet-200 dark:border-violet-800 transition shrink-0"
                         >
                             Configure Consents &rarr;
+                        </Link>
+                    </div>
+                </Card>
+
+                <Card icon={ClipboardList} title="Discipline Intake Questionnaires" subtitle="Customize health-history templates and contraindication screening flags.">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <p className="text-xs text-slate-600 dark:text-slate-400 max-w-lg leading-relaxed">
+                            Configure profession-specific intake forms for the disciplines your clinic offers (Massage, TCM, Personal Training, Nutrition, Colon Hydrotherapy). Define questions and contraindication warnings.
+                        </p>
+                        <Link
+                            href="/app/settings/intake-forms"
+                            className="inline-flex items-center px-4 py-2 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 text-violet-700 dark:text-violet-400 text-xs font-semibold rounded-xl border border-violet-200 dark:border-violet-800 transition shrink-0"
+                        >
+                            Manage Intake Forms &rarr;
                         </Link>
                     </div>
                 </Card>

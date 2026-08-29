@@ -113,10 +113,54 @@ class ClientController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'code', 'description', 'body']);
 
+        \App\Models\IntakeFormTemplate::ensureDefaultsForTenant($tenantId);
+
+        $tenant = $client->tenant ?: \App\Models\Tenant::find($tenantId);
+        $offeredDisciplines = $tenant?->requested_disciplines ?: \App\Http\Controllers\Onboarding\ClinicRegistrationController::DISCIPLINES;
+
+        $intakes = $client->intakes()
+            ->with(['submittedByUser', 'appointment'])
+            ->latest('created_at')
+            ->get()
+            ->map(fn (\App\Models\ClientIntake $i) => [
+                'id' => $i->id,
+                'discipline' => $i->discipline,
+                'template_name' => $i->template_name,
+                'status' => $i->status,
+                'submission_type' => $i->submission_type,
+                'token' => $i->token,
+                'public_fill_url' => $i->token ? url("/intake/{$i->token}") : null,
+                'expires_at' => $i->expires_at?->toIso8601String(),
+                'is_expired' => $i->isExpired(),
+                'submitted_at' => $i->submitted_at?->toIso8601String(),
+                'submitted_by' => $i->submittedByUser?->name,
+                'contraindication_flags' => $i->contraindication_flags ?? [],
+                'flags_count' => count($i->contraindication_flags ?? []),
+                'appointment' => $i->appointment ? [
+                    'id' => $i->appointment->id,
+                    'starts_at' => $i->appointment->starts_at->toIso8601String(),
+                    'service_name' => $i->appointment->service_name,
+                ] : null,
+            ]);
+
+        $intakeTemplates = \App\Models\IntakeFormTemplate::where('tenant_id', $tenantId)
+            ->where('is_active', true)
+            ->whereIn('discipline', $offeredDisciplines)
+            ->get(['id', 'discipline', 'name', 'description', 'schema']);
+
+        $clientAppointments = $client->appointments()
+            ->latest('starts_at')
+            ->take(10)
+            ->get(['id', 'starts_at', 'service_name', 'status']);
+
         return Inertia::render('Clients/Show', [
             'client' => $this->present($client),
             'consents' => $consents,
             'consentTypes' => $consentTypes,
+            'intakes' => $intakes,
+            'intakeTemplates' => $intakeTemplates,
+            'clientAppointments' => $clientAppointments,
+            'offeredDisciplines' => $offeredDisciplines,
         ]);
     }
 
