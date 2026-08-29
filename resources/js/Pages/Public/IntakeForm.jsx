@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Head, router } from '@inertiajs/react';
 import {
     ClipboardList, CheckCircle2, AlertTriangle, ShieldCheck,
@@ -18,17 +18,39 @@ export default function PublicIntakeForm({
     errorMessage,
     token,
     clientFirstName,
+    clientSex,
     clinicName = 'Clinic',
     clinicPhone,
     clinicEmail,
     discipline = 'massage_therapy',
     templateName,
-    schema = { sections: [] },
+    schema: rawSchema = { sections: [] },
     submittedAt,
 }) {
     const [responses, setResponses] = useState({});
     const [confirmed, setConfirmed] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+
+    // Safeguard: Filter sections and questions dynamically based on clientSex
+    const schema = useMemo(() => {
+        if (!clientSex || (clientSex !== 'male' && clientSex !== 'female')) {
+            return rawSchema;
+        }
+
+        return {
+            ...rawSchema,
+            sections: (rawSchema.sections || []).map((sec) => ({
+                ...sec,
+                fields: (sec.fields || []).filter((f) => {
+                    const isPregnancy = f.id === 'is_pregnant' || f.id === 'is_pregnant_tcm' || (f.label && f.label.toLowerCase().includes('pregnant'));
+                    const appliesTo = f.applies_to || (isPregnancy ? 'female_only' : 'all');
+                    if (clientSex === 'male' && appliesTo === 'female_only') return false;
+                    if (clientSex === 'female' && appliesTo === 'male_only') return false;
+                    return true;
+                }),
+            })).filter((sec) => (sec.fields || []).length > 0),
+        };
+    }, [rawSchema, clientSex]);
 
     const handleFieldChange = (id, val) => {
         setResponses((prev) => ({ ...prev, [id]: val }));

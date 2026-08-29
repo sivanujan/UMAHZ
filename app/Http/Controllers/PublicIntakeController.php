@@ -48,9 +48,13 @@ class PublicIntakeController extends Controller
             ]);
         }
 
-        $baseSchema = $intake->schema_snapshot
-            ?: $intake->intakeFormTemplate?->schema
-            ?: IntakeFormTemplate::starterTemplateFor($intake->discipline)['schema'];
+        // For pending links, resolve from the active template so template edits and client updates reflect immediately.
+        // For completed records, preserve the immutable schema_snapshot.
+        $baseSchema = ($intake->status !== ClientIntake::STATUS_PENDING && $intake->schema_snapshot)
+            ? $intake->schema_snapshot
+            : ($intake->intakeFormTemplate?->schema
+                ?: $intake->schema_snapshot
+                ?: IntakeFormTemplate::starterTemplateFor($intake->discipline)['schema']);
 
         $clientSex = $intake->client?->sex;
         $schema = IntakeFormTemplate::filterSchemaForSex($baseSchema, $clientSex);
@@ -59,6 +63,7 @@ class PublicIntakeController extends Controller
             'state' => 'active',
             'token' => $token,
             'clientFirstName' => $intake->client?->first_name ?? 'Client',
+            'clientSex' => $clientSex,
             'clinicName' => $intake->tenant?->name ?? 'Clinic',
             'clinicPhone' => $intake->tenant?->phone,
             'clinicEmail' => $intake->tenant?->email,
@@ -88,8 +93,8 @@ class PublicIntakeController extends Controller
             'responses' => ['required', 'array'],
         ]);
 
-        $baseSchema = $intake->schema_snapshot
-            ?: $intake->intakeFormTemplate?->schema
+        $baseSchema = $intake->intakeFormTemplate?->schema
+            ?: $intake->schema_snapshot
             ?: IntakeFormTemplate::starterTemplateFor($intake->discipline)['schema'];
 
         // Snapshot ONLY the questions shown to this client based on their sex

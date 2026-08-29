@@ -520,7 +520,17 @@ class IntakeFormTemplate extends Model
         foreach ($schema['sections'] as $section) {
             $filteredFields = [];
             foreach ($section['fields'] ?? [] as $field) {
-                $appliesTo = $field['applies_to'] ?? self::APPLIES_TO_ALL;
+                $appliesTo = $field['applies_to'] ?? null;
+
+                if (! $appliesTo) {
+                    $isPregnancy = in_array($field['id'] ?? '', ['is_pregnant', 'is_pregnant_tcm'], true)
+                        || str_contains(strtolower($field['label'] ?? ''), 'pregnant');
+                    if ($isPregnancy) {
+                        $appliesTo = self::APPLIES_TO_FEMALE;
+                    }
+                }
+
+                $appliesTo = $appliesTo ?: self::APPLIES_TO_ALL;
 
                 if ($sex === Client::SEX_MALE && $appliesTo === self::APPLIES_TO_FEMALE) {
                     continue; // Skip female-only questions for male patients

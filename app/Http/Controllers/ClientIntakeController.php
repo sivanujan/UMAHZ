@@ -63,7 +63,7 @@ class ClientIntakeController extends Controller
                 'intake_form_template_id' => $template?->id,
                 'discipline' => $data['discipline'],
                 'template_name' => $template?->name ?? ucwords(str_replace('_', ' ', $data['discipline'])).' Intake',
-                'schema_snapshot' => $template?->schema,
+                'schema_snapshot' => null,
                 'status' => ClientIntake::STATUS_PENDING,
                 'submission_type' => ClientIntake::SUBMISSION_PATIENT_LINK,
                 'token' => $token,
