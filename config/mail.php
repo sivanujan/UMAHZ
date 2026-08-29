@@ -115,4 +115,18 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Shared Appointments Sender Address
+    |--------------------------------------------------------------------------
+    |
+    | The single, verified platform sender address used for all clinic
+    | appointment notifications. The display name and reply-to are set
+    | dynamically per clinic tenant.
+    |
+    */
+    'appointments' => [
+        'from_address' => env('APPOINTMENTS_FROM_ADDRESS', 'appointments@umahz.com'),
+    ],
+
 ];

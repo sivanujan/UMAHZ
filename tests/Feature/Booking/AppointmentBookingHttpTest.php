@@ -82,7 +82,7 @@ class AppointmentBookingHttpTest extends TestCase
     public function test_staff_can_open_the_calendar(): void
     {
         $clinic = $this->clinic('lotus');
-        [$user] = $this->staff($clinic);
+        [$user] = $this->staff($clinic, StaffMembership::ROLE_RECEPTIONIST);
 
         $this->actingAs($user)
             ->get('http://lotus.umahz.test/app/calendar')

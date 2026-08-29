@@ -3,14 +3,18 @@
 use App\Http\Controllers\Admin\ClinicReviewController;
 use App\Http\Controllers\Admin\PractitionerReviewController;
 use App\Http\Controllers\AppointmentController;
+use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClinicSettingsController;
 use App\Http\Controllers\ClinicStatusController;
+use App\Http\Controllers\ConsentController;
+use App\Http\Controllers\ConsentTypeController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LocationController;
-use App\Http\Controllers\RoomController;
 use App\Http\Controllers\Onboarding\ClinicRegistrationController;
 use App\Http\Controllers\Onboarding\OnboardingController;
 use App\Http\Controllers\Portal\SettingsController;
+use App\Http\Controllers\PractitionerAppointmentController;
+use App\Http\Controllers\RoomController;
 use App\Http\Controllers\Settings\StaffInvitationController;
 use App\Models\Client;
 use App\Models\ClinicalNote;
@@ -174,11 +178,20 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
             Route::post('/hours', [OnboardingController::class, 'updateHours'])->name('hours');
         });
 
-        Route::get('/clients', function () {
-            return Inertia::render('Clients/Index', [
-                'clients' => Client::latest()->get(),
-            ]);
-        })->name('clients.index');
+        // Client management — available to any active workspace role
+        // (owner, practitioner, receptionist). Every query and mutation is
+        // tenant-scoped via BelongsToTenant global scope.
+        Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
+        Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
+        Route::get('/clients/{client}', [ClientController::class, 'show'])->name('clients.show');
+        Route::patch('/clients/{client}', [ClientController::class, 'update'])->name('clients.update');
+        Route::patch('/clients/{client}/toggle', [ClientController::class, 'toggle'])->name('clients.toggle');
+        Route::delete('/clients/{client}', [ClientController::class, 'destroy'])->name('clients.destroy');
+
+        // Client consent capture & management — available to active clinic staff
+        Route::post('/clients/{client}/consents', [ConsentController::class, 'store'])->name('clients.consents.store');
+        Route::get('/consents/{consent}', [ConsentController::class, 'show'])->name('consents.show');
+        Route::patch('/consents/{consent}/withdraw', [ConsentController::class, 'withdraw'])->name('consents.withdraw');
 
         // Calendar & booking — available to any active workspace role
         // (owner, practitioner, receptionist). Every action is tenant-scoped
@@ -188,6 +201,13 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
         Route::patch('/appointments/{appointment}', [AppointmentController::class, 'update'])->name('appointments.update');
         Route::patch('/appointments/{appointment}/status', [AppointmentController::class, 'status'])->name('appointments.status');
         Route::patch('/appointments/{appointment}/cancel', [AppointmentController::class, 'cancel'])->name('appointments.cancel');
+
+        // Practitioner schedule & limited status update (own appointments only)
+        Route::middleware('staff.role:practitioner,clinic_owner')->prefix('practitioner')->name('practitioner.')->group(function () {
+            Route::get('/appointments', [PractitionerAppointmentController::class, 'index'])->name('appointments');
+            Route::patch('/appointments/{appointment}/status', [PractitionerAppointmentController::class, 'updateStatus'])->name('appointments.status');
+            Route::patch('/appointments/{appointment}/notes', [PractitionerAppointmentController::class, 'updateNotes'])->name('appointments.notes');
+        });
 
         // Staff invitations are owner-only.
         Route::middleware('staff.role:clinic_owner')->group(function () {
@@ -201,6 +221,11 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
             Route::patch('/settings/profile', [ClinicSettingsController::class, 'updateProfile'])->name('settings.profile');
             Route::patch('/settings/disciplines', [ClinicSettingsController::class, 'updateDisciplines'])->name('settings.disciplines');
             Route::post('/settings/branding', [ClinicSettingsController::class, 'updateBranding'])->name('settings.branding');
+
+            // Consent types & templates configuration
+            Route::get('/settings/consents', [ConsentTypeController::class, 'index'])->name('settings.consents.index');
+            Route::post('/settings/consents', [ConsentTypeController::class, 'store'])->name('settings.consents.store');
+            Route::patch('/settings/consents/{consentType}', [ConsentTypeController::class, 'update'])->name('settings.consents.update');
 
             // Locations & Rooms — owner-only management.
             Route::get('/locations', [LocationController::class, 'index'])->name('locations.index');

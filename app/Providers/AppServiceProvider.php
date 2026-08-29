@@ -2,8 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\Appointment;
+use App\Models\Consent;
 use App\Models\PractitionerProfile;
 use App\Models\Tenant;
+use App\Policies\AppointmentPolicy;
+use App\Policies\ConsentPolicy;
 use App\Policies\PractitionerProfilePolicy;
 use App\Policies\TenantPolicy;
 use GuzzleHttp\Client as GuzzleClient;
@@ -40,6 +44,8 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::policy(Tenant::class, TenantPolicy::class);
         Gate::policy(PractitionerProfile::class, PractitionerProfilePolicy::class);
+        Gate::policy(Appointment::class, AppointmentPolicy::class);
+        Gate::policy(Consent::class, ConsentPolicy::class);
 
         $caPath = storage_path('cacert.pem');
         if (file_exists($caPath)) {

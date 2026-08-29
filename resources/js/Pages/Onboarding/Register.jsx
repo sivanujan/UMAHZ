@@ -741,6 +741,10 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
     };
 
     const isLastStep = currentStep === SECTIONS.length - 1;
+    // Whether the current step's required fields are satisfied — drives the
+    // "Next" button's enabled/disabled appearance (e.g. email must be verified
+    // on step 1 before it looks clickable).
+    const stepComplete = completion[SECTIONS[currentStep].id];
 
     const goNext = () => {
         const sectionId = SECTIONS[currentStep].id;
@@ -962,10 +966,18 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
                                 <button
                                     type="button"
                                     onClick={goNext}
-                                    className="flex-1 py-3.5 px-4 text-white font-semibold text-sm rounded-full transition-all duration-300 ease-out flex items-center justify-center gap-2 hover:shadow-lg active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0D1B2A]"
-                                    style={{
+                                    aria-disabled={!stepComplete}
+                                    className={`flex-1 py-3.5 px-4 font-semibold text-sm rounded-full transition-all duration-300 ease-out flex items-center justify-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0D1B2A] ${
+                                        stepComplete
+                                            ? 'text-white hover:shadow-lg active:scale-[0.98]'
+                                            : 'text-slate-400 cursor-not-allowed'
+                                    }`}
+                                    style={stepComplete ? {
                                         background: `linear-gradient(135deg, ${BLUE} 0%, ${TEAL} 100%)`,
                                         boxShadow: '0 10px 30px -8px rgba(37,99,235,0.45)',
+                                    } : {
+                                        background: '#E2E8F0',
+                                        boxShadow: 'none',
                                     }}
                                 >
                                     Next

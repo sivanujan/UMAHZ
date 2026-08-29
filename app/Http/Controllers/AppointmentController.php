@@ -7,11 +7,15 @@ use App\Models\AuditEvent;
 use App\Models\Client;
 use App\Models\Location;
 use App\Models\StaffMembership;
+use App\Models\Tenant;
+use App\Notifications\AppointmentConfirmationNotification;
 use App\Scopes\TenantScope;
 use App\Services\BookingService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -34,12 +38,17 @@ class AppointmentController extends Controller
         Appointment::STATUS_NO_SHOW,
     ];
 
-    public function __construct(private readonly BookingService $booking)
-    {
-    }
+    public function __construct(private readonly BookingService $booking) {}
 
-    public function index(Request $request): Response
+    public function index(Request $request): Response|RedirectResponse
     {
+        $membership = $request->attributes->get('staffMembership');
+
+        // Role routing: practitioners land on their own dedicated schedule
+        if ($membership && $membership->role === StaffMembership::ROLE_PRACTITIONER) {
+            return redirect('/app/practitioner/appointments');
+        }
+
         $tenant = $this->tenant($request);
         $tz = $tenant->timezone ?: 'UTC';
 
@@ -108,12 +117,16 @@ class AppointmentController extends Controller
 
         $this->audit($request, 'appointment.created', $appointment);
 
+        $this->dispatchConfirmationNotification($appointment);
+
         return back()->with('success', 'Appointment booked.');
     }
 
     public function update(Request $request, Appointment $appointment): RedirectResponse
     {
         $this->authorizeAppointment($appointment);
+        Gate::authorize('update', $appointment);
+
         $data = $this->validateBooking($request);
 
         $this->booking->reschedule($appointment, [
@@ -135,6 +148,8 @@ class AppointmentController extends Controller
     public function status(Request $request, Appointment $appointment): RedirectResponse
     {
         $this->authorizeAppointment($appointment);
+        Gate::authorize('updateStatus', $appointment);
+
         $data = $request->validate([
             'status' => ['required', Rule::in(self::SETTABLE_STATUSES)],
         ]);
@@ -154,6 +169,8 @@ class AppointmentController extends Controller
     public function cancel(Request $request, Appointment $appointment): RedirectResponse
     {
         $this->authorizeAppointment($appointment);
+        Gate::authorize('cancel', $appointment);
+
         $data = $request->validate([
             'reason' => ['nullable', 'string', 'max:500'],
         ]);
@@ -240,6 +257,7 @@ class AppointmentController extends Controller
     private function clients(): array
     {
         return Client::query()
+            ->where('is_active', true)
             ->orderBy('first_name')
             ->get(['id', 'first_name', 'last_name'])
             ->map(fn (Client $c) => [
@@ -276,7 +294,7 @@ class AppointmentController extends Controller
     private function tenant($request)
     {
         return $request->attributes->get('staffMembership')?->tenant
-            ?? \App\Models\Tenant::findOrFail(TenantScope::getTenantId());
+            ?? Tenant::findOrFail(TenantScope::getTenantId());
     }
 
     private function audit(Request $request, string $action, Appointment $appointment): void
@@ -289,5 +307,28 @@ class AppointmentController extends Controller
             'resource_id' => $appointment->id,
             'ip_address' => $request->ip(),
         ]);
+    }
+
+    /**
+     * Dispatch queued appointment confirmation email to the client if they have
+     * an email address. Executed after the booking transaction has committed.
+     * Failures are logged and never surface a 500 to the user.
+     */
+    protected function dispatchConfirmationNotification(Appointment $appointment): void
+    {
+        try {
+            $appointment->loadMissing(['client', 'tenant']);
+            $client = $appointment->client;
+
+            if ($client && ! empty($client->email)) {
+                $client->notify(new AppointmentConfirmationNotification($appointment));
+            }
+        } catch (\Throwable $e) {
+            Log::error('Failed to queue appointment confirmation notification', [
+                'appointment_id' => $appointment->id,
+                'client_id' => $appointment->client_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

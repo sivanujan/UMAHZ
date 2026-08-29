@@ -7,6 +7,7 @@ use App\Models\PractitionerProfile;
 use App\Models\StaffMembership;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Rules\NotDisposableEmail;
 use App\Notifications\ClinicApplicationReceivedNotification;
 use App\Notifications\ClinicVerificationCodeNotification;
 use App\Support\EmailVerificationCode;
@@ -82,7 +83,7 @@ class ClinicRegistrationController extends Controller
     public function sendCode(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'email' => ['required', 'email'],
+            'email' => ['required', 'email', new NotDisposableEmail()],
         ]);
 
         $email = strtolower(trim($data['email']));
@@ -153,7 +154,7 @@ class ClinicRegistrationController extends Controller
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class, new NotDisposableEmail()],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
 
             'clinic_name' => ['required', 'string', 'max:255'],
@@ -167,7 +168,7 @@ class ClinicRegistrationController extends Controller
             'address_lng' => ['nullable', 'numeric', 'between:-180,180'],
 
             'primary_contact_name' => ['required', 'string', 'max:255'],
-            'primary_contact_email' => ['required', 'email', 'max:255'],
+            'primary_contact_email' => ['required', 'email', 'max:255', new NotDisposableEmail()],
             'primary_contact_phone' => ['required', 'string', 'max:50'],
 
             'requested_disciplines' => ['required', 'array', 'min:1'],

@@ -29,6 +29,24 @@ const STEP_FIELDS = {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[0-9()+\-.\s]{7,20}$/;
 
+const DISPOSABLE_DOMAINS = [
+    'mailinator.com', 'mailinator.net', 'mailinator2.com', 'notmailinator.com',
+    '10minutemail.com', '10minutemail.net', '10minemail.com', '10minuteemail.com',
+    'guerrillamail.com', 'guerrillamailblock.com', 'sharklasers.com', 'grr.la', 'spam4.me',
+    'tempmail.com', 'temp-mail.org', 'temp-mail.io', 'tempmail.net',
+    'yopmail.com', 'yopmail.fr', 'yopmail.net', 'cool.fr.nf',
+    'trashmail.com', 'trashmail.net', 'trashmail.me', 'throwawaymail.com',
+    'dispostable.com', 'fakeinbox.com', 'fakeemail.net', 'generator.email',
+    'nada.ltd', 'nada.email', 'getairmail.com', 'mohmal.com', 'burnermail.io',
+    'maildrop.cc', 'mailnesia.com', 'dropmail.me', 'emailfake.com', 'inbound.plus'
+];
+
+function isDisposableEmail(email) {
+    if (!email || !email.includes('@')) return false;
+    const domain = email.split('@').pop().toLowerCase().trim();
+    return DISPOSABLE_DOMAINS.some((d) => domain === d || domain.endsWith('.' + d));
+}
+
 function validateField(name, value, data) {
     switch (name) {
         case 'first_name':
@@ -39,7 +57,9 @@ function validateField(name, value, data) {
             return new Date(value) < new Date() ? null : 'Must be in the past';
         case 'email':
             if (!value) return 'Required';
-            return EMAIL_RE.test(value) ? null : 'Enter a valid email address';
+            if (!EMAIL_RE.test(value)) return 'Enter a valid email address';
+            if (isDisposableEmail(value)) return 'Temporary/disposable emails are not allowed';
+            return null;
         case 'phone':
             if (!value) return 'Required';
             return PHONE_RE.test(value) && value.replace(/\D/g, '').length >= 7 ? null : 'Enter a valid phone number';

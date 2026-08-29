@@ -1,8 +1,8 @@
 import React from 'react';
-import { Head, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AddressPicker from '@/Components/AddressPicker';
-import { Building2, Mail, Phone, MapPin, Stethoscope, Palette, Upload, Check } from 'lucide-react';
+import { Building2, Mail, Phone, MapPin, Stethoscope, Palette, Upload, Check, ShieldCheck } from 'lucide-react';
 
 const DISCIPLINE_LABELS = {
     massage_therapy: 'Massage Therapy',
@@ -267,6 +267,20 @@ export default function ClinicSettings({ tenant, timezones, currencies, province
                 <ProfileSection tenant={tenant} timezones={timezones} currencies={currencies} provinces={provinces} countries={countries} cities={cities} />
                 <DisciplinesSection tenant={tenant} allDisciplines={allDisciplines} />
                 <BrandingSection tenant={tenant} />
+
+                <Card icon={ShieldCheck} title="Informed Consent Agreements" subtitle="Configure legal agreement texts and consent forms for your clinic.">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <p className="text-xs text-slate-600 dark:text-slate-400 max-w-lg leading-relaxed">
+                            Set up the required consent agreements that patients must sign prior to treatment, including general treatment and sensitive-area agreements.
+                        </p>
+                        <Link
+                            href="/app/settings/consents"
+                            className="inline-flex items-center px-4 py-2 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 text-violet-700 dark:text-violet-400 text-xs font-semibold rounded-xl border border-violet-200 dark:border-violet-800 transition shrink-0"
+                        >
+                            Configure Consents &rarr;
+                        </Link>
+                    </div>
+                </Card>
             </div>
         </AuthenticatedLayout>
     );
