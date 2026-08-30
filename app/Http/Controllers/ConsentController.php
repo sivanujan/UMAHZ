@@ -152,7 +152,7 @@ class ConsentController extends Controller
                 'signed_pdf_original_name' => $consent->signed_pdf_original_name,
                 'signed_pdf_file_size' => $consent->signed_pdf_file_size,
                 'consent_version' => $consent->consent_version ?? 1,
-                'pdf_url' => $consent->signed_pdf_path ? route('consents.document', $consent->id) : null,
+                'pdf_url' => $consent->signed_pdf_path ? url("/app/consents/{$consent->id}/document") : null,
                 'signer_name' => $consent->signer_name,
                 'signature_type' => $consent->signature_type,
                 'signature_data' => $consent->signature_data,

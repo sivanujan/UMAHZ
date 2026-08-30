@@ -102,7 +102,7 @@ class ClientController extends Controller
                 'signed_pdf_original_name' => $c->signed_pdf_original_name,
                 'signed_pdf_file_size' => $c->signed_pdf_file_size,
                 'consent_version' => $c->consent_version ?? 1,
-                'pdf_url' => $c->signed_pdf_path ? route('consents.document', $c->id) : null,
+                'pdf_url' => $c->signed_pdf_path ? url("/app/consents/{$c->id}/document") : null,
                 'signer_name' => $c->signer_name,
                 'signature_type' => $c->signature_type,
                 'signature_data' => $c->signature_data,
@@ -130,7 +130,7 @@ class ClientController extends Controller
                 'pdf_file_size' => $t->pdf_file_size,
                 'version' => $t->version ?? 1,
                 'is_configured' => $t->isConfigured(),
-                'pdf_url' => $t->pdf_path ? route('consent_types.document', $t->id) : null,
+                'pdf_url' => $t->pdf_path ? url("/app/consent-types/{$t->id}/document") : null,
             ]);
 
         \App\Models\IntakeFormTemplate::ensureDefaultsForTenant($tenantId);

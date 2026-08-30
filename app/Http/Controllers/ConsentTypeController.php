@@ -41,7 +41,7 @@ class ConsentTypeController extends Controller
                 'is_active' => $type->is_active,
                 'is_configured' => $type->isConfigured(),
                 'consents_count' => $type->consents_count,
-                'pdf_url' => $type->pdf_path ? route('consent_types.document', $type->id) : null,
+                'pdf_url' => $type->pdf_path ? url("/app/consent-types/{$type->id}/document") : null,
             ]);
 
         return Inertia::render('Settings/Consents', [
