@@ -7,6 +7,7 @@ use App\Models\Client;
 use App\Models\Consent;
 use App\Models\ConsentType;
 use App\Scopes\TenantScope;
+use App\Services\ConsentPdfSigner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -116,6 +117,10 @@ class ConsentController extends Controller
             return $consent;
         });
 
+        if ($consent->isPdfSource() && $consent->signed_pdf_path) {
+            ConsentPdfSigner::sign($consent);
+        }
+
         return back()->with('success', "Consent \"{$consentType->name}\" recorded for {$client->full_name}.");
     }
 
@@ -187,6 +192,10 @@ class ConsentController extends Controller
                 'client_id' => $consent->client_id,
             ],
         ]);
+
+        if ($consent->isPdfSource() && $consent->signed_pdf_path) {
+            ConsentPdfSigner::sign($consent);
+        }
 
         return Storage::disk('local')->response(
             $consent->signed_pdf_path,

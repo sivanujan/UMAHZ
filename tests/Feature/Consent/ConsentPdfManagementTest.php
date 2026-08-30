@@ -347,4 +347,52 @@ class ConsentPdfManagementTest extends TestCase
         $this->expectException(DomainException::class);
         $consent->update(['signed_pdf_path' => "consents/signed/{$clinic->id}/tampered.pdf"]);
     }
+
+    public function test_consent_pdf_signer_appends_execution_certificate_page(): void
+    {
+        $clinic = $this->clinic('lotus');
+        [$staff] = $this->staff($clinic);
+        $client = Client::create(['tenant_id' => $clinic->id, 'first_name' => 'Grace', 'last_name' => 'Hopper']);
+
+        // Generate a valid minimal PDF
+        $tempSource = tempnam(sys_get_temp_dir(), 'umahz_src_') . '.pdf';
+        $tempOut = tempnam(sys_get_temp_dir(), 'umahz_out_') . '.pdf';
+
+        // Minimal valid PDF structure
+        $minimalPdf = "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<<>>>>endobj\nxref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000052 00000 n \n0000000101 00000 n \ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n178\n%%EOF\n";
+        file_put_contents($tempSource, $minimalPdf);
+
+        $consent = Consent::create([
+            'tenant_id' => $clinic->id,
+            'client_id' => $client->id,
+            'consent_type_name' => 'Acupuncture & Needling Agreement',
+            'agreement_source' => 'pdf',
+            'consent_body' => '[PDF Document]',
+            'signed_pdf_path' => 'dummy_path.pdf',
+            'signed_pdf_original_name' => 'needling.pdf',
+            'consent_version' => 1,
+            'signer_name' => 'Grace Hopper',
+            'signature_type' => 'typed',
+            'signature_data' => 'TYPED_ACKNOWLEDGMENT: Grace Hopper',
+            'witnessed_by_user_id' => $staff->id,
+            'agreed_at' => now(),
+            'status' => Consent::STATUS_ACTIVE,
+        ]);
+
+        $success = \App\Services\ConsentPdfSigner::sign($consent, $tempSource, $tempOut);
+        $this->assertTrue($success);
+        $this->assertFileExists($tempOut);
+
+        $outContent = file_get_contents($tempOut);
+        $this->assertStringStartsWith('%PDF-', $outContent);
+        $this->assertStringContainsString('%%EOF', $outContent);
+        $this->assertGreaterThan(filesize($tempSource), filesize($tempOut));
+
+        // Test idempotency: running again should succeed without issue
+        $secondSuccess = \App\Services\ConsentPdfSigner::sign($consent, $tempOut, $tempOut);
+        $this->assertTrue($secondSuccess);
+
+        @unlink($tempSource);
+        @unlink($tempOut);
+    }
 }

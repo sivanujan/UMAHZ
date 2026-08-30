@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { usePage } from '@inertiajs/react';
 import {
     FileCheck, X, Calendar, UserCheck, ShieldCheck, Printer,
     AlertTriangle, ShieldAlert, Building2, CheckCircle2, Copy,
-    FileDown, File, ExternalLink
+    FileDown, File, ExternalLink, Award
 } from 'lucide-react';
 
 function formatBytes(bytes) {
@@ -17,12 +17,26 @@ function formatBytes(bytes) {
 export default function ViewConsentModal({ consent, onClose, onWithdraw }) {
     if (!consent) return null;
 
+    const iframeRef = useRef(null);
     const { auth } = usePage().props;
     const clinicName = auth?.tenant?.name || 'Clinic';
     const isWithdrawn = consent.status === 'withdrawn';
     const isPdf = consent.agreement_source === 'pdf';
 
     const handlePrint = () => {
+        if (isPdf && consent.pdf_url) {
+            if (iframeRef.current && iframeRef.current.contentWindow) {
+                try {
+                    iframeRef.current.contentWindow.focus();
+                    iframeRef.current.contentWindow.print();
+                    return;
+                } catch (err) {
+                    // Fallback to opening in new window if direct iframe print is restricted
+                }
+            }
+            window.open(consent.pdf_url, '_blank');
+            return;
+        }
         window.print();
     };
 
@@ -232,6 +246,7 @@ export default function ViewConsentModal({ consent, onClose, onWithdraw }) {
                                     <div className="relative w-full h-80 bg-slate-100 dark:bg-slate-950">
                                         {consent.pdf_url ? (
                                             <iframe
+                                                ref={iframeRef}
                                                 src={`${consent.pdf_url}#toolbar=0&navpanes=0`}
                                                 title={consent.consent_type_name}
                                                 className="w-full h-full border-0"
@@ -239,6 +254,12 @@ export default function ViewConsentModal({ consent, onClose, onWithdraw }) {
                                         ) : (
                                             <div className="p-6 text-center text-xs text-slate-500">PDF document not available</div>
                                         )}
+                                    </div>
+                                    <div className="p-2.5 bg-emerald-50/80 dark:bg-emerald-950/30 border-t border-emerald-200/60 dark:border-emerald-900/40 flex items-center justify-between text-[11px] text-emerald-800 dark:text-emerald-300">
+                                        <div className="flex items-center gap-1.5 font-medium">
+                                            <Award className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                            <span>Certified PDF: Original agreement terms + attached official signature execution certificate.</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
