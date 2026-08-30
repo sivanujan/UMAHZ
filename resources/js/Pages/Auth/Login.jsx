@@ -29,7 +29,7 @@ const GoogleIcon = () => (
     </svg>
 );
 
-export default function Login({ status, demoCredentialsEnabled, canRegisterClient = true, canRegisterClinic = true }) {
+export default function Login({ status, demoCredentialsEnabled, canRegisterClient = false, canRegisterClinic = true }) {
     const { data, setData, post, processing, errors } = useForm({
         email: 'owner@lotuswellness.com',
         password: 'password',

@@ -21,6 +21,8 @@ class AuthenticatedSessionController extends Controller
         // The login page is host-agnostic, but the sign-up links are not: on a
         // clinic subdomain staff are invited (never self-registered) and new
         // clinics are created on the central domain — so hide both links there.
+        // On normal central login, client self-registration is hidden (clients
+        // register on the portal), while clinic onboarding is offered.
         $host = $request->getHost();
         $isCentral = $host === \App\Support\Tenancy::centralDomain();
         $isPortal = $host === \App\Support\Tenancy::portalHost();
@@ -28,7 +30,7 @@ class AuthenticatedSessionController extends Controller
         return Inertia::render('Auth/Login', [
             'status' => session('status'),
             'demoCredentialsEnabled' => ! app()->environment('production'),
-            'canRegisterClient' => $isCentral || $isPortal,
+            'canRegisterClient' => $isPortal,
             'canRegisterClinic' => $isCentral,
         ]);
     }

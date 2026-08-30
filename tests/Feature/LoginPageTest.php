@@ -10,12 +10,12 @@ class LoginPageTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_central_login_shows_the_signup_links(): void
+    public function test_central_login_shows_clinic_signup_only(): void
     {
         $this->get('http://umahz.test/login')
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Auth/Login')
-                ->where('canRegisterClient', true)
+                ->where('canRegisterClient', false)
                 ->where('canRegisterClinic', true));
     }
 
