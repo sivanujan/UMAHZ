@@ -12,8 +12,11 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ConsentController extends Controller
 {
@@ -40,19 +43,50 @@ class ConsentController extends Controller
         $consentType = ConsentType::where('tenant_id', $tenantId)
             ->findOrFail($data['consent_type_id']);
 
-        if (empty(trim((string) $consentType->body))) {
+        if (! $consentType->isConfigured()) {
+            $msg = $consentType->isPdfSource()
+                ? 'This consent type requires an uploaded consent PDF document. A clinic administrator must upload the agreement PDF under Settings before it can be signed.'
+                : 'This consent type does not have consent text configured. A clinic administrator must enter the consent agreement text before it can be signed.';
+
             throw ValidationException::withMessages([
-                'consent_type_id' => 'This consent type does not have consent text configured. A clinic administrator must enter the consent agreement text before it can be signed.',
+                'consent_type_id' => $msg,
+            ]);
+        }
+
+        if ($consentType->isPdfSource() && (! $consentType->pdf_path || ! Storage::disk('local')->exists($consentType->pdf_path))) {
+            throw ValidationException::withMessages([
+                'consent_type_id' => 'The uploaded agreement PDF file could not be found on storage. Please re-upload it under Settings.',
             ]);
         }
 
         $consent = DB::transaction(function () use ($request, $client, $consentType, $data, $tenantId) {
+            $signedPdfPath = null;
+            $signedPdfOriginalName = null;
+            $signedPdfFileSize = null;
+
+            if ($consentType->isPdfSource()) {
+                $ext = pathinfo($consentType->pdf_path, PATHINFO_EXTENSION) ?: 'pdf';
+                $signedPdfPath = "consents/signed/{$tenantId}/".Str::uuid().".{$ext}";
+                Storage::disk('local')->copy($consentType->pdf_path, $signedPdfPath);
+                $signedPdfOriginalName = $consentType->pdf_original_name;
+                $signedPdfFileSize = $consentType->pdf_file_size;
+            }
+
+            $consentBody = $consentType->isPdfSource()
+                ? "[PDF Agreement: {$consentType->pdf_original_name} (v{$consentType->version})]"
+                : $consentType->body;
+
             $consent = Consent::create([
                 'tenant_id' => $tenantId,
                 'client_id' => $client->id,
                 'consent_type_id' => $consentType->id,
                 'consent_type_name' => $consentType->name,
-                'consent_body' => $consentType->body, // Immutable snapshot
+                'agreement_source' => $consentType->agreement_source ?? ConsentType::SOURCE_TEXT,
+                'consent_body' => $consentBody, // Immutable snapshot
+                'signed_pdf_path' => $signedPdfPath, // Immutable PDF snapshot
+                'signed_pdf_original_name' => $signedPdfOriginalName,
+                'signed_pdf_file_size' => $signedPdfFileSize,
+                'consent_version' => $consentType->version ?? 1,
                 'signer_name' => trim($data['signer_name']),
                 'signature_type' => $data['signature_type'],
                 'signature_data' => $data['signature_data'],
@@ -72,6 +106,9 @@ class ConsentController extends Controller
                 'metadata' => [
                     'client_id' => $client->id,
                     'consent_type' => $consentType->name,
+                    'agreement_source' => $consent->agreement_source,
+                    'consent_version' => $consent->consent_version,
+                    'has_signed_pdf' => (bool) $consent->signed_pdf_path,
                     'signature_type' => $data['signature_type'],
                 ],
             ]);
@@ -109,7 +146,13 @@ class ConsentController extends Controller
                 'id' => $consent->id,
                 'client_name' => $consent->client?->full_name,
                 'consent_type_name' => $consent->consent_type_name,
+                'agreement_source' => $consent->agreement_source ?? Consent::SOURCE_TEXT,
                 'consent_body' => $consent->consent_body,
+                'signed_pdf_path' => $consent->signed_pdf_path,
+                'signed_pdf_original_name' => $consent->signed_pdf_original_name,
+                'signed_pdf_file_size' => $consent->signed_pdf_file_size,
+                'consent_version' => $consent->consent_version ?? 1,
+                'pdf_url' => $consent->signed_pdf_path ? route('consents.document', $consent->id) : null,
                 'signer_name' => $consent->signer_name,
                 'signature_type' => $consent->signature_type,
                 'signature_data' => $consent->signature_data,
@@ -121,6 +164,38 @@ class ConsentController extends Controller
                 'withdrawal_reason' => $consent->withdrawal_reason,
             ],
         ]);
+    }
+
+    /**
+     * Securely stream the immutable signed consent PDF to authorized staff/client.
+     */
+    public function document(Request $request, Consent $consent): StreamedResponse
+    {
+        $this->authorizeConsent($consent);
+        Gate::authorize('view', $consent);
+
+        abort_unless($consent->signed_pdf_path && Storage::disk('local')->exists($consent->signed_pdf_path), 404);
+
+        AuditEvent::create([
+            'tenant_id' => TenantScope::getTenantId(),
+            'user_id' => $request->user()->id,
+            'action' => 'consent.document_viewed',
+            'resource_type' => Consent::class,
+            'resource_id' => $consent->id,
+            'ip_address' => $request->ip(),
+            'metadata' => [
+                'client_id' => $consent->client_id,
+            ],
+        ]);
+
+        return Storage::disk('local')->response(
+            $consent->signed_pdf_path,
+            $consent->signed_pdf_original_name ?? 'signed_consent.pdf',
+            [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="'.($consent->signed_pdf_original_name ?? 'signed_consent.pdf').'"',
+            ]
+        );
     }
 
     /**

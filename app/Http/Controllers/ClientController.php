@@ -96,7 +96,13 @@ class ClientController extends Controller
                 'id' => $c->id,
                 'consent_type_name' => $c->consent_type_name,
                 'consent_type_id' => $c->consent_type_id,
+                'agreement_source' => $c->agreement_source ?? Consent::SOURCE_TEXT,
                 'consent_body' => $c->consent_body,
+                'signed_pdf_path' => $c->signed_pdf_path,
+                'signed_pdf_original_name' => $c->signed_pdf_original_name,
+                'signed_pdf_file_size' => $c->signed_pdf_file_size,
+                'consent_version' => $c->consent_version ?? 1,
+                'pdf_url' => $c->signed_pdf_path ? route('consents.document', $c->id) : null,
                 'signer_name' => $c->signer_name,
                 'signature_type' => $c->signature_type,
                 'signature_data' => $c->signature_data,
@@ -111,7 +117,21 @@ class ClientController extends Controller
         $consentTypes = ConsentType::where('tenant_id', $tenantId)
             ->where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'name', 'code', 'description', 'body']);
+            ->get()
+            ->map(fn (ConsentType $t) => [
+                'id' => $t->id,
+                'name' => $t->name,
+                'code' => $t->code,
+                'description' => $t->description,
+                'agreement_source' => $t->agreement_source ?? ConsentType::SOURCE_TEXT,
+                'body' => $t->body,
+                'pdf_path' => $t->pdf_path,
+                'pdf_original_name' => $t->pdf_original_name,
+                'pdf_file_size' => $t->pdf_file_size,
+                'version' => $t->version ?? 1,
+                'is_configured' => $t->isConfigured(),
+                'pdf_url' => $t->pdf_path ? route('consent_types.document', $t->id) : null,
+            ]);
 
         \App\Models\IntakeFormTemplate::ensureDefaultsForTenant($tenantId);
 

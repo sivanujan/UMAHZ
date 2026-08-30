@@ -195,6 +195,8 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
         // Client consent capture & management — available to active clinic staff
         Route::post('/clients/{client}/consents', [ConsentController::class, 'store'])->name('clients.consents.store');
         Route::get('/consents/{consent}', [ConsentController::class, 'show'])->name('consents.show');
+        Route::get('/consents/{consent}/document', [ConsentController::class, 'document'])->name('consents.document');
+        Route::get('/consent-types/{consentType}/document', [ConsentTypeController::class, 'document'])->name('consent_types.document');
         Route::patch('/consents/{consent}/withdraw', [ConsentController::class, 'withdraw'])->name('consents.withdraw');
 
         // Client intake forms — link generation, staff-fill, record view, and pending link deletion
@@ -235,7 +237,7 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
             // Consent types & templates configuration
             Route::get('/settings/consents', [ConsentTypeController::class, 'index'])->name('settings.consents.index');
             Route::post('/settings/consents', [ConsentTypeController::class, 'store'])->name('settings.consents.store');
-            Route::patch('/settings/consents/{consentType}', [ConsentTypeController::class, 'update'])->name('settings.consents.update');
+            Route::match(['patch', 'post'], '/settings/consents/{consentType}', [ConsentTypeController::class, 'update'])->name('settings.consents.update');
 
             // Intake Form Templates configuration
             Route::get('/settings/intake-forms', [\App\Http\Controllers\IntakeTemplateController::class, 'index'])->name('settings.intake_forms.index');

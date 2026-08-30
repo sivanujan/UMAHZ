@@ -169,6 +169,13 @@ export default function Navbar() {
                             Sign in
                         </Link>
                         <Link
+                            href="/clinics/register"
+                            className="rounded-full border px-4 py-2 text-sm font-semibold transition-colors duration-200 hover:bg-[#F1F5F9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/40"
+                            style={{ color: ROYAL, borderColor: 'rgba(37,99,235,0.35)' }}
+                        >
+                            Register as clinic
+                        </Link>
+                        <Link
                             href="/contact"
                             className="inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2563EB]"
                             style={{ background: BRAND_GRADIENT, boxShadow: '0 10px 22px -12px rgba(37,99,235,0.6)' }}
@@ -246,6 +253,14 @@ export default function Navbar() {
                                 style={{ color: INK }}
                             >
                                 Sign in
+                            </Link>
+                            <Link
+                                href="/clinics/register"
+                                onClick={() => setMobileOpen(false)}
+                                className="mt-1 block rounded-lg border px-3 py-2.5 text-center text-sm font-semibold"
+                                style={{ color: ROYAL, borderColor: 'rgba(37,99,235,0.35)' }}
+                            >
+                                Register as clinic
                             </Link>
                             <Link
                                 href="/contact"

@@ -555,8 +555,15 @@ export default function ClientsShow({
                                     return (
                                         <tr key={consent.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
                                             <td className="py-3.5 pr-4">
-                                                <div className="font-semibold text-slate-900 dark:text-white">
-                                                    {consent.consent_type_name}
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-semibold text-slate-900 dark:text-white">
+                                                        {consent.consent_type_name}
+                                                    </span>
+                                                    {consent.agreement_source === 'pdf' && (
+                                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300 border border-violet-200 dark:border-violet-800">
+                                                            PDF (v{consent.consent_version || 1})
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div className="text-[10px] text-slate-400 font-mono">
                                                     ID: {consent.id.substring(0, 8)}...

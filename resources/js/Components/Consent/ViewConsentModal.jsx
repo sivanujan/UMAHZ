@@ -2,8 +2,17 @@ import React from 'react';
 import { usePage } from '@inertiajs/react';
 import {
     FileCheck, X, Calendar, UserCheck, ShieldCheck, Printer,
-    AlertTriangle, ShieldAlert, Building2, CheckCircle2, Copy
+    AlertTriangle, ShieldAlert, Building2, CheckCircle2, Copy,
+    FileDown, File, ExternalLink
 } from 'lucide-react';
+
+function formatBytes(bytes) {
+    if (!bytes || bytes === 0) return '';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
 
 export default function ViewConsentModal({ consent, onClose, onWithdraw }) {
     if (!consent) return null;
@@ -11,6 +20,7 @@ export default function ViewConsentModal({ consent, onClose, onWithdraw }) {
     const { auth } = usePage().props;
     const clinicName = auth?.tenant?.name || 'Clinic';
     const isWithdrawn = consent.status === 'withdrawn';
+    const isPdf = consent.agreement_source === 'pdf';
 
     const handlePrint = () => {
         window.print();
@@ -110,6 +120,19 @@ export default function ViewConsentModal({ consent, onClose, onWithdraw }) {
                         </div>
 
                         <div className="flex items-center gap-2">
+                            {isPdf && consent.pdf_url && (
+                                <a
+                                    href={consent.pdf_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    download={consent.signed_pdf_original_name || 'signed_consent.pdf'}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition text-xs font-semibold shadow-sm"
+                                    title="Download Signed PDF Document"
+                                >
+                                    <FileDown className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                                    <span>Download PDF</span>
+                                </a>
+                            )}
                             <button
                                 type="button"
                                 onClick={handlePrint}
@@ -117,7 +140,7 @@ export default function ViewConsentModal({ consent, onClose, onWithdraw }) {
                                 title="Print Official Document / Save as PDF"
                             >
                                 <Printer className="w-4 h-4" />
-                                <span>Print / PDF</span>
+                                <span>Print / Export</span>
                             </button>
                             <button
                                 type="button"
@@ -170,20 +193,70 @@ export default function ViewConsentModal({ consent, onClose, onWithdraw }) {
                             </div>
                         </div>
 
-                        {/* Signed Agreement Terms (On-Screen Box) */}
-                        <div>
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                    Agreed Agreement Terms (Immutable Snapshot)
-                                </span>
-                                <span className="text-[10px] text-slate-400 font-mono">
-                                    Record ID: {consent.id.substring(0, 8)}...
-                                </span>
+                        {/* Signed Agreement Document/Terms Presentation */}
+                        {isPdf ? (
+                            <div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                        Agreed PDF Document (Immutable Snapshot • v{consent.consent_version || 1})
+                                    </span>
+                                    {consent.pdf_url && (
+                                        <a
+                                            href={consent.pdf_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-xs font-semibold text-violet-600 dark:text-violet-400 hover:underline flex items-center gap-1"
+                                        >
+                                            <ExternalLink className="w-3.5 h-3.5" />
+                                            Open Full PDF
+                                        </a>
+                                    )}
+                                </div>
+                                <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 overflow-hidden shadow-sm">
+                                    <div className="p-3 bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <File className="w-4 h-4 text-rose-500 shrink-0" />
+                                            <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">
+                                                {consent.signed_pdf_original_name || 'Agreed_Consent_Document.pdf'}
+                                            </span>
+                                            {consent.signed_pdf_file_size && (
+                                                <span className="text-[10px] text-slate-400 shrink-0">
+                                                    ({formatBytes(consent.signed_pdf_file_size)})
+                                                </span>
+                                            )}
+                                        </div>
+                                        <span className="text-[10px] font-mono text-slate-400 shrink-0">
+                                            Record: {consent.id.substring(0, 8)}...
+                                        </span>
+                                    </div>
+                                    <div className="relative w-full h-80 bg-slate-100 dark:bg-slate-950">
+                                        {consent.pdf_url ? (
+                                            <iframe
+                                                src={`${consent.pdf_url}#toolbar=0&navpanes=0`}
+                                                title={consent.consent_type_name}
+                                                className="w-full h-full border-0"
+                                            />
+                                        ) : (
+                                            <div className="p-6 text-center text-xs text-slate-500">PDF document not available</div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5 text-xs text-slate-800 dark:text-slate-200 font-sans leading-relaxed whitespace-pre-wrap select-text max-h-72 overflow-y-auto shadow-inner">
-                                {consent.consent_body}
+                        ) : (
+                            <div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                        Agreed Agreement Terms (Immutable Snapshot)
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 font-mono">
+                                        Record ID: {consent.id.substring(0, 8)}...
+                                    </span>
+                                </div>
+                                <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5 text-xs text-slate-800 dark:text-slate-200 font-sans leading-relaxed whitespace-pre-wrap select-text max-h-72 overflow-y-auto shadow-inner">
+                                    {consent.consent_body}
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* Signature Presentation */}
                         <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
@@ -240,7 +313,7 @@ export default function ViewConsentModal({ consent, onClose, onWithdraw }) {
                                 className="px-4 py-2 text-xs font-semibold rounded-xl bg-violet-600 hover:bg-violet-700 text-white shadow-sm flex items-center gap-1.5"
                             >
                                 <Printer className="w-3.5 h-3.5" />
-                                Print Document
+                                Print / Export
                             </button>
                             <button
                                 type="button"
@@ -313,15 +386,34 @@ export default function ViewConsentModal({ consent, onClose, onWithdraw }) {
                     </div>
                 )}
 
-                {/* Agreement Body Text */}
-                <div className="mb-8">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600 border-b border-slate-200 pb-1.5 mb-3">
-                        Terms of Informed Consent (Agreed Version)
-                    </h3>
-                    <div className="text-xs leading-relaxed text-slate-800 whitespace-pre-wrap font-sans text-justify">
-                        {consent.consent_body}
+                {/* Agreement Terms or Attached PDF Certification */}
+                {isPdf ? (
+                    <div className="mb-8 border border-slate-300 rounded-lg p-5 bg-slate-50/50 print-avoid-break">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 border-b border-slate-300 pb-2 mb-3">
+                            Attached Informed Consent Agreement Document (PDF)
+                        </h3>
+                        <div className="space-y-2 text-xs text-slate-700 leading-relaxed">
+                            <p>
+                                <strong>Document Name:</strong> {consent.signed_pdf_original_name || 'Consent Agreement Document (PDF)'}
+                            </p>
+                            <p>
+                                <strong>Document Version:</strong> Version {consent.consent_version || 1}
+                            </p>
+                            <p>
+                                <strong>Audit & Record Verification:</strong> This informed consent record was officially signed and executed by the patient against the exact attached document. The agreed PDF is immutably archived on file in the clinic's digital medical records repository under UUID <code className="font-mono font-semibold">{consent.id}</code>.
+                            </p>
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="mb-8">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600 border-b border-slate-200 pb-1.5 mb-3">
+                            Terms of Informed Consent (Agreed Version)
+                        </h3>
+                        <div className="text-xs leading-relaxed text-slate-800 whitespace-pre-wrap font-sans text-justify">
+                            {consent.consent_body}
+                        </div>
+                    </div>
+                )}
 
                 {/* Signatures & Execution Section */}
                 <div className="border-t-2 border-slate-300 pt-6 mt-8 print-avoid-break">

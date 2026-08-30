@@ -3,18 +3,29 @@ import { useForm, usePage } from '@inertiajs/react';
 import SignaturePad from '@/Components/SignaturePad';
 import {
     FileCheck2, ShieldAlert, Check, X, AlertTriangle, UserCheck,
-    PenLine, Type, Clock, Building2
+    PenLine, Type, Clock, Building2, File, ExternalLink
 } from 'lucide-react';
 
 export default function RecordConsentModal({ client, consentTypes = [], onClose }) {
     const { auth } = usePage().props;
-    const firstConfigured = consentTypes.find((t) => Boolean(t.body && t.body.trim().length > 0));
+
+    const isTypeConfigured = (type) => {
+        if (!type) return false;
+        if (type.is_configured !== undefined) return Boolean(type.is_configured);
+        if (type.agreement_source === 'pdf') {
+            return Boolean(type.pdf_path);
+        }
+        return Boolean(type.body && type.body.trim().length > 0);
+    };
+
+    const firstConfigured = consentTypes.find(isTypeConfigured);
     const [selectedTypeId, setSelectedTypeId] = useState(firstConfigured?.id || consentTypes[0]?.id || '');
     const [signatureMode, setSignatureMode] = useState('draw'); // 'draw' | 'typed'
     const [agreedCheckbox, setAgreedCheckbox] = useState(false);
 
     const selectedType = consentTypes.find((t) => t.id === selectedTypeId) || firstConfigured || consentTypes[0];
-    const hasText = Boolean(selectedType?.body && selectedType.body.trim().length > 0);
+    const isCurrentConfigured = isTypeConfigured(selectedType);
+    const isPdf = selectedType?.agreement_source === 'pdf';
 
     const { data, setData, post, processing, errors, reset } = useForm({
         consent_type_id: selectedType?.id || '',
@@ -34,7 +45,7 @@ export default function RecordConsentModal({ client, consentTypes = [], onClose 
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (!hasText) return;
+        if (!isCurrentConfigured) return;
 
         if (!agreedCheckbox) {
             alert('Please check the confirmation box acknowledging client agreement.');
@@ -104,16 +115,18 @@ export default function RecordConsentModal({ client, consentTypes = [], onClose 
                         </label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                             {consentTypes.map((type) => {
-                                const isConfigured = Boolean(type.body && type.body.trim().length > 0);
+                                const configured = isTypeConfigured(type);
                                 const isSelected = type.id === selectedType?.id;
+                                const isTypePdf = type.agreement_source === 'pdf';
+
                                 return (
                                     <button
                                         key={type.id}
                                         type="button"
-                                        disabled={!isConfigured}
-                                        onClick={() => isConfigured && handleTypeSelect(type.id)}
+                                        disabled={!configured}
+                                        onClick={() => configured && handleTypeSelect(type.id)}
                                         className={`p-3 rounded-xl border text-left transition flex flex-col justify-between ${
-                                            !isConfigured
+                                            !configured
                                                 ? 'opacity-40 cursor-not-allowed bg-slate-50/60 dark:bg-slate-900/30 border-dashed border-slate-300 dark:border-slate-800'
                                                 : isSelected
                                                     ? 'border-violet-600 bg-violet-50/50 dark:bg-violet-950/20 ring-2 ring-violet-500/20'
@@ -121,25 +134,25 @@ export default function RecordConsentModal({ client, consentTypes = [], onClose 
                                         }`}
                                     >
                                         <div className="flex items-center justify-between gap-2 mb-1">
-                                            <span className="font-semibold text-xs text-slate-900 dark:text-white">
+                                            <span className="font-semibold text-xs text-slate-900 dark:text-white truncate">
                                                 {type.name}
                                             </span>
-                                            {isSelected && isConfigured && (
+                                            {isSelected && configured && (
                                                 <span className="w-4 h-4 rounded-full bg-violet-600 text-white flex items-center justify-center shrink-0">
                                                     <Check className="w-2.5 h-2.5 stroke-[3]" />
                                                 </span>
                                             )}
                                         </div>
                                         <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
-                                            {type.description || 'Standard clinic agreement.'}
+                                            {type.description || (isTypePdf ? 'Official PDF consent document.' : 'Standard clinic agreement.')}
                                         </p>
-                                        {!isConfigured ? (
+                                        {!configured ? (
                                             <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-2">
-                                                <AlertTriangle className="w-3 h-3" /> Unconfigured — add text under Settings to enable
+                                                <AlertTriangle className="w-3 h-3" /> Unconfigured — {isTypePdf ? 'upload PDF' : 'add text'} under Settings
                                             </span>
                                         ) : (
                                             <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mt-2">
-                                                <Check className="w-3 h-3" /> Text Configured
+                                                <Check className="w-3 h-3" /> {isTypePdf ? 'PDF Document Configured' : 'Text Configured'}
                                             </span>
                                         )}
                                     </button>
@@ -151,28 +164,74 @@ export default function RecordConsentModal({ client, consentTypes = [], onClose 
                         )}
                     </div>
 
-                    {/* Step 2: Agreement Document Body */}
+                    {/* Step 2: Agreement Document Body / PDF Viewer */}
                     <div>
                         <div className="flex items-center justify-between mb-2">
                             <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                 2. Agreement Terms & Conditions
                             </label>
                             <span className="text-[11px] text-slate-400">
-                                Exact text will be immutably snapshot
+                                {isPdf ? 'Exact document version will be immutably snapshot' : 'Exact text will be immutably snapshot'}
                             </span>
                         </div>
 
-                        {hasText ? (
-                            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 p-4 max-h-48 overflow-y-auto text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-mono whitespace-pre-wrap select-text">
-                                {selectedType.body}
-                            </div>
+                        {isCurrentConfigured ? (
+                            isPdf ? (
+                                /* Embedded PDF Viewer */
+                                <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 overflow-hidden">
+                                    <div className="flex items-center justify-between px-3.5 py-2 bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-xs">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <File className="w-4 h-4 text-rose-500 shrink-0" />
+                                            <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">
+                                                {selectedType.pdf_original_name || 'Consent Agreement Document (PDF)'}
+                                            </span>
+                                            <span className="text-[10px] text-slate-400 shrink-0 font-mono">
+                                                v{selectedType.version || 1}
+                                            </span>
+                                        </div>
+                                        {selectedType.pdf_url && (
+                                            <a
+                                                href={selectedType.pdf_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-violet-600 dark:text-violet-400 hover:underline flex items-center gap-1 font-semibold text-[11px] shrink-0"
+                                            >
+                                                <ExternalLink className="w-3.5 h-3.5" />
+                                                Open Full PDF
+                                            </a>
+                                        )}
+                                    </div>
+                                    <div className="relative w-full h-64 bg-slate-100 dark:bg-slate-950">
+                                        {selectedType.pdf_url ? (
+                                            <iframe
+                                                src={`${selectedType.pdf_url}#toolbar=0&navpanes=0`}
+                                                title={selectedType.name}
+                                                className="w-full h-full border-0"
+                                            />
+                                        ) : (
+                                            <div className="p-6 text-center text-xs text-slate-500">PDF preview unavailable</div>
+                                        )}
+                                    </div>
+                                    <div className="p-2.5 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 text-center">
+                                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                                            Please have the client review the complete document above prior to signing below.
+                                        </span>
+                                    </div>
+                                </div>
+                            ) : (
+                                /* Scrollable Text Agreement */
+                                <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 p-4 max-h-48 overflow-y-auto text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-mono whitespace-pre-wrap select-text">
+                                    {selectedType.body}
+                                </div>
+                            )
                         ) : (
+                            /* Unconfigured State */
                             <div className="rounded-xl border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/30 p-4 flex gap-3 text-amber-800 dark:text-amber-300 text-xs">
                                 <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
                                 <div className="space-y-1">
-                                    <p className="font-semibold text-sm">No Consent Agreement Text Configured</p>
+                                    <p className="font-semibold text-sm">No Consent Agreement Configured</p>
                                     <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-400">
-                                        This clinic has not yet entered the legal wording for <strong>{selectedType?.name}</strong>.
+                                        This clinic has not yet entered agreement wording or uploaded a PDF for <strong>{selectedType?.name}</strong>.
                                         UMAHZ does not fabricate legal or medical language. A clinic administrator must configure the
                                         required consent terms in <strong>Clinic Settings &rarr; Consent Types</strong> before this form can be signed.
                                     </p>
@@ -182,7 +241,7 @@ export default function RecordConsentModal({ client, consentTypes = [], onClose 
                     </div>
 
                     {/* Step 3: Signature Capture */}
-                    <div className={!hasText ? 'opacity-40 pointer-events-none' : ''}>
+                    <div className={!isCurrentConfigured ? 'opacity-40 pointer-events-none' : ''}>
                         <div className="flex items-center justify-between mb-2">
                             <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                 3. Client Acknowledgment & Signature
@@ -226,7 +285,7 @@ export default function RecordConsentModal({ client, consentTypes = [], onClose 
                                 value={data.signer_name}
                                 onChange={(e) => setData('signer_name', e.target.value)}
                                 required
-                                disabled={!hasText}
+                                disabled={!isCurrentConfigured}
                                 className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none"
                                 placeholder="e.g. Jane Doe"
                             />
@@ -239,7 +298,7 @@ export default function RecordConsentModal({ client, consentTypes = [], onClose 
                         {signatureMode === 'draw' ? (
                             <div>
                                 <SignaturePad
-                                    disabled={!hasText}
+                                    disabled={!isCurrentConfigured}
                                     onSignatureChange={handleSignatureChange}
                                 />
                                 {errors.signature_data && (
@@ -262,11 +321,11 @@ export default function RecordConsentModal({ client, consentTypes = [], onClose 
                                     type="checkbox"
                                     checked={agreedCheckbox}
                                     onChange={(e) => setAgreedCheckbox(e.target.checked)}
-                                    disabled={!hasText}
+                                    disabled={!isCurrentConfigured}
                                     className="mt-0.5 w-4 h-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
                                 />
                                 <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-tight">
-                                    I, <strong className="text-violet-700 dark:text-violet-400">{data.signer_name || client.name}</strong>, acknowledge that I have read, understand, and agree to the full terms of this consent agreement.
+                                    I, <strong className="text-violet-700 dark:text-violet-400">{data.signer_name || client.name}</strong>, acknowledge that I have read, understand, and voluntarily agree to the complete terms of this consent agreement.
                                 </span>
                             </label>
                         </div>
@@ -298,7 +357,7 @@ export default function RecordConsentModal({ client, consentTypes = [], onClose 
                         <button
                             type="submit"
                             disabled={
-                                !hasText ||
+                                !isCurrentConfigured ||
                                 processing ||
                                 !agreedCheckbox ||
                                 !data.signer_name.trim() ||

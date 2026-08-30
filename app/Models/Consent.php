@@ -17,12 +17,21 @@ class Consent extends Model
 
     public const STATUS_WITHDRAWN = 'withdrawn';
 
+    public const SOURCE_TEXT = 'text';
+
+    public const SOURCE_PDF = 'pdf';
+
     protected $fillable = [
         'tenant_id',
         'client_id',
         'consent_type_id',
         'consent_type_name',
+        'agreement_source',
         'consent_body',
+        'signed_pdf_path',
+        'signed_pdf_original_name',
+        'signed_pdf_file_size',
+        'consent_version',
         'signer_name',
         'signature_type',
         'signature_data',
@@ -40,12 +49,24 @@ class Consent extends Model
         return [
             'agreed_at' => 'datetime',
             'withdrawn_at' => 'datetime',
+            'consent_version' => 'integer',
+            'signed_pdf_file_size' => 'integer',
         ];
+    }
+
+    public function isPdfSource(): bool
+    {
+        return $this->agreement_source === self::SOURCE_PDF;
+    }
+
+    public function isTextSource(): bool
+    {
+        return $this->agreement_source !== self::SOURCE_PDF;
     }
 
     /**
      * Enforce strict legal immutability: once signed and stored,
-     * the core consent text, signature, and timestamp cannot be altered.
+     * the core consent text, PDF document, signature, and timestamp cannot be altered.
      */
     protected static function booted(): void
     {
@@ -54,7 +75,12 @@ class Consent extends Model
                 'tenant_id',
                 'client_id',
                 'consent_type_name',
+                'agreement_source',
                 'consent_body',
+                'signed_pdf_path',
+                'signed_pdf_original_name',
+                'signed_pdf_file_size',
+                'consent_version',
                 'signer_name',
                 'signature_type',
                 'signature_data',

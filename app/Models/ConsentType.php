@@ -17,12 +17,21 @@ class ConsentType extends Model
 
     public const CODE_SENSITIVE_AREA = 'sensitive_area';
 
+    public const SOURCE_TEXT = 'text';
+
+    public const SOURCE_PDF = 'pdf';
+
     protected $fillable = [
         'tenant_id',
         'name',
         'code',
         'description',
+        'agreement_source',
         'body',
+        'pdf_path',
+        'pdf_original_name',
+        'pdf_file_size',
+        'version',
         'is_active',
     ];
 
@@ -30,7 +39,28 @@ class ConsentType extends Model
     {
         return [
             'is_active' => 'boolean',
+            'version' => 'integer',
+            'pdf_file_size' => 'integer',
         ];
+    }
+
+    public function isPdfSource(): bool
+    {
+        return $this->agreement_source === self::SOURCE_PDF;
+    }
+
+    public function isTextSource(): bool
+    {
+        return $this->agreement_source !== self::SOURCE_PDF;
+    }
+
+    public function isConfigured(): bool
+    {
+        if ($this->isPdfSource()) {
+            return ! empty($this->pdf_path);
+        }
+
+        return ! empty(trim((string) $this->body));
     }
 
     public function tenant(): BelongsTo
