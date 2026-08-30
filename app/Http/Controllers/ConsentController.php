@@ -174,12 +174,18 @@ class ConsentController extends Controller
     /**
      * Securely stream the immutable signed consent PDF to authorized staff/client.
      */
-    public function document(Request $request, Consent $consent): StreamedResponse
+    public function document(Request $request, Consent $consent): \Symfony\Component\HttpFoundation\Response
     {
         $this->authorizeConsent($consent);
         Gate::authorize('view', $consent);
 
         abort_unless($consent->signed_pdf_path && Storage::disk('local')->exists($consent->signed_pdf_path), 404);
+
+        if ($consent->isPdfSource()) {
+            ConsentPdfSigner::sign($consent);
+        }
+
+        $fullPath = Storage::disk('local')->path($consent->signed_pdf_path);
 
         AuditEvent::create([
             'tenant_id' => TenantScope::getTenantId(),
@@ -193,13 +199,8 @@ class ConsentController extends Controller
             ],
         ]);
 
-        if ($consent->isPdfSource() && $consent->signed_pdf_path) {
-            ConsentPdfSigner::sign($consent);
-        }
-
-        return Storage::disk('local')->response(
-            $consent->signed_pdf_path,
-            $consent->signed_pdf_original_name ?? 'signed_consent.pdf',
+        return response()->file(
+            $fullPath,
             [
                 'Content-Type' => 'application/pdf',
                 'Content-Disposition' => 'inline; filename="'.($consent->signed_pdf_original_name ?? 'signed_consent.pdf').'"',

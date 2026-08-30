@@ -184,10 +184,12 @@ class ConsentTypeController extends Controller
     /**
      * Securely stream the active PDF template for a consent type to authorized staff.
      */
-    public function document(Request $request, ConsentType $consentType): StreamedResponse
+    public function document(Request $request, ConsentType $consentType): \Symfony\Component\HttpFoundation\Response
     {
         abort_unless($consentType->tenant_id === TenantScope::getTenantId(), 404);
         abort_unless($consentType->pdf_path && Storage::disk('local')->exists($consentType->pdf_path), 404);
+
+        $fullPath = Storage::disk('local')->path($consentType->pdf_path);
 
         AuditEvent::create([
             'tenant_id' => TenantScope::getTenantId(),
@@ -198,9 +200,8 @@ class ConsentTypeController extends Controller
             'ip_address' => $request->ip(),
         ]);
 
-        return Storage::disk('local')->response(
-            $consentType->pdf_path,
-            $consentType->pdf_original_name ?? 'consent.pdf',
+        return response()->file(
+            $fullPath,
             [
                 'Content-Type' => 'application/pdf',
                 'Content-Disposition' => 'inline; filename="'.($consentType->pdf_original_name ?? 'consent.pdf').'"',

@@ -51,7 +51,21 @@ class ConsentPdfSigner
         }
 
         try {
-            $process = new Process(['node', $scriptPath]);
+            $nodeBinary = file_exists('C:\\Program Files\\nodejs\\node.exe')
+                ? 'C:\\Program Files\\nodejs\\node.exe'
+                : 'node';
+
+            $systemRoot = getenv('SystemRoot') ?: (getenv('windir') ?: 'C:\\Windows');
+            $env = [
+                'SystemRoot' => $systemRoot,
+                'WINDIR' => $systemRoot,
+                'windir' => $systemRoot,
+                'PATH' => getenv('PATH') ?: ('C:\\Program Files\\nodejs;' . $systemRoot . '\\system32;' . $systemRoot),
+                'TEMP' => sys_get_temp_dir(),
+                'TMP' => sys_get_temp_dir(),
+            ];
+
+            $process = new Process([$nodeBinary, $scriptPath], base_path(), $env);
             $process->setInput(json_encode($payload));
             $process->setTimeout(30);
             $process->run();
