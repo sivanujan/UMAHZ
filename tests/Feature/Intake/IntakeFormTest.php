@@ -12,7 +12,9 @@ use App\Models\User;
 use App\Notifications\ClientIntakeLinkNotification;
 use DomainException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class IntakeFormTest extends TestCase
@@ -545,5 +547,96 @@ class IntakeFormTest extends TestCase
 
         $this->assertNotContains('is_pregnant', $snapshotFieldIds);
         $this->assertContains('has_blood_clots', $snapshotFieldIds);
+    }
+
+    public function test_patient_can_submit_intake_with_uploaded_image_and_staff_can_view_file(): void
+    {
+        Storage::fake('local');
+
+        $clinic = $this->clinic('lotus');
+        [$staffUser] = $this->staff($clinic);
+        $client = $this->client($clinic);
+
+        IntakeFormTemplate::ensureDefaultsForTenant($clinic->id, $clinic->requested_disciplines);
+        $template = IntakeFormTemplate::where('tenant_id', $clinic->id)
+            ->where('discipline', IntakeFormTemplate::DISCIPLINE_MASSAGE_THERAPY)
+            ->firstOrFail();
+
+        $schema = $template->schema;
+        $schema['sections'][0]['fields'][] = [
+            'id' => 'skin_photo',
+            'type' => 'image',
+            'label' => 'Photo of Affected Skin / Injury',
+            'required' => false,
+        ];
+        $template->update(['schema' => $schema]);
+
+        $token = 'test-token-img-'.bin2hex(random_bytes(8));
+        $intake = ClientIntake::create([
+            'tenant_id' => $clinic->id,
+            'client_id' => $client->id,
+            'discipline' => IntakeFormTemplate::DISCIPLINE_MASSAGE_THERAPY,
+            'template_name' => 'Massage Intake',
+            'status' => ClientIntake::STATUS_PENDING,
+            'submission_type' => ClientIntake::SUBMISSION_PATIENT_LINK,
+            'token' => $token,
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        $fakeImage = UploadedFile::fake()->create('rash_photo.jpg', 100, 'image/jpeg');
+
+        $responses = [
+            'chief_complaint' => 'Skin irritation on left shoulder',
+            'pain_severity' => '1-3 (Mild)',
+            'pressure_preference' => 'Light Pressure',
+            'has_blood_clots' => 'no',
+            'contagious_skin_condition' => 'no',
+            'uncontrolled_blood_pressure' => 'no',
+            'skin_photo' => $fakeImage,
+        ];
+
+        $response = $this->withServerVariables(['HTTP_HOST' => 'lotus.umahz.test'])
+            ->post("/intake/{$token}", [
+                'responses' => $responses,
+            ]);
+
+        $response->assertRedirect("/intake/{$token}");
+
+        $intake->refresh();
+        $this->assertSame(ClientIntake::STATUS_COMPLETED, $intake->status);
+        $this->assertIsArray($intake->responses['skin_photo']);
+        $this->assertSame('image', $intake->responses['skin_photo']['type']);
+        $this->assertSame('rash_photo.jpg', $intake->responses['skin_photo']['original_name']);
+
+        $storedPath = $intake->responses['skin_photo']['path'];
+        Storage::disk('local')->assertExists($storedPath);
+
+        // Staff inspects the intake record JSON
+        $showResponse = $this->actingAs($staffUser)
+            ->withServerVariables(['HTTP_HOST' => 'lotus.umahz.test'])
+            ->get("http://lotus.umahz.test/app/clients/{$client->id}/intakes/{$intake->id}");
+
+        $showResponse->assertOk();
+        $fileUrl = $showResponse->json('intake.responses.skin_photo.url');
+        $this->assertNotNull($fileUrl);
+        $this->assertStringContainsString('/files/skin_photo', $fileUrl);
+
+        // Staff views the file stream
+        $fileResponse = $this->actingAs($staffUser)
+            ->withServerVariables(['HTTP_HOST' => 'lotus.umahz.test'])
+            ->get("http://lotus.umahz.test/app/clients/{$client->id}/intakes/{$intake->id}/files/skin_photo");
+
+        $fileResponse->assertOk();
+        $this->assertStringContainsString('image/jpeg', $fileResponse->headers->get('Content-Type'));
+
+        // Cross-tenant check: Staff from clinic B cannot access clinic A's patient photo
+        $clinicB = $this->clinic('aurora');
+        [$staffB] = $this->staff($clinicB);
+
+        $crossResponse = $this->actingAs($staffB)
+            ->withServerVariables(['HTTP_HOST' => 'aurora.umahz.test'])
+            ->get("http://aurora.umahz.test/app/clients/{$client->id}/intakes/{$intake->id}/files/skin_photo");
+
+        $crossResponse->assertNotFound();
     }
 }

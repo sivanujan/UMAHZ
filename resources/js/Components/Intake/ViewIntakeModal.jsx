@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { usePage } from '@inertiajs/react';
 import {
     FileText, X, Printer, ShieldAlert, CheckCircle2, UserCheck,
-    Calendar, Clock, AlertTriangle, Building2
+    Calendar, Clock, AlertTriangle, Building2, ExternalLink, Image as ImageIcon
 } from 'lucide-react';
 
 const DISCIPLINE_LABELS = {
@@ -213,7 +213,8 @@ export default function ViewIntakeModal({ client, intakeSummary, onClose }) {
                                             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                                                 {(sec.fields || []).map((field) => {
                                                     const val = responses[field.id];
-                                                    const isFieldFlagged = field.is_contraindication && val !== undefined && String(val).toLowerCase() === String(field.flag_trigger || 'yes').toLowerCase();
+                                                    const isImageField = field.type === 'image' || (typeof val === 'object' && val !== null && val?.type === 'image');
+                                                    const isFieldFlagged = !isImageField && field.is_contraindication && val !== undefined && String(val).toLowerCase() === String(field.flag_trigger || 'yes').toLowerCase();
 
                                                     return (
                                                         <div
@@ -221,6 +222,8 @@ export default function ViewIntakeModal({ client, intakeSummary, onClose }) {
                                                             className={`p-3 rounded-lg border ${
                                                                 isFieldFlagged
                                                                     ? 'bg-rose-50/50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/50 sm:col-span-2'
+                                                                    : isImageField
+                                                                    ? 'bg-slate-50/50 dark:bg-slate-950/40 border-slate-100 dark:border-slate-800/80 sm:col-span-2'
                                                                     : 'bg-slate-50/50 dark:bg-slate-950/40 border-slate-100 dark:border-slate-800/80'
                                                             }`}
                                                         >
@@ -228,7 +231,35 @@ export default function ViewIntakeModal({ client, intakeSummary, onClose }) {
                                                                 {field.label}
                                                             </dt>
                                                             <dd className="font-semibold text-slate-900 dark:text-white text-xs leading-relaxed">
-                                                                {val !== undefined && val !== null && String(val).trim().length > 0 ? (
+                                                                {isImageField ? (
+                                                                    val && val.url ? (
+                                                                        <div className="space-y-2 mt-1">
+                                                                            <a
+                                                                                href={val.url}
+                                                                                target="_blank"
+                                                                                rel="noopener noreferrer"
+                                                                                className="group relative block w-full max-w-xs rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-black/5 hover:border-violet-500 transition"
+                                                                            >
+                                                                                <img
+                                                                                    src={val.url}
+                                                                                    alt={val.original_name || field.label}
+                                                                                    className="w-full max-h-56 object-cover group-hover:scale-105 transition duration-200"
+                                                                                />
+                                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1.5 text-white text-xs font-semibold transition">
+                                                                                    <ExternalLink className="w-3.5 h-3.5" />
+                                                                                    <span>View Full Image</span>
+                                                                                </div>
+                                                                            </a>
+                                                                            <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                                                                                <ImageIcon className="w-3.5 h-3.5 text-violet-500" />
+                                                                                <span className="font-medium truncate max-w-xs">{val.original_name || 'Patient Photo'}</span>
+                                                                                {val.size && <span>• {(val.size / 1024).toFixed(1)} KB</span>}
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="text-slate-400 italic">No photo attached</span>
+                                                                    )
+                                                                ) : val !== undefined && val !== null && String(val).trim().length > 0 ? (
                                                                     String(val)
                                                                 ) : (
                                                                     <span className="text-slate-400 italic">Not specified</span>
@@ -343,14 +374,40 @@ export default function ViewIntakeModal({ client, intakeSummary, onClose }) {
                                 {sec.title}
                             </h3>
                             <div className="space-y-2.5">
-                                {(sec.fields || []).map((f) => (
-                                    <div key={f.id} className="text-xs border-b border-slate-100 pb-1.5 flex justify-between gap-4">
-                                        <span className="text-slate-600 font-medium flex-1">{f.label}</span>
-                                        <span className="font-bold text-slate-900 text-right shrink-0 max-w-xs">
-                                            {responses[f.id] !== undefined ? String(responses[f.id]) : '—'}
-                                        </span>
-                                    </div>
-                                ))}
+                                {(sec.fields || []).map((f) => {
+                                    const rVal = responses[f.id];
+                                    const isImg = f.type === 'image' || (typeof rVal === 'object' && rVal?.type === 'image');
+                                    return (
+                                        <div key={f.id} className="text-xs border-b border-slate-100 pb-2 space-y-1">
+                                            <div className="flex justify-between gap-4">
+                                                <span className="text-slate-600 font-medium flex-1">{f.label}</span>
+                                                {!isImg && (
+                                                    <span className="font-bold text-slate-900 text-right shrink-0 max-w-xs">
+                                                        {rVal !== undefined && rVal !== null && String(rVal).trim().length > 0 ? String(rVal) : '—'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {isImg && (
+                                                <div>
+                                                    {rVal && rVal.url ? (
+                                                        <div className="pt-1">
+                                                            <img
+                                                                src={rVal.url}
+                                                                alt={rVal.original_name || f.label}
+                                                                className="max-h-56 max-w-xs rounded border border-slate-200 object-contain print-avoid-break"
+                                                            />
+                                                            <p className="text-[10px] text-slate-500 mt-0.5">
+                                                                {rVal.original_name || 'Attached Photo'} {rVal.size ? `(${(rVal.size / 1024).toFixed(1)} KB)` : ''}
+                                                            </p>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-slate-400 italic">No photo attached</span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     ))}

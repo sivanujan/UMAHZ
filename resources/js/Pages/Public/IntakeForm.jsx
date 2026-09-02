@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { Head, router } from '@inertiajs/react';
 import {
     ClipboardList, CheckCircle2, AlertTriangle, ShieldCheck,
-    Lock, HeartPulse, Building2, ChevronRight, Send
+    Lock, HeartPulse, Building2, ChevronRight, Send,
+    Camera, Trash2, Image as ImageIcon
 } from 'lucide-react';
 
 const DISCIPLINE_LABELS = {
@@ -29,24 +30,22 @@ export default function PublicIntakeForm({
     submittedAt,
 }) {
     const [responses, setResponses] = useState({});
+    const [imagePreviews, setImagePreviews] = useState({});
     const [confirmed, setConfirmed] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
-    // Safeguard: Filter sections and questions dynamically based on clientSex
+    // Client-side safety: filter rawSchema sections & fields by sex
     const schema = useMemo(() => {
-        if (!clientSex || (clientSex !== 'male' && clientSex !== 'female')) {
-            return rawSchema;
+        if (!rawSchema || !Array.isArray(rawSchema.sections)) {
+            return { sections: [] };
         }
-
         return {
             ...rawSchema,
-            sections: (rawSchema.sections || []).map((sec) => ({
+            sections: rawSchema.sections.map((sec) => ({
                 ...sec,
-                fields: (sec.fields || []).filter((f) => {
-                    const isPregnancy = f.id === 'is_pregnant' || f.id === 'is_pregnant_tcm' || (f.label && f.label.toLowerCase().includes('pregnant'));
-                    const appliesTo = f.applies_to || (isPregnancy ? 'female_only' : 'all');
-                    if (clientSex === 'male' && appliesTo === 'female_only') return false;
-                    if (clientSex === 'female' && appliesTo === 'male_only') return false;
+                fields: (sec.fields || []).filter((field) => {
+                    if (field.applies_to === 'female_only' && clientSex !== 'female') return false;
+                    if (field.applies_to === 'male_only' && clientSex !== 'male') return false;
                     return true;
                 }),
             })).filter((sec) => (sec.fields || []).length > 0),
@@ -57,11 +56,40 @@ export default function PublicIntakeForm({
         setResponses((prev) => ({ ...prev, [id]: val }));
     };
 
+    const handleImageSelect = (fieldId, file) => {
+        if (!file) return;
+        if (file.size > 10 * 1024 * 1024) {
+            alert('File size exceeds 10MB limit. Please choose a smaller image.');
+            return;
+        }
+        const previewUrl = URL.createObjectURL(file);
+        setImagePreviews((prev) => ({ ...prev, [fieldId]: { url: previewUrl, name: file.name, size: file.size } }));
+        handleFieldChange(fieldId, file);
+    };
+
+    const handleImageRemove = (fieldId) => {
+        setImagePreviews((prev) => {
+            const next = { ...prev };
+            delete next[fieldId];
+            return next;
+        });
+        handleFieldChange(fieldId, null);
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!confirmed) {
             alert('Please check the confirmation box certifying your responses are accurate.');
             return;
+        }
+
+        for (const sec of schema.sections || []) {
+            for (const f of sec.fields || []) {
+                if (f.required && (responses[f.id] === undefined || responses[f.id] === null || responses[f.id] === '')) {
+                    alert(`Please provide a response for: "${f.label}"`);
+                    return;
+                }
+            }
         }
 
         setSubmitting(true);
@@ -260,6 +288,60 @@ export default function PublicIntakeForm({
                                                         </label>
                                                     );
                                                 })}
+                                            </div>
+                                        )}
+
+                                        {field.type === 'image' && (
+                                            <div>
+                                                {imagePreviews[field.id] ? (
+                                                    <div className="relative p-3.5 rounded-2xl border border-violet-200 bg-violet-50/40 flex items-center gap-4">
+                                                        <img
+                                                            src={imagePreviews[field.id].url}
+                                                            alt="Uploaded preview"
+                                                            className="w-16 h-16 rounded-xl object-cover border border-violet-200 shadow-sm shrink-0"
+                                                        />
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-semibold text-slate-800 truncate">
+                                                                {imagePreviews[field.id].name}
+                                                            </p>
+                                                            <p className="text-[11px] text-slate-500 mt-0.5">
+                                                                {(imagePreviews[field.id].size / 1024).toFixed(1)} KB • Image attached
+                                                            </p>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleImageRemove(field.id)}
+                                                            className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                                            title="Remove image"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <label className="border-2 border-dashed border-slate-200 hover:border-violet-400 rounded-2xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer bg-slate-50/50 hover:bg-violet-50/20 transition group">
+                                                        <input
+                                                            type="file"
+                                                            accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif"
+                                                            className="hidden"
+                                                            onChange={(e) => {
+                                                                if (e.target.files?.[0]) {
+                                                                    handleImageSelect(field.id, e.target.files[0]);
+                                                                }
+                                                            }}
+                                                        />
+                                                        <div className="w-10 h-10 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center group-hover:scale-110 transition">
+                                                            <Camera className="w-5 h-5" />
+                                                        </div>
+                                                        <div className="text-center">
+                                                            <p className="text-xs font-semibold text-slate-700 group-hover:text-violet-700">
+                                                                Click or drag to upload photo
+                                                            </p>
+                                                            <p className="text-[11px] text-slate-400 mt-0.5">
+                                                                JPG, PNG, WEBP or HEIC up to 10MB
+                                                            </p>
+                                                        </div>
+                                                    </label>
+                                                )}
                                             </div>
                                         )}
                                     </div>

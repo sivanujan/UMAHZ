@@ -199,10 +199,11 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
         Route::get('/consent-types/{consentType}/document', [ConsentTypeController::class, 'document'])->name('consent_types.document');
         Route::patch('/consents/{consent}/withdraw', [ConsentController::class, 'withdraw'])->name('consents.withdraw');
 
-        // Client intake forms — link generation, staff-fill, record view, and pending link deletion
+        // Client intake forms — link generation, staff-fill, record view, pending link deletion, and image file view
         Route::post('/clients/{client}/intakes/link', [\App\Http\Controllers\ClientIntakeController::class, 'storeLink'])->name('clients.intakes.link');
         Route::post('/clients/{client}/intakes/staff', [\App\Http\Controllers\ClientIntakeController::class, 'storeStaff'])->name('clients.intakes.staff');
         Route::get('/clients/{client}/intakes/{intake}', [\App\Http\Controllers\ClientIntakeController::class, 'show'])->name('clients.intakes.show');
+        Route::get('/clients/{client}/intakes/{intake}/files/{fieldId}', [\App\Http\Controllers\ClientIntakeController::class, 'file'])->name('clients.intakes.file');
         Route::delete('/clients/{client}/intakes/{intake}', [\App\Http\Controllers\ClientIntakeController::class, 'destroy'])->name('clients.intakes.destroy');
 
         // Calendar & booking — available to any active workspace role

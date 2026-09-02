@@ -94,6 +94,32 @@ class PublicIntakeController extends Controller
             'responses' => ['required', 'array'],
         ]);
 
+        $responses = $data['responses'];
+
+        // Process any uploaded image files
+        $allFiles = $request->file('responses', []);
+        if (is_array($allFiles)) {
+            foreach ($allFiles as $fieldId => $file) {
+                if ($file instanceof \Illuminate\Http\UploadedFile && $file->isValid()) {
+                    $mime = $file->getMimeType() ?: $file->getClientMimeType();
+                    $ext = strtolower($file->getClientOriginalExtension());
+                    $validMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif'];
+                    $validExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'];
+
+                    if (in_array($mime, $validMimes, true) || in_array($ext, $validExts, true)) {
+                        $storedPath = $file->store("intakes/{$intake->tenant_id}/{$intake->id}", 'local');
+                        $responses[$fieldId] = [
+                            'type' => 'image',
+                            'path' => $storedPath,
+                            'original_name' => $file->getClientOriginalName(),
+                            'mime_type' => $mime,
+                            'size' => $file->getSize(),
+                        ];
+                    }
+                }
+            }
+        }
+
         $baseSchema = $intake->intakeFormTemplate?->schema
             ?: $intake->schema_snapshot
             ?: (IntakeFormTemplate::starterTemplateFor($intake->discipline)['schema'] ?? ['sections' => []]);
@@ -102,12 +128,12 @@ class PublicIntakeController extends Controller
         $clientSex = $intake->client?->sex;
         $schema = IntakeFormTemplate::filterSchemaForSex($baseSchema, $clientSex);
 
-        $flags = $this->evaluateContraindications($schema, $data['responses']);
+        $flags = $this->evaluateContraindications($schema, $responses);
         $status = count($flags) > 0 ? ClientIntake::STATUS_FLAGGED : ClientIntake::STATUS_COMPLETED;
 
         $intake->update([
             'schema_snapshot' => $schema,
-            'responses' => $data['responses'],
+            'responses' => $responses,
             'contraindication_flags' => $flags,
             'status' => $status,
             'submitted_at' => now(),
@@ -161,7 +187,7 @@ class PublicIntakeController extends Controller
                 $userVal = $responses[$fieldId] ?? null;
                 $trigger = $field['flag_trigger'] ?? 'yes';
 
-                if ($userVal !== null && strtolower((string)$userVal) === strtolower((string)$trigger)) {
+                if ($userVal !== null && is_scalar($userVal) && strtolower((string)$userVal) === strtolower((string)$trigger)) {
                     $flags[] = [
                         'field_id' => $fieldId,
                         'question' => $field['label'] ?? $fieldId,

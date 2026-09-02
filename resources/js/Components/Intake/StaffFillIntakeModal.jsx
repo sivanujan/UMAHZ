@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { router } from '@inertiajs/react';
 import {
     ClipboardEdit, X, Check, AlertTriangle, ShieldAlert, Sparkles,
-    UserCheck, Clock, FileCheck2
+    UserCheck, Clock, FileCheck2, Camera, Trash2, Image as ImageIcon
 } from 'lucide-react';
 
 const DISCIPLINE_LABELS = {
@@ -23,6 +23,7 @@ export default function StaffFillIntakeModal({
 }) {
     const [selectedDiscipline, setSelectedDiscipline] = useState(offeredDisciplines[0] || 'massage_therapy');
     const [responses, setResponses] = useState({});
+    const [imagePreviews, setImagePreviews] = useState({});
     const [submitting, setSubmitting] = useState(false);
 
     const activeTemplate = intakeTemplates.find((t) => t.discipline === selectedDiscipline) || intakeTemplates[0];
@@ -46,6 +47,7 @@ export default function StaffFillIntakeModal({
     const handleDisciplineChange = (disc) => {
         setSelectedDiscipline(disc);
         setResponses({});
+        setImagePreviews({});
     };
 
     const handleResponseChange = (fieldId, value) => {
@@ -53,6 +55,26 @@ export default function StaffFillIntakeModal({
             ...prev,
             [fieldId]: value,
         }));
+    };
+
+    const handleImageSelect = (fieldId, file) => {
+        if (!file) return;
+        if (file.size > 10 * 1024 * 1024) {
+            alert('File size exceeds 10MB limit. Please select a smaller photo.');
+            return;
+        }
+        const previewUrl = URL.createObjectURL(file);
+        setImagePreviews((prev) => ({ ...prev, [fieldId]: { url: previewUrl, name: file.name, size: file.size } }));
+        handleResponseChange(fieldId, file);
+    };
+
+    const handleImageRemove = (fieldId) => {
+        setImagePreviews((prev) => {
+            const next = { ...prev };
+            delete next[fieldId];
+            return next;
+        });
+        handleResponseChange(fieldId, null);
     };
 
     // Calculate triggered contraindication warnings in real-time
@@ -238,6 +260,60 @@ export default function StaffFillIntakeModal({
                                                         <span>{opt}</span>
                                                     </label>
                                                 ))}
+                                            </div>
+                                        )}
+
+                                        {field.type === 'image' && (
+                                            <div>
+                                                {imagePreviews[field.id] ? (
+                                                    <div className="relative p-2.5 rounded-xl border border-violet-200 dark:border-violet-800/60 bg-violet-50/40 dark:bg-violet-950/20 flex items-center gap-3">
+                                                        <img
+                                                            src={imagePreviews[field.id].url}
+                                                            alt="Uploaded preview"
+                                                            className="w-12 h-12 rounded-lg object-cover border border-violet-200 dark:border-violet-800 shadow-sm shrink-0"
+                                                        />
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+                                                                {imagePreviews[field.id].name}
+                                                            </p>
+                                                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                                                {(imagePreviews[field.id].size / 1024).toFixed(1)} KB • Image attached
+                                                            </p>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleImageRemove(field.id)}
+                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                                                            title="Remove image"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <label className="border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-violet-400 rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-slate-50/50 dark:bg-slate-950/40 hover:bg-violet-50/20 transition group">
+                                                        <input
+                                                            type="file"
+                                                            accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif"
+                                                            className="hidden"
+                                                            onChange={(e) => {
+                                                                if (e.target.files?.[0]) {
+                                                                    handleImageSelect(field.id, e.target.files[0]);
+                                                                }
+                                                            }}
+                                                        />
+                                                        <div className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 flex items-center justify-center group-hover:scale-105 transition">
+                                                            <Camera className="w-4 h-4" />
+                                                        </div>
+                                                        <div className="text-center">
+                                                            <p className="text-xs font-medium text-slate-700 dark:text-slate-300 group-hover:text-violet-600">
+                                                                Click or drag to attach patient photo
+                                                            </p>
+                                                            <p className="text-[10px] text-slate-400">
+                                                                JPG, PNG, WEBP up to 10MB
+                                                            </p>
+                                                        </div>
+                                                    </label>
+                                                )}
                                             </div>
                                         )}
 

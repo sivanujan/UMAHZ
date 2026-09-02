@@ -3,7 +3,8 @@ import { Head, Link, useForm, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import {
     ClipboardList, ArrowLeft, ShieldAlert, Plus, Trash2, Check,
-    AlertTriangle, RotateCcw, Save, Sparkles, FileText, CheckCircle2
+    AlertTriangle, RotateCcw, Save, Sparkles, FileText, CheckCircle2,
+    Image as ImageIcon
 } from 'lucide-react';
 
 const DISCIPLINE_LABELS = {
@@ -19,6 +20,7 @@ const FIELD_TYPES = [
     { value: 'textarea', label: 'Long Paragraph' },
     { value: 'select', label: 'Dropdown Select' },
     { value: 'radio', label: 'Yes / No (Radio)' },
+    { value: 'image', label: 'Image / Photo Upload' },
 ];
 
 export default function IntakeForms({ tenant, templates = [], offeredDisciplines = [], allDisciplines = [], customDisciplines = [], disciplineLabels = {} }) {
@@ -362,6 +364,20 @@ export default function IntakeForms({ tenant, templates = [], offeredDisciplines
                                             </button>
                                         </div>
 
+                                        {field.type === 'image' && (
+                                            <div className="p-3.5 rounded-xl border border-dashed border-violet-300 dark:border-violet-800/80 bg-violet-50/50 dark:bg-violet-950/20 text-xs flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0">
+                                                    <ImageIcon className="w-4 h-4" />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="font-semibold text-slate-800 dark:text-slate-200">Patient Photo / Image Upload Question</p>
+                                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                                        Patients and clinical staff will be provided a secure photo dropzone (JPG, PNG, WEBP, HEIC up to 10MB).
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* Toggles: Required, Contraindication Flag, & Applies To */}
                                         <div className="flex flex-wrap items-center justify-between gap-4 text-xs pt-1 border-t border-slate-100 dark:border-slate-800/60 mt-2">
                                             <div className="flex flex-wrap items-center gap-4">
@@ -375,18 +391,20 @@ export default function IntakeForms({ tenant, templates = [], offeredDisciplines
                                                     <span>Mandatory Question</span>
                                                 </label>
 
-                                                <label className="flex items-center gap-2 cursor-pointer select-none text-rose-700 dark:text-rose-400 font-semibold">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={Boolean(field.is_contraindication)}
-                                                        onChange={(e) => handleFieldChange(sIdx, fIdx, 'is_contraindication', e.target.checked)}
-                                                        className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500"
-                                                    />
-                                                    <span className="flex items-center gap-1">
-                                                        <ShieldAlert className="w-3.5 h-3.5" />
-                                                        Flag as Clinical Contraindication Warning
-                                                    </span>
-                                                </label>
+                                                {field.type !== 'image' && (
+                                                    <label className="flex items-center gap-2 cursor-pointer select-none text-rose-700 dark:text-rose-400 font-semibold">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={Boolean(field.is_contraindication)}
+                                                            onChange={(e) => handleFieldChange(sIdx, fIdx, 'is_contraindication', e.target.checked)}
+                                                            className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500"
+                                                        />
+                                                        <span className="flex items-center gap-1">
+                                                            <ShieldAlert className="w-3.5 h-3.5" />
+                                                            Flag as Clinical Contraindication Warning
+                                                        </span>
+                                                    </label>
+                                                )}
                                             </div>
 
                                             <div className="flex items-center gap-2">

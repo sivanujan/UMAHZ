@@ -14,7 +14,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class ClientIntakeController extends Controller
 {
@@ -126,10 +128,36 @@ class ClientIntakeController extends Controller
         // Snapshot ONLY the questions applicable to this client based on their sex
         $filteredSchema = IntakeFormTemplate::filterSchemaForSex($template->schema, $client->sex);
 
-        $flags = $this->evaluateContraindications($filteredSchema, $data['responses']);
+        $responses = $data['responses'];
+
+        // Process any uploaded image files
+        $allFiles = $request->file('responses', []);
+        if (is_array($allFiles)) {
+            foreach ($allFiles as $fieldId => $file) {
+                if ($file instanceof \Illuminate\Http\UploadedFile && $file->isValid()) {
+                    $mime = $file->getMimeType() ?: $file->getClientMimeType();
+                    $ext = strtolower($file->getClientOriginalExtension());
+                    $validMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif'];
+                    $validExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'];
+
+                    if (in_array($mime, $validMimes, true) || in_array($ext, $validExts, true)) {
+                        $storedPath = $file->store("intakes/{$tenantId}", 'local');
+                        $responses[$fieldId] = [
+                            'type' => 'image',
+                            'path' => $storedPath,
+                            'original_name' => $file->getClientOriginalName(),
+                            'mime_type' => $mime,
+                            'size' => $file->getSize(),
+                        ];
+                    }
+                }
+            }
+        }
+
+        $flags = $this->evaluateContraindications($filteredSchema, $responses);
         $status = count($flags) > 0 ? ClientIntake::STATUS_FLAGGED : ClientIntake::STATUS_COMPLETED;
 
-        $intake = DB::transaction(function () use ($tenantId, $client, $data, $template, $filteredSchema, $flags, $status, $request) {
+        $intake = DB::transaction(function () use ($tenantId, $client, $data, $template, $filteredSchema, $responses, $flags, $status, $request) {
             $record = ClientIntake::create([
                 'tenant_id' => $tenantId,
                 'client_id' => $client->id,
@@ -138,7 +166,7 @@ class ClientIntakeController extends Controller
                 'discipline' => $data['discipline'],
                 'template_name' => $template->name,
                 'schema_snapshot' => $filteredSchema,
-                'responses' => $data['responses'],
+                'responses' => $responses,
                 'contraindication_flags' => $flags,
                 'status' => $status,
                 'submission_type' => ClientIntake::SUBMISSION_STAFF_RECORDED,
@@ -209,6 +237,21 @@ class ClientIntakeController extends Controller
 
         $tenant = Tenant::find($intake->tenant_id);
 
+        $enrichedResponses = $intake->responses ?? [];
+        if (is_array($enrichedResponses)) {
+            $subdomain = $tenant?->subdomain ?? $client->tenant?->subdomain;
+            foreach ($enrichedResponses as $k => $v) {
+                if (is_array($v) && ($v['type'] ?? '') === 'image') {
+                    $enrichedResponses[$k]['url'] = route('app.clients.intakes.file', [
+                        'tenant' => $subdomain,
+                        'client' => $client->id,
+                        'intake' => $intake->id,
+                        'fieldId' => $k,
+                    ]);
+                }
+            }
+        }
+
         return response()->json([
             'intake' => [
                 'id' => $intake->id,
@@ -218,7 +261,7 @@ class ClientIntakeController extends Controller
                 'discipline_label' => $tenant?->disciplineLabel($intake->discipline) ?? \App\Support\Disciplines::FIXED_LABELS[$intake->discipline] ?? $intake->discipline,
                 'template_name' => $intake->template_name,
                 'schema' => $intake->schema_snapshot,
-                'responses' => $intake->responses,
+                'responses' => $enrichedResponses,
                 'contraindication_flags' => $intake->contraindication_flags ?? [],
                 'status' => $intake->status,
                 'submission_type' => $intake->submission_type,
@@ -230,6 +273,37 @@ class ClientIntakeController extends Controller
                     'service_name' => $intake->appointment->service_name,
                 ] : null,
             ],
+        ]);
+    }
+
+    /**
+     * Stream a securely stored intake image/attachment to authorized clinic staff.
+     */
+    public function file(Request $request, Client $client, ClientIntake $intake, string $fieldId): SymfonyResponse
+    {
+        $this->authorizeClient($client);
+
+        if ($intake->client_id !== $client->id || $intake->tenant_id !== TenantScope::getTenantId()) {
+            abort(404);
+        }
+
+        $responses = $intake->responses ?? [];
+        $fileData = $responses[$fieldId] ?? null;
+
+        if (! is_array($fileData) || empty($fileData['path'])) {
+            abort(404, 'File not found');
+        }
+
+        $path = $fileData['path'];
+        if (! Storage::disk('local')->exists($path)) {
+            abort(404, 'File missing from storage');
+        }
+
+        $mime = $fileData['mime_type'] ?? 'application/octet-stream';
+        $filename = $fileData['original_name'] ?? basename($path);
+
+        return Storage::disk('local')->response($path, $filename, [
+            'Content-Type' => $mime,
         ]);
     }
 
