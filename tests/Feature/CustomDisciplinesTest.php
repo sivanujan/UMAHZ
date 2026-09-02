@@ -373,4 +373,77 @@ class CustomDisciplinesTest extends TestCase
         $this->assertEquals('osteopathy', $profile->profession);
         $this->assertEquals('Osteopathy', $profile->professionLabel());
     }
+
+    public function test_admin_clinic_review_shows_custom_discipline_and_profession_labels(): void
+    {
+        $hq = Tenant::create(['name' => 'HQ', 'slug' => 'hq', 'subdomain' => 'hq', 'status' => Tenant::STATUS_APPROVED]);
+        $admin = User::factory()->create(['email_verified_at' => now()]);
+        StaffMembership::create([
+            'tenant_id' => $hq->id,
+            'user_id' => $admin->id,
+            'role' => StaffMembership::ROLE_PLATFORM_ADMIN,
+            'status' => StaffMembership::STATUS_ACTIVE,
+            'joined_at' => now(),
+        ]);
+
+        $clinic = $this->clinic('aurora', [
+            'custom_disciplines' => [
+                ['slug' => 'sound_healing', 'label' => 'Sound Healing Therapy'],
+            ],
+            'requested_disciplines' => ['sound_healing', 'massage_therapy'],
+        ]);
+
+        $owner = User::factory()->create();
+        $membership = StaffMembership::create([
+            'tenant_id' => $clinic->id,
+            'user_id' => $owner->id,
+            'role' => StaffMembership::ROLE_CLINIC_OWNER,
+            'status' => StaffMembership::STATUS_ACTIVE,
+        ]);
+        PractitionerProfile::create([
+            'staff_membership_id' => $membership->id,
+            'profession' => 'sound_healing',
+            'verification_status' => PractitionerProfile::VERIFICATION_PENDING,
+            'license_number' => 'SND-100',
+            'licensing_body' => 'Sound Therapy Council',
+            'license_document_path' => 'licenses/test.pdf',
+            'license_document_original_name' => 'test.pdf',
+            'license_document_mime' => 'application/pdf',
+            'is_primary_contact' => true,
+        ]);
+
+        $response = $this->actingAs($admin)->get("http://umahz.test/admin/clinics/{$clinic->id}");
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Admin/Clinics/Show')
+            ->where('tenant.discipline_labels.sound_healing', 'Sound Healing Therapy')
+            ->where('primaryPractitioner.profession_label', 'Sound Healing Therapy')
+        );
+
+        $staffUser = User::factory()->create();
+        $staffMember = StaffMembership::create([
+            'tenant_id' => $clinic->id,
+            'user_id' => $staffUser->id,
+            'role' => StaffMembership::ROLE_PRACTITIONER,
+            'status' => StaffMembership::STATUS_ACTIVE,
+        ]);
+        PractitionerProfile::create([
+            'staff_membership_id' => $staffMember->id,
+            'profession' => 'sound_healing',
+            'verification_status' => PractitionerProfile::VERIFICATION_PENDING,
+            'license_number' => 'SND-101',
+            'licensing_body' => 'Sound Therapy Council',
+            'license_document_path' => 'licenses/test2.pdf',
+            'license_document_original_name' => 'test2.pdf',
+            'license_document_mime' => 'application/pdf',
+            'is_primary_contact' => false,
+        ]);
+
+        $practitionerRes = $this->actingAs($admin)->get('http://umahz.test/admin/practitioners');
+        $practitionerRes->assertOk();
+        $practitionerRes->assertInertia(fn ($page) => $page
+            ->component('Admin/Practitioners/Index')
+            ->where('practitioners.0.profession_label', 'Sound Healing Therapy')
+        );
+    }
 }
