@@ -69,6 +69,8 @@ class SubdomainRegistrationTest extends TestCase
         }
 
         \Illuminate\Support\Facades\Storage::fake('local');
+        $code = \App\Support\EmailVerificationCode::generate('ada@example.com');
+        \App\Support\EmailVerificationCode::verify('ada@example.com', $code);
 
         // Even if the client sends mixed case, the server normalises it.
         $this->post('http://umahz.test/clinics/register', $this->payload(['subdomain' => 'Lotus-Wellness']))

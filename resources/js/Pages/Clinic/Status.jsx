@@ -64,9 +64,10 @@ function Field({ label, value, onChange, error, type = 'text', required, icon: I
     );
 }
 
-function ResubmitForm({ tenant, disciplines }) {
+function ResubmitForm({ tenant, disciplines, disciplineLabels = {} }) {
+    const labelsMap = { ...DISCIPLINE_LABELS, ...disciplineLabels };
     const { data, setData, patch, processing, errors } = useForm({
-        clinic_name: tenant.name,
+        clinic_name: tenant.name || '',
         business_registration_number: tenant.business_registration_number || '',
         address_line1: tenant.address?.line1 || '',
         address_city: tenant.address?.city || '',
@@ -125,7 +126,7 @@ function ResubmitForm({ tenant, disciplines }) {
                                 <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center flex-shrink-0 border ${active ? 'border-white' : 'border-slate-300'}`}>
                                     {active && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
                                 </span>
-                                {DISCIPLINE_LABELS[d] || d}
+                                {labelsMap[d] || d}
                             </button>
                         );
                     })}
@@ -173,7 +174,7 @@ function ResubmitForm({ tenant, disciplines }) {
     );
 }
 
-export default function ClinicStatus({ tenant, canEdit, disciplines = [] }) {
+export default function ClinicStatus({ tenant, canEdit, disciplines = [], disciplineLabels = {} }) {
     const [editing, setEditing] = useState(false);
     const meta = STATUS_META[tenant.status] || STATUS_META.pending_review;
     const Icon = meta.icon;
@@ -237,7 +238,7 @@ export default function ClinicStatus({ tenant, canEdit, disciplines = [] }) {
                         </button>
                     )}
 
-                    {canEdit && editing && <ResubmitForm tenant={tenant} disciplines={disciplines} />}
+                    {canEdit && editing && <ResubmitForm tenant={tenant} disciplines={disciplines} disciplineLabels={disciplineLabels} />}
                 </div>
             </div>
         </div>

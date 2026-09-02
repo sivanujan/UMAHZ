@@ -21,10 +21,12 @@ const FIELD_TYPES = [
     { value: 'radio', label: 'Yes / No (Radio)' },
 ];
 
-export default function IntakeForms({ tenant, templates = [], offeredDisciplines = [] }) {
+export default function IntakeForms({ tenant, templates = [], offeredDisciplines = [], allDisciplines = [], customDisciplines = [], disciplineLabels = {} }) {
+    const labelsMap = { ...DISCIPLINE_LABELS, ...disciplineLabels };
     const [activeDiscipline, setActiveDiscipline] = useState(offeredDisciplines[0] || templates[0]?.discipline || 'massage_therapy');
 
     const currentTemplate = templates.find((t) => t.discipline === activeDiscipline) || templates[0];
+    const isCustom = customDisciplines.some((c) => c.slug === activeDiscipline) || !Object.keys(DISCIPLINE_LABELS).includes(activeDiscipline);
 
     const [schema, setSchema] = useState(currentTemplate?.schema || { sections: [] });
     const [templateName, setTemplateName] = useState(currentTemplate?.name || '');
@@ -39,7 +41,40 @@ export default function IntakeForms({ tenant, templates = [], offeredDisciplines
             setSchema(t.schema || { sections: [] });
             setTemplateName(t.name || '');
             setTemplateDescription(t.description || '');
+        } else {
+            setSchema({ sections: [] });
+            setTemplateName('');
+            setTemplateDescription('');
         }
+    };
+
+    // Add new section
+    const handleAddSection = () => {
+        const next = { ...schema, sections: [...(schema.sections || [])] };
+        const newSecId = `sec_${Date.now()}`;
+        next.sections.push({
+            id: newSecId,
+            title: `Section ${next.sections.length + 1}`,
+            fields: [
+                {
+                    id: `field_${Date.now()}`,
+                    type: 'text',
+                    label: 'New Question',
+                    placeholder: '',
+                    required: false,
+                    is_contraindication: false,
+                },
+            ],
+        });
+        setSchema(next);
+    };
+
+    // Remove section
+    const handleRemoveSection = (sIdx) => {
+        if (!confirm('Are you sure you want to remove this section and all its questions?')) return;
+        const next = { ...schema, sections: [...(schema.sections || [])] };
+        next.sections.splice(sIdx, 1);
+        setSchema(next);
     };
 
     // Update section title
@@ -59,17 +94,14 @@ export default function IntakeForms({ tenant, templates = [], offeredDisciplines
     // Add field to section
     const handleAddField = (sIdx) => {
         const next = { ...schema };
-        const id = 'custom_' + Date.now().toString(36);
+        const newFieldId = `field_${Date.now()}`;
         next.sections[sIdx].fields.push({
-            id,
-            label: 'New Clinical Question',
-            type: 'textarea',
-            required: false,
-            applies_to: 'all',
+            id: newFieldId,
+            type: 'text',
+            label: 'New Question',
             placeholder: '',
+            required: false,
             is_contraindication: false,
-            flag_trigger: 'yes',
-            flag_warning: 'Medical consideration flagged.',
         });
         setSchema(next);
     };
@@ -100,13 +132,10 @@ export default function IntakeForms({ tenant, templates = [], offeredDisciplines
 
     // Reset to defaults
     const handleReset = () => {
-        if (!currentTemplate) return;
+        if (!currentTemplate || isCustom) return;
         if (confirm('Reset this template back to baseline starter questions? Any custom questions you added will be replaced.')) {
             router.post(`/app/settings/intake-forms/${currentTemplate.id}/reset`, {}, {
                 preserveScroll: true,
-                onSuccess: () => {
-                    // Refetch will update props
-                },
             });
         }
     };
@@ -137,14 +166,16 @@ export default function IntakeForms({ tenant, templates = [], offeredDisciplines
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={handleReset}
-                            className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold transition flex items-center gap-1.5"
-                        >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                            Reset Defaults
-                        </button>
+                        {!isCustom && (
+                            <button
+                                type="button"
+                                onClick={handleReset}
+                                className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold transition flex items-center gap-1.5"
+                            >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                Reset Defaults
+                            </button>
+                        )}
                         <button
                             type="button"
                             onClick={handleSave}
@@ -157,24 +188,37 @@ export default function IntakeForms({ tenant, templates = [], offeredDisciplines
                     </div>
                 </div>
 
-                {/* Professional Regulatory Notice Disclaimer Banner */}
-                <div className="rounded-2xl border border-amber-300/80 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/20 p-4 flex items-start gap-3.5 text-xs text-amber-800 dark:text-amber-300">
-                    <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-                    <div className="space-y-1">
-                        <p className="font-bold text-sm">Regulatory Notice & Clinical Responsibility</p>
-                        <p className="leading-relaxed text-amber-700 dark:text-amber-400">
-                            Starter questions provided below are generic placeholders. The clinic and its registered healthcare practitioners
-                            are solely responsible for reviewing, customizing, and ensuring that all health history questions, pain assessment fields,
-                            and contraindication screenings adhere strictly to your provincial/state regulatory college guidelines (e.g. CMTO, CTCMPAO, CSEP).
-                        </p>
+                {/* Regulatory / Custom Notice Banner */}
+                {isCustom ? (
+                    <div className="rounded-2xl border border-violet-300/80 dark:border-violet-800/60 bg-violet-50/70 dark:bg-violet-950/20 p-4 flex items-start gap-3.5 text-xs text-violet-900 dark:text-violet-300">
+                        <Sparkles className="w-5 h-5 shrink-0 text-violet-600 dark:text-violet-400 mt-0.5" />
+                        <div className="space-y-1">
+                            <p className="font-bold text-sm">Custom Discipline Questionnaire</p>
+                            <p className="leading-relaxed text-violet-700 dark:text-violet-400">
+                                This custom discipline starts with an empty template. You can add sections, clinical health-history questions, and contraindication screening flags below.
+                            </p>
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="rounded-2xl border border-amber-300/80 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/20 p-4 flex items-start gap-3.5 text-xs text-amber-800 dark:text-amber-300">
+                        <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                        <div className="space-y-1">
+                            <p className="font-bold text-sm">Regulatory Notice & Clinical Responsibility</p>
+                            <p className="leading-relaxed text-amber-700 dark:text-amber-400">
+                                Starter questions provided below are generic placeholders. The clinic and its registered healthcare practitioners
+                                are solely responsible for reviewing, customizing, and ensuring that all health history questions, pain assessment fields,
+                                and contraindication screenings adhere strictly to your provincial/state regulatory college guidelines (e.g. CMTO, CTCMPAO, CSEP).
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 {/* Discipline Navigation Tabs (Only Offered Disciplines) */}
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800">
                     {offeredDisciplines.map((code) => {
                         const isSelected = code === activeDiscipline;
-                        const label = DISCIPLINE_LABELS[code] || code;
+                        const isTabCustom = customDisciplines.some((c) => c.slug === code) || !Object.keys(DISCIPLINE_LABELS).includes(code);
+                        const label = labelsMap[code] || DISCIPLINE_LABELS[code] || code;
                         return (
                             <button
                                 key={code}
@@ -187,7 +231,14 @@ export default function IntakeForms({ tenant, templates = [], offeredDisciplines
                                 }`}
                             >
                                 <Sparkles className={`w-3.5 h-3.5 ${isSelected ? 'text-violet-200' : 'text-slate-400'}`} />
-                                {label}
+                                <span>{label}</span>
+                                {isTabCustom && (
+                                    <span className={`text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded ${
+                                        isSelected ? 'bg-white/20 text-white' : 'bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300'
+                                    }`}>
+                                        Custom
+                                    </span>
+                                )}
                             </button>
                         );
                     })}
@@ -244,14 +295,24 @@ export default function IntakeForms({ tenant, templates = [], offeredDisciplines
                                         className="font-bold text-sm text-slate-900 dark:text-white bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:border-violet-600 outline-none px-1 py-0.5 w-full max-w-md"
                                     />
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => handleAddField(sIdx)}
-                                    className="text-xs font-semibold text-violet-700 dark:text-violet-400 hover:text-violet-800 flex items-center gap-1.5"
-                                >
-                                    <Plus className="w-3.5 h-3.5" />
-                                    Add Question
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleAddField(sIdx)}
+                                        className="text-xs font-semibold text-violet-700 dark:text-violet-400 hover:text-violet-800 flex items-center gap-1.5"
+                                    >
+                                        <Plus className="w-3.5 h-3.5" />
+                                        Add Question
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRemoveSection(sIdx)}
+                                        title="Delete section"
+                                        className="p-1 text-slate-400 hover:text-rose-500 rounded transition"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Section Questions */}
@@ -375,15 +436,55 @@ export default function IntakeForms({ tenant, templates = [], offeredDisciplines
                         </div>
                     ))}
 
+                    {/* If no sections exist */}
+                    {(!schema.sections || schema.sections.length === 0) ? (
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-12 text-center space-y-4">
+                            <div className="w-12 h-12 rounded-2xl bg-violet-50 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 flex items-center justify-center mx-auto">
+                                <Sparkles className="w-6 h-6" />
+                            </div>
+                            <div className="max-w-md mx-auto">
+                                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                                    {isCustom ? 'Custom Discipline Questionnaire' : 'No Sections Configured'}
+                                </h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                                    {isCustom
+                                        ? 'This custom discipline starts with an empty template. Create customized sections and health history questions tailored to your clinic\'s clinical guidelines.'
+                                        : 'This template currently has no sections. Click below to add your first section.'}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleAddSection}
+                                className="px-4 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 shadow-sm transition"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Add First Section
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex justify-center pt-2">
+                            <button
+                                type="button"
+                                onClick={handleAddSection}
+                                className="px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-400 text-violet-700 dark:text-violet-400 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs transition"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Add Another Section
+                            </button>
+                        </div>
+                    )}
+
                     {/* Bottom Save Bar */}
                     <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-                        <button
-                            type="button"
-                            onClick={handleReset}
-                            className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"
-                        >
-                            Reset to Starter Template
-                        </button>
+                        {!isCustom && (
+                            <button
+                                type="button"
+                                onClick={handleReset}
+                                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"
+                            >
+                                Reset to Starter Template
+                            </button>
+                        )}
                         <button
                             type="submit"
                             disabled={saving}

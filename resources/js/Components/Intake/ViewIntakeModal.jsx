@@ -110,12 +110,12 @@ export default function ViewIntakeModal({ client, intakeSummary, onClose }) {
                             <div>
                                 <div className="flex items-center gap-2">
                                     <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                                        {DISCIPLINE_LABELS[intakeSummary.discipline] || intakeSummary.discipline} Intake
+                                        {disciplineTitle} Intake
                                     </h2>
                                     <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                                         isFlagged
                                             ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-                                            : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                                            : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:emerald-300 border border-emerald-200 dark:border-emerald-800'
                                     }`}>
                                         {isFlagged ? '⚠️ Contraindication Flagged' : 'Completed'}
                                     </span>
@@ -280,7 +280,7 @@ export default function ViewIntakeModal({ client, intakeSummary, onClose }) {
                             {clinicName}
                         </h1>
                         <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-                            {DISCIPLINE_LABELS[intakeSummary.discipline] || intakeSummary.discipline} Health History Record
+                            {disciplineTitle} Health History Record
                         </p>
                     </div>
                     <div className="text-right">
@@ -306,7 +306,7 @@ export default function ViewIntakeModal({ client, intakeSummary, onClose }) {
                         </div>
                         <div>
                             <span className="text-slate-500 font-medium block text-[10px] uppercase tracking-wider">Health Discipline</span>
-                            <span className="font-bold text-sm text-slate-900">{DISCIPLINE_LABELS[intakeSummary.discipline] || intakeSummary.discipline}</span>
+                            <span className="font-bold text-sm text-slate-900">{disciplineTitle}</span>
                         </div>
                         <div>
                             <span className="text-slate-500 font-medium block text-[10px] uppercase tracking-wider">Date Submitted</span>

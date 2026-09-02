@@ -63,7 +63,8 @@ function PasswordField({ label, value, onChange, onBlur, error, valid, show, onT
     );
 }
 
-export default function AcceptInvite({ staffMembership, name, email, tenantName, role, signature, expires, requiresLicense, disciplines = [] }) {
+export default function AcceptInvite({ staffMembership, name, email, tenantName, role, signature, expires, requiresLicense, disciplines = [], disciplineLabels = {} }) {
+    const labelsMap = { ...DISCIPLINE_LABELS, ...disciplineLabels };
     const { data, setData, post, processing, errors } = useForm({
         name: name || '',
         password: '',
@@ -196,7 +197,7 @@ export default function AcceptInvite({ staffMembership, name, email, tenantName,
                                                     <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center flex-shrink-0 border ${active ? 'border-white' : 'border-slate-300'}`}>
                                                         {active && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
                                                     </span>
-                                                    {DISCIPLINE_LABELS[d] || d}
+                                                    {labelsMap[d] || d}
                                                 </button>
                                             );
                                         })}

@@ -35,6 +35,7 @@ class PractitionerReviewController extends Controller
                 'name' => $p->staffMembership->user->name,
                 'tenant_name' => $p->staffMembership->tenant->name,
                 'profession' => $p->profession,
+                'profession_label' => $p->staffMembership->tenant?->disciplineLabel($p->profession) ?? \App\Support\Disciplines::FIXED_LABELS[$p->profession] ?? $p->profession,
                 'submitted_ago' => $p->created_at->diffForHumans(),
             ]);
 
@@ -48,14 +49,16 @@ class PractitionerReviewController extends Controller
         $this->authorize('review', $practitionerProfile);
 
         $practitionerProfile->loadMissing('staffMembership.tenant', 'staffMembership.user');
+        $tenant = $practitionerProfile->staffMembership->tenant;
 
         return Inertia::render('Admin/Practitioners/Show', [
             'practitioner' => [
                 'id' => $practitionerProfile->id,
                 'name' => $practitionerProfile->staffMembership->user->name,
                 'email' => $practitionerProfile->staffMembership->user->email,
-                'tenant_name' => $practitionerProfile->staffMembership->tenant->name,
+                'tenant_name' => $tenant->name,
                 'profession' => $practitionerProfile->profession,
+                'profession_label' => $tenant->disciplineLabel($practitionerProfile->profession),
                 'verification_status' => $practitionerProfile->verification_status,
                 'license_number' => $practitionerProfile->license_number,
                 'licensing_body' => $practitionerProfile->licensing_body,

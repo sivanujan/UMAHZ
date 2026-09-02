@@ -44,7 +44,7 @@ export default function PractitionersIndex({ practitioners }) {
                                     <tr key={p.id} className="hover:bg-slate-800/40 transition-colors">
                                         <td className="py-4 px-6 font-medium text-white">{p.name}</td>
                                         <td className="py-4 px-6 text-slate-300">{p.tenant_name}</td>
-                                        <td className="py-4 px-6 text-slate-400 text-xs">{DISCIPLINE_LABELS[p.profession] || p.profession}</td>
+                                        <td className="py-4 px-6 text-slate-400 text-xs">{p.profession_label || DISCIPLINE_LABELS[p.profession] || p.profession}</td>
                                         <td className="py-4 px-6 text-slate-400 text-xs">{p.submitted_ago}</td>
                                         <td className="py-4 px-6 text-right">
                                             <Link

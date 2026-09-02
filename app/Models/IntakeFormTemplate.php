@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class IntakeFormTemplate extends Model
 {
@@ -66,22 +67,37 @@ class IntakeFormTemplate extends Model
 
         foreach ($offered as $disc) {
             $templateData = self::starterTemplateFor($disc);
-            if (! $templateData) {
-                continue;
+            if ($templateData) {
+                static::firstOrCreate(
+                    [
+                        'tenant_id' => $tenantId,
+                        'discipline' => $disc,
+                    ],
+                    [
+                        'name' => $templateData['name'],
+                        'description' => $templateData['description'],
+                        'schema' => $templateData['schema'],
+                        'is_active' => true,
+                    ]
+                );
+            } else {
+                // Custom discipline: start with an empty template (no fabricated clinical content)
+                $label = $tenant ? $tenant->disciplineLabel($disc) : Str::headline($disc);
+                static::firstOrCreate(
+                    [
+                        'tenant_id' => $tenantId,
+                        'discipline' => $disc,
+                    ],
+                    [
+                        'name' => "{$label} Health History & Intake",
+                        'description' => "Clinical intake questionnaire for {$label}.",
+                        'schema' => [
+                            'sections' => [],
+                        ],
+                        'is_active' => true,
+                    ]
+                );
             }
-
-            static::firstOrCreate(
-                [
-                    'tenant_id' => $tenantId,
-                    'discipline' => $disc,
-                ],
-                [
-                    'name' => $templateData['name'],
-                    'description' => $templateData['description'],
-                    'schema' => $templateData['schema'],
-                    'is_active' => true,
-                ]
-            );
         }
     }
 

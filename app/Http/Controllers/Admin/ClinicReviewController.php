@@ -53,6 +53,7 @@ class ClinicReviewController extends Controller
                 'primary_contact_name' => $tenant->primary_contact_name,
                 'primary_contact_email' => $tenant->primary_contact_email,
                 'requested_disciplines' => $tenant->requested_disciplines,
+                'discipline_labels' => $tenant->offeredDisciplineLabels(),
                 'estimated_practitioner_count' => $tenant->estimated_practitioner_count,
                 'submitted_at' => $tenant->submitted_at?->format('M j, Y g:i A'),
                 'submitted_ago' => $tenant->submitted_at?->diffForHumans(),
@@ -85,6 +86,7 @@ class ClinicReviewController extends Controller
                 'primary_contact_email' => $tenant->primary_contact_email,
                 'primary_contact_phone' => $tenant->primary_contact_phone,
                 'requested_disciplines' => $tenant->requested_disciplines,
+                'discipline_labels' => $tenant->offeredDisciplineLabels(),
                 'estimated_practitioner_count' => $tenant->estimated_practitioner_count,
                 'submitted_at' => $tenant->submitted_at?->format('M j, Y g:i A'),
                 'reviewed_at' => $tenant->reviewed_at?->format('M j, Y g:i A'),
@@ -93,6 +95,7 @@ class ClinicReviewController extends Controller
             'primaryPractitioner' => $primaryProfile ? [
                 'id' => $primaryProfile->id,
                 'profession' => $primaryProfile->profession,
+                'profession_label' => $tenant->disciplineLabel($primaryProfile->profession),
                 'license_number' => $primaryProfile->license_number,
                 'licensing_body' => $primaryProfile->licensing_body,
                 'has_document' => (bool) $primaryProfile->license_document_path,
@@ -133,6 +136,8 @@ class ClinicReviewController extends Controller
             'timezones' => ClinicOptions::TIMEZONES,
             'currencies' => ClinicOptions::CURRENCIES,
             'allDisciplines' => ClinicOptions::disciplines(),
+            'customDisciplines' => $tenant->customDisciplinesList(),
+            'disciplineLabels' => $tenant->allDisciplineLabels(),
         ]);
     }
 
@@ -157,7 +162,7 @@ class ClinicReviewController extends Controller
             'timezone' => ['required', Rule::in(ClinicOptions::TIMEZONES)],
             'currency' => ['required', Rule::in(ClinicOptions::CURRENCIES)],
             'requested_disciplines' => ['required', 'array', 'min:1'],
-            'requested_disciplines.*' => [Rule::in(ClinicRegistrationController::DISCIPLINES)],
+            'requested_disciplines.*' => [Rule::in($tenant->availableDisciplineCodes())],
         ]);
 
         DB::transaction(function () use ($request, $tenant, $data) {

@@ -60,6 +60,13 @@ class PractitionerProfile extends Model
         return $this->belongsTo(User::class, 'reviewed_by');
     }
 
+    public function professionLabel(): string
+    {
+        return $this->staffMembership?->tenant?->disciplineLabel($this->profession)
+            ?? \App\Support\Disciplines::FIXED_LABELS[$this->profession]
+            ?? \Illuminate\Support\Str::headline($this->profession);
+    }
+
     public function scopePendingVerification(Builder $query): Builder
     {
         return $query->where('verification_status', self::VERIFICATION_PENDING);

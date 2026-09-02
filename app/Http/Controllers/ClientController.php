@@ -133,10 +133,10 @@ class ClientController extends Controller
                 'pdf_url' => $t->pdf_path ? url("/app/consent-types/{$t->id}/document") : null,
             ]);
 
-        \App\Models\IntakeFormTemplate::ensureDefaultsForTenant($tenantId);
-
         $tenant = $client->tenant ?: \App\Models\Tenant::find($tenantId);
-        $offeredDisciplines = $tenant?->requested_disciplines ?: \App\Http\Controllers\Onboarding\ClinicRegistrationController::DISCIPLINES;
+        $offeredDisciplines = $tenant?->offeredDisciplineCodes() ?: \App\Support\Disciplines::FIXED_CODES;
+
+        \App\Models\IntakeFormTemplate::ensureDefaultsForTenant($tenantId, $offeredDisciplines);
 
         $intakes = $client->intakes()
             ->with(['submittedByUser', 'appointment'])
@@ -145,6 +145,7 @@ class ClientController extends Controller
             ->map(fn (\App\Models\ClientIntake $i) => [
                 'id' => $i->id,
                 'discipline' => $i->discipline,
+                'discipline_label' => $tenant?->disciplineLabel($i->discipline) ?? \App\Support\Disciplines::FIXED_LABELS[$i->discipline] ?? $i->discipline,
                 'template_name' => $i->template_name,
                 'status' => $i->status,
                 'submission_type' => $i->submission_type,
@@ -181,6 +182,7 @@ class ClientController extends Controller
             'intakeTemplates' => $intakeTemplates,
             'clientAppointments' => $clientAppointments,
             'offeredDisciplines' => $offeredDisciplines,
+            'disciplineLabels' => $tenant?->allDisciplineLabels() ?? \App\Support\Disciplines::FIXED_LABELS,
         ]);
     }
 

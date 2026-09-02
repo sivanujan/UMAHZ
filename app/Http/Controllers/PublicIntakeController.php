@@ -54,7 +54,7 @@ class PublicIntakeController extends Controller
             ? $intake->schema_snapshot
             : ($intake->intakeFormTemplate?->schema
                 ?: $intake->schema_snapshot
-                ?: IntakeFormTemplate::starterTemplateFor($intake->discipline)['schema']);
+                ?: (IntakeFormTemplate::starterTemplateFor($intake->discipline)['schema'] ?? ['sections' => []]));
 
         $clientSex = $intake->client?->sex;
         $schema = IntakeFormTemplate::filterSchemaForSex($baseSchema, $clientSex);
@@ -68,6 +68,7 @@ class PublicIntakeController extends Controller
             'clinicPhone' => $intake->tenant?->phone,
             'clinicEmail' => $intake->tenant?->email,
             'discipline' => $intake->discipline,
+            'disciplineLabel' => $intake->tenant?->disciplineLabel($intake->discipline) ?? \App\Support\Disciplines::FIXED_LABELS[$intake->discipline] ?? $intake->discipline,
             'templateName' => $intake->template_name,
             'schema' => $schema,
         ]);
@@ -95,7 +96,7 @@ class PublicIntakeController extends Controller
 
         $baseSchema = $intake->intakeFormTemplate?->schema
             ?: $intake->schema_snapshot
-            ?: IntakeFormTemplate::starterTemplateFor($intake->discipline)['schema'];
+            ?: (IntakeFormTemplate::starterTemplateFor($intake->discipline)['schema'] ?? ['sections' => []]);
 
         // Snapshot ONLY the questions shown to this client based on their sex
         $clientSex = $intake->client?->sex;

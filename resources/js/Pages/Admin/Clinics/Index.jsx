@@ -76,7 +76,7 @@ export default function ClinicsIndex({ tenants, status, statuses }) {
                                             <div className="text-xs text-slate-500">{t.primary_contact_email}</div>
                                         </td>
                                         <td className="py-4 px-6 text-slate-400 text-xs">
-                                            {(t.requested_disciplines || []).map((d) => DISCIPLINE_LABELS[d] || d).join(', ') || '—'}
+                                            {(t.requested_disciplines || []).map((d) => t.discipline_labels?.[d] || DISCIPLINE_LABELS[d] || d).join(', ') || '—'}
                                         </td>
                                         <td className="py-4 px-6 text-slate-300">{t.estimated_practitioner_count ?? '—'}</td>
                                         <td className="py-4 px-6 text-slate-400 text-xs">{t.submitted_ago || '—'}</td>

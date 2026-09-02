@@ -3,7 +3,7 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import {
     User, Mail, Lock, Building2, Check, Eye, EyeOff, AlertCircle, Loader2,
     MapPin, Phone, IdCard, Upload, FileText, X, Hand, Flame, Dumbbell, Apple,
-    Droplets, ShieldCheck, Clock, Stethoscope, Globe,
+    Droplets, ShieldCheck, Clock, Stethoscope, Globe, Plus, Sparkles, Trash2,
 } from 'lucide-react';
 import Logo from '@/Components/Common/Logo';
 import PasswordStrengthMeter from '@/Components/UI/PasswordStrengthMeter';
@@ -362,11 +362,38 @@ function PasswordField({ id, label, value, onChange, onBlur, error, valid, helpe
     );
 }
 
-function DisciplineCards({ disciplines, selected, onToggle, error }) {
+function DisciplineCards({ disciplines, customDisciplines = [], selected, onToggle, onAddCustom, onRemoveCustom, error }) {
+    const [newCustomName, setNewCustomName] = useState('');
+    const [localError, setLocalError] = useState(null);
+
+    const handleAdd = () => {
+        const trimmed = newCustomName.trim();
+        if (!trimmed) return;
+        if (trimmed.length < 2) {
+            setLocalError('Discipline name must be at least 2 characters.');
+            return;
+        }
+        if (trimmed.length > 50) {
+            setLocalError('Discipline name must not exceed 50 characters.');
+            return;
+        }
+
+        const err = onAddCustom(trimmed);
+        if (err) {
+            setLocalError(err);
+        } else {
+            setNewCustomName('');
+            setLocalError(null);
+        }
+    };
+
     return (
-        <div>
-            <label style={labelStyle(true)} id="disciplines-label">Disciplines Offered<RequiredDot required /></label>
-            <p className="text-[11px] text-slate-400 -mt-1 mb-2.5">Select every discipline this clinic practices — you can pick more than one.</p>
+        <div className="space-y-3">
+            <div>
+                <label style={labelStyle(true)} id="disciplines-label">Disciplines Offered<RequiredDot required /></label>
+                <p className="text-[11px] text-slate-400 -mt-1 mb-2.5">Select every discipline this clinic practices — you can pick more than one or add custom disciplines.</p>
+            </div>
+
             <div className="grid grid-cols-2 gap-2.5" role="group" aria-labelledby="disciplines-label">
                 {disciplines.map((d) => {
                     const active = selected.includes(d);
@@ -399,7 +426,87 @@ function DisciplineCards({ disciplines, selected, onToggle, error }) {
                         </button>
                     );
                 })}
+
+                {/* Custom Disciplines */}
+                {customDisciplines.map((item) => {
+                    const active = selected.includes(item.slug);
+                    return (
+                        <div
+                            key={item.slug}
+                            className={`relative text-left p-3.5 rounded-2xl border-2 transition-all duration-200 flex items-center justify-between gap-2 ${
+                                active ? 'bg-violet-500/[0.06] border-violet-600' : 'bg-white border-slate-200 hover:border-violet-300'
+                            }`}
+                        >
+                            <button
+                                type="button"
+                                role="checkbox"
+                                aria-checked={active}
+                                onClick={() => onToggle(item.slug)}
+                                className="flex items-center gap-3 flex-1 text-left focus:outline-none min-w-0"
+                            >
+                                <span
+                                    className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors duration-200"
+                                    style={{ background: active ? '#7C3AED' : '#F1F5F9', color: active ? '#fff' : '#7C3AED' }}
+                                >
+                                    <Sparkles className="w-[18px] h-[18px]" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <span className={`text-xs font-semibold leading-tight block truncate ${active ? 'text-[#0D1B2A]' : 'text-slate-700'}`}>
+                                        {item.label}
+                                    </span>
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">
+                                        Custom
+                                    </span>
+                                </div>
+                            </button>
+
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                                {active && (
+                                    <span className="w-4 h-4 rounded-full flex items-center justify-center" style={{ background: GREEN }}>
+                                        <Check className="w-2.5 h-2.5 text-white" strokeWidth={3.5} />
+                                    </span>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => onRemoveCustom(item.slug)}
+                                    title={`Remove ${item.label}`}
+                                    className="p-1 text-slate-400 hover:text-rose-500 rounded-lg transition-colors"
+                                >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
+
+            {/* Inline Custom Discipline Input */}
+            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 space-y-2">
+                <label className="block text-xs font-semibold text-slate-700 flex items-center justify-between">
+                    <span>Add Custom Discipline</span>
+                    <span className="text-[10px] font-normal text-slate-400">e.g. Physiotherapy, Reiki, Chiropractic</span>
+                </label>
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        value={newCustomName}
+                        onChange={(e) => { setNewCustomName(e.target.value); setLocalError(null); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAdd(); } }}
+                        placeholder="Enter discipline name..."
+                        className="flex-1 px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#2563EB] text-[#0D1B2A]"
+                    />
+                    <button
+                        type="button"
+                        onClick={handleAdd}
+                        className="px-3.5 py-2 bg-[#2563EB] hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+                    >
+                        <Plus className="w-3.5 h-3.5" />
+                        Add
+                    </button>
+                </div>
+                {localError && <p className="text-[11px] text-rose-600 font-medium">{localError}</p>}
+            </div>
+
             {error && <p className="text-[11px] text-rose-600 font-medium mt-1.5">{error}</p>}
         </div>
     );
@@ -593,6 +700,7 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
         primary_contact_phone: '',
 
         requested_disciplines: [],
+        custom_disciplines: [],
         estimated_practitioner_count: '',
 
         license_number: '',
@@ -730,6 +838,36 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
         setData('requested_disciplines', data.requested_disciplines.includes(d)
             ? data.requested_disciplines.filter((x) => x !== d)
             : [...data.requested_disciplines, d]);
+    };
+
+    const handleAddCustom = (name) => {
+        const trimmed = name.trim();
+        const slug = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+        if (!slug) {
+            return 'Please enter a valid discipline name.';
+        }
+        if (disciplines.includes(slug) || Object.values(DISCIPLINE_LABELS).some((l) => l.toLowerCase() === trimmed.toLowerCase())) {
+            return `"${trimmed}" is already a standard platform discipline.`;
+        }
+        if ((data.custom_disciplines || []).some((c) => c.slug === slug || c.label.toLowerCase() === trimmed.toLowerCase())) {
+            return `"${trimmed}" is already added.`;
+        }
+
+        const newItem = { slug, label: trimmed };
+        setData((prev) => ({
+            ...prev,
+            custom_disciplines: [...(prev.custom_disciplines || []), newItem],
+            requested_disciplines: [...prev.requested_disciplines, slug],
+        }));
+        return null;
+    };
+
+    const handleRemoveCustom = (slug) => {
+        setData((prev) => ({
+            ...prev,
+            custom_disciplines: (prev.custom_disciplines || []).filter((c) => c.slug !== slug),
+            requested_disciplines: prev.requested_disciplines.filter((d) => d !== slug),
+        }));
     };
 
     const completion = {
@@ -912,8 +1050,11 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
                                     <StepHeading stepId="practice" title="Practice" />
                                     <DisciplineCards
                                         disciplines={disciplines}
+                                        customDisciplines={data.custom_disciplines}
                                         selected={data.requested_disciplines}
                                         onToggle={toggleDiscipline}
+                                        onAddCustom={handleAddCustom}
+                                        onRemoveCustom={handleRemoveCustom}
                                         error={disciplinesError}
                                     />
                                     <Field

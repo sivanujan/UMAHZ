@@ -42,7 +42,8 @@ class ClinicStatusController extends Controller
             ],
             'canEdit' => $membership->role === StaffMembership::ROLE_CLINIC_OWNER
                 && $tenant->status === Tenant::STATUS_NEEDS_MORE_INFO,
-            'disciplines' => \App\Http\Controllers\Onboarding\ClinicRegistrationController::DISCIPLINES,
+            'disciplines' => $tenant->availableDisciplineCodes(),
+            'disciplineLabels' => $tenant->allDisciplineLabels(),
         ]);
     }
 
@@ -70,7 +71,7 @@ class ClinicStatusController extends Controller
             'primary_contact_email' => ['required', 'email', 'max:255'],
             'primary_contact_phone' => ['required', 'string', 'max:50'],
             'requested_disciplines' => ['required', 'array', 'min:1'],
-            'requested_disciplines.*' => [Rule::in(\App\Http\Controllers\Onboarding\ClinicRegistrationController::DISCIPLINES)],
+            'requested_disciplines.*' => [Rule::in($tenant->availableDisciplineCodes())],
             'estimated_practitioner_count' => ['required', 'integer', 'min:1', 'max:500'],
             'license_number' => ['nullable', 'string', 'max:100'],
             'licensing_body' => ['nullable', 'string', 'max:255'],

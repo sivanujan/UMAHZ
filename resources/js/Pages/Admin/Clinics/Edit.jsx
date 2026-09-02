@@ -25,7 +25,9 @@ function Field({ label, children, error }) {
     );
 }
 
-export default function ClinicEdit({ tenant, subdomainSuffix, provinces = [], countries = [], cities = [], timezones = [], currencies = [], allDisciplines = [] }) {
+export default function ClinicEdit({ tenant, subdomainSuffix, provinces = [], countries = [], cities = [], timezones = [], currencies = [], allDisciplines = [], customDisciplines = [], disciplineLabels = {} }) {
+    const labelsMap = { ...DISCIPLINE_LABELS, ...disciplineLabels };
+    const availableDisciplines = Array.from(new Set([...allDisciplines, ...(customDisciplines.map((c) => c.slug)), ...(tenant.requested_disciplines || [])]));
     const { data, setData, patch, processing, errors } = useForm({
         name: tenant.name || '',
         subdomain: tenant.subdomain || '',
@@ -150,19 +152,27 @@ export default function ClinicEdit({ tenant, subdomainSuffix, provinces = [], co
                 <div className="bg-slate-900 rounded-xl border border-slate-800 p-6">
                     <h3 className="text-white font-semibold text-sm mb-3">Disciplines Offered</h3>
                     <div className="grid grid-cols-2 gap-2.5">
-                        {allDisciplines.map((d) => {
+                        {availableDisciplines.map((d) => {
                             const active = data.requested_disciplines.includes(d);
+                            const isCustom = customDisciplines.some((c) => c.slug === d);
                             return (
                                 <button
                                     key={d} type="button" onClick={() => toggle(d)}
-                                    className={`text-left px-3.5 py-2.5 rounded-lg border text-sm font-medium transition-colors flex items-center gap-2.5 ${
+                                    className={`text-left px-3.5 py-2.5 rounded-lg border text-sm font-medium transition-colors flex items-center justify-between gap-2.5 ${
                                         active ? 'bg-violet-500/10 border-violet-500/40 text-slate-100' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
                                     }`}
                                 >
-                                    <span className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border ${active ? 'bg-violet-600 border-violet-600' : 'border-slate-700'}`}>
-                                        {active && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
-                                    </span>
-                                    {DISCIPLINE_LABELS[d] || d}
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <span className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border ${active ? 'bg-violet-600 border-violet-600' : 'border-slate-700'}`}>
+                                            {active && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                                        </span>
+                                        <span className="truncate">{labelsMap[d] || d}</span>
+                                    </div>
+                                    {isCustom && (
+                                        <span className="text-[10px] uppercase font-bold text-violet-400 bg-violet-950/60 px-1.5 py-0.5 rounded border border-violet-800/50 flex-shrink-0">
+                                            Custom
+                                        </span>
+                                    )}
                                 </button>
                             );
                         })}

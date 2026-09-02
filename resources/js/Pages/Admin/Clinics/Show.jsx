@@ -115,7 +115,7 @@ export default function ClinicShow({ tenant, primaryPractitioner }) {
                             <InfoRow icon={Phone} label="Contact Phone" value={tenant.primary_contact_phone} />
                             <InfoRow
                                 icon={Stethoscope} label="Requested Disciplines"
-                                value={(tenant.requested_disciplines || []).map((d) => DISCIPLINE_LABELS[d] || d).join(', ')}
+                                value={(tenant.requested_disciplines || []).map((d) => tenant.discipline_labels?.[d] || DISCIPLINE_LABELS[d] || d).join(', ')}
                             />
                             <InfoRow icon={Users} label="Estimated Practitioners" value={tenant.estimated_practitioner_count} />
                         </div>
@@ -124,7 +124,11 @@ export default function ClinicShow({ tenant, primaryPractitioner }) {
                     {primaryPractitioner && (
                         <div className="bg-slate-900 rounded-xl border border-slate-800 p-6">
                             <h3 className="text-white font-semibold text-sm mb-4">Primary Practitioner License</h3>
-                            <div className="grid grid-cols-2 gap-4 mb-4">
+                            <div className="grid grid-cols-3 gap-4 mb-4">
+                                <div>
+                                    <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Profession</p>
+                                    <p className="text-sm text-slate-200 mt-0.5">{primaryPractitioner.profession_label || DISCIPLINE_LABELS[primaryPractitioner.profession] || primaryPractitioner.profession || '—'}</p>
+                                </div>
                                 <div>
                                     <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">License Number</p>
                                     <p className="text-sm text-slate-200 mt-0.5">{primaryPractitioner.license_number || '—'}</p>

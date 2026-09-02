@@ -28,13 +28,7 @@ class ClientIntakeController extends Controller
         $tenantId = TenantScope::getTenantId();
         $tenant = Tenant::find($tenantId);
 
-        $offeredDisciplines = $tenant?->requested_disciplines ?: [
-            IntakeFormTemplate::DISCIPLINE_MASSAGE_THERAPY,
-            IntakeFormTemplate::DISCIPLINE_ACUPUNCTURE_TCM,
-            IntakeFormTemplate::DISCIPLINE_PERSONAL_TRAINING,
-            IntakeFormTemplate::DISCIPLINE_NUTRITION,
-            IntakeFormTemplate::DISCIPLINE_COLON_HYDROTHERAPY,
-        ];
+        $offeredDisciplines = $tenant?->offeredDisciplineCodes() ?: \App\Support\Disciplines::FIXED_CODES;
 
         $data = $request->validate([
             'discipline' => ['required', 'string', Rule::in($offeredDisciplines)],
@@ -47,13 +41,13 @@ class ClientIntakeController extends Controller
             'send_email' => ['boolean'],
         ]);
 
-        IntakeFormTemplate::ensureDefaultsForTenant($tenantId);
+        IntakeFormTemplate::ensureDefaultsForTenant($tenantId, $offeredDisciplines);
 
         $template = IntakeFormTemplate::where('tenant_id', $tenantId)
             ->where('discipline', $data['discipline'])
             ->first();
 
-        $intake = DB::transaction(function () use ($tenantId, $client, $data, $template, $request) {
+        $intake = DB::transaction(function () use ($tenantId, $tenant, $client, $data, $template, $request) {
             $token = ClientIntake::makeToken();
 
             $record = ClientIntake::create([
@@ -62,7 +56,7 @@ class ClientIntakeController extends Controller
                 'appointment_id' => $data['appointment_id'] ?? null,
                 'intake_form_template_id' => $template?->id,
                 'discipline' => $data['discipline'],
-                'template_name' => $template?->name ?? ucwords(str_replace('_', ' ', $data['discipline'])).' Intake',
+                'template_name' => $template?->name ?? (($tenant?->disciplineLabel($data['discipline']) ?? ucwords(str_replace('_', ' ', $data['discipline']))).' Intake'),
                 'schema_snapshot' => null,
                 'status' => ClientIntake::STATUS_PENDING,
                 'submission_type' => ClientIntake::SUBMISSION_PATIENT_LINK,
@@ -110,13 +104,7 @@ class ClientIntakeController extends Controller
         $tenantId = TenantScope::getTenantId();
         $tenant = Tenant::find($tenantId);
 
-        $offeredDisciplines = $tenant?->requested_disciplines ?: [
-            IntakeFormTemplate::DISCIPLINE_MASSAGE_THERAPY,
-            IntakeFormTemplate::DISCIPLINE_ACUPUNCTURE_TCM,
-            IntakeFormTemplate::DISCIPLINE_PERSONAL_TRAINING,
-            IntakeFormTemplate::DISCIPLINE_NUTRITION,
-            IntakeFormTemplate::DISCIPLINE_COLON_HYDROTHERAPY,
-        ];
+        $offeredDisciplines = $tenant?->offeredDisciplineCodes() ?: \App\Support\Disciplines::FIXED_CODES;
 
         $data = $request->validate([
             'discipline' => ['required', 'string', Rule::in($offeredDisciplines)],
@@ -129,7 +117,7 @@ class ClientIntakeController extends Controller
             'responses' => ['required', 'array'],
         ]);
 
-        IntakeFormTemplate::ensureDefaultsForTenant($tenantId);
+        IntakeFormTemplate::ensureDefaultsForTenant($tenantId, $offeredDisciplines);
 
         $template = IntakeFormTemplate::where('tenant_id', $tenantId)
             ->where('discipline', $data['discipline'])
@@ -219,12 +207,15 @@ class ClientIntakeController extends Controller
 
         $intake->loadMissing(['submittedByUser', 'appointment']);
 
+        $tenant = Tenant::find($intake->tenant_id);
+
         return response()->json([
             'intake' => [
                 'id' => $intake->id,
                 'client_id' => $intake->client_id,
                 'client_name' => $client->full_name,
                 'discipline' => $intake->discipline,
+                'discipline_label' => $tenant?->disciplineLabel($intake->discipline) ?? \App\Support\Disciplines::FIXED_LABELS[$intake->discipline] ?? $intake->discipline,
                 'template_name' => $intake->template_name,
                 'schema' => $intake->schema_snapshot,
                 'responses' => $intake->responses,

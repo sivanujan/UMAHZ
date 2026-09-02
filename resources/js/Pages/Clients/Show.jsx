@@ -236,6 +236,7 @@ export default function ClientsShow({
     intakeTemplates = [],
     clientAppointments = [],
     offeredDisciplines = [],
+    disciplineLabels = {},
 }) {
     const [editing, setEditing] = useState(false);
     const [recordingConsent, setRecordingConsent] = useState(false);
@@ -719,8 +720,8 @@ export default function ClientsShow({
                                     return (
                                         <tr key={intake.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition">
                                             <td className="py-3.5 pr-4">
-                                                <div className="font-bold text-slate-900 dark:text-white capitalize">
-                                                    {intake.discipline ? intake.discipline.replace('_', ' ') : 'Health History'}
+                                                <div className="font-bold text-slate-900 dark:text-white">
+                                                    {intake.discipline_label || (intake.discipline ? intake.discipline.replace('_', ' ') : 'Health History')}
                                                 </div>
                                                 <span className="text-[11px] text-slate-400">
                                                     {intake.template_name || 'Standard Intake'}
@@ -843,6 +844,7 @@ export default function ClientsShow({
                 <GenerateIntakeLinkModal
                     client={client}
                     offeredDisciplines={offeredDisciplines}
+                    disciplineLabels={disciplineLabels}
                     appointments={clientAppointments}
                     onClose={() => setGeneratingIntakeLink(false)}
                 />
@@ -853,6 +855,7 @@ export default function ClientsShow({
                 <StaffFillIntakeModal
                     client={client}
                     offeredDisciplines={offeredDisciplines}
+                    disciplineLabels={disciplineLabels}
                     intakeTemplates={intakeTemplates}
                     appointments={clientAppointments}
                     onClose={() => setStaffFillingIntake(false)}

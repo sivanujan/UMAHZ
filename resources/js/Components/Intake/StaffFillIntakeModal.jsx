@@ -16,6 +16,7 @@ const DISCIPLINE_LABELS = {
 export default function StaffFillIntakeModal({
     client,
     offeredDisciplines = [],
+    disciplineLabels = {},
     intakeTemplates = [],
     appointments = [],
     onClose,
@@ -146,7 +147,7 @@ export default function StaffFillIntakeModal({
                                                 : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900'
                                         }`}
                                     >
-                                        {DISCIPLINE_LABELS[disc] || disc}
+                                        {disciplineLabels?.[disc] || DISCIPLINE_LABELS[disc] || disc}
                                     </button>
                                 );
                             })}

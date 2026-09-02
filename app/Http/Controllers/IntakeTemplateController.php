@@ -19,9 +19,9 @@ class IntakeTemplateController extends Controller
         $tenantId = TenantScope::getTenantId();
         $tenant = Tenant::findOrFail($tenantId);
 
-        $offeredDisciplines = $tenant->requested_disciplines ?: ClinicRegistrationController::DISCIPLINES;
+        $offeredDisciplines = $tenant->offeredDisciplineCodes();
 
-        // Ensure starter templates exist for all offered disciplines
+        // Ensure starter or empty templates exist for all offered disciplines
         IntakeFormTemplate::ensureDefaultsForTenant($tenantId, $offeredDisciplines);
 
         $templates = IntakeFormTemplate::where('tenant_id', $tenantId)
@@ -35,6 +35,8 @@ class IntakeTemplateController extends Controller
             'templates' => $templates,
             'offeredDisciplines' => $offeredDisciplines,
             'allDisciplines' => ClinicRegistrationController::DISCIPLINES,
+            'customDisciplines' => $tenant->customDisciplinesList(),
+            'disciplineLabels' => $tenant->allDisciplineLabels(),
         ]);
     }
 
@@ -46,7 +48,7 @@ class IntakeTemplateController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],
             'schema' => ['required', 'array'],
-            'schema.sections' => ['required', 'array', 'min:1'],
+            'schema.sections' => ['required', 'array'],
             'is_active' => ['boolean'],
         ]);
 
@@ -78,23 +80,25 @@ class IntakeTemplateController extends Controller
         $this->authorize('update', $template);
 
         $starter = IntakeFormTemplate::starterTemplateFor($template->discipline);
-        if ($starter) {
-            $template->update([
-                'name' => $starter['name'],
-                'description' => $starter['description'],
-                'schema' => $starter['schema'],
-            ]);
-
-            AuditEvent::create([
-                'tenant_id' => $template->tenant_id,
-                'user_id' => $request->user()->id,
-                'action' => 'intake_template.reset',
-                'resource_type' => IntakeFormTemplate::class,
-                'resource_id' => $template->id,
-                'metadata' => ['discipline' => $template->discipline],
-                'ip_address' => $request->ip(),
-            ]);
+        if (! $starter) {
+            return back()->with('warning', 'Custom disciplines do not have default starter templates.');
         }
+
+        $template->update([
+            'name' => $starter['name'],
+            'description' => $starter['description'],
+            'schema' => $starter['schema'],
+        ]);
+
+        AuditEvent::create([
+            'tenant_id' => $template->tenant_id,
+            'user_id' => $request->user()->id,
+            'action' => 'intake_template.reset',
+            'resource_type' => IntakeFormTemplate::class,
+            'resource_id' => $template->id,
+            'metadata' => ['discipline' => $template->discipline],
+            'ip_address' => $request->ip(),
+        ]);
 
         return back()->with('success', 'Template reset to default starter questions.');
     }

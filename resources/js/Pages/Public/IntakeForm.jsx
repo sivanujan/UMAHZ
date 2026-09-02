@@ -23,6 +23,7 @@ export default function PublicIntakeForm({
     clinicPhone,
     clinicEmail,
     discipline = 'massage_therapy',
+    disciplineLabel,
     templateName,
     schema: rawSchema = { sections: [] },
     submittedAt,
@@ -140,7 +141,7 @@ export default function PublicIntakeForm({
     // 4. Active Fillable Form
     return (
         <div className="min-h-screen bg-slate-50/70 font-sans text-slate-900 antialiased pb-20">
-            <Head title={`${DISCIPLINE_LABELS[discipline] || 'Health'} Intake — ${clinicName}`} />
+            <Head title={`${disciplineLabel || DISCIPLINE_LABELS[discipline] || 'Health'} Intake — ${clinicName}`} />
 
             {/* Top Brand Banner */}
             <header className="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-xs">
@@ -165,7 +166,7 @@ export default function PublicIntakeForm({
                 {/* Greeting Card */}
                 <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-2">
                     <span className="inline-block text-[11px] font-bold uppercase tracking-wider text-violet-700 bg-violet-50 px-3 py-1 rounded-full border border-violet-100">
-                        {DISCIPLINE_LABELS[discipline] || discipline}
+                        {disciplineLabel || DISCIPLINE_LABELS[discipline] || discipline}
                     </span>
                     <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                         Welcome, {clientFirstName}

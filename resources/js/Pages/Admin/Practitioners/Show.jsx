@@ -83,7 +83,7 @@ export default function PractitionerShow({ practitioner }) {
                         <div className="divide-y divide-slate-800/60">
                             <InfoRow icon={Mail} label="Email" value={practitioner.email} />
                             <InfoRow icon={Building2} label="Clinic" value={practitioner.tenant_name} />
-                            <InfoRow icon={Stethoscope} label="Discipline" value={DISCIPLINE_LABELS[practitioner.profession] || practitioner.profession} />
+                            <InfoRow icon={Stethoscope} label="Discipline" value={practitioner.profession_label || DISCIPLINE_LABELS[practitioner.profession] || practitioner.profession} />
                             <InfoRow icon={User} label="License Number" value={practitioner.license_number} />
                             <InfoRow icon={User} label="Licensing Body" value={practitioner.licensing_body} />
                         </div>

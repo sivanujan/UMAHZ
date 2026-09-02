@@ -48,7 +48,8 @@ class AcceptInviteController extends Controller
             'requiresLicense' => $staffMembership->role === StaffMembership::ROLE_PRACTITIONER,
             // Only the disciplines this clinic actually offers (chosen at
             // registration, editable later in clinic settings).
-            'disciplines' => $staffMembership->tenant->requested_disciplines ?: ClinicRegistrationController::DISCIPLINES,
+            'disciplines' => $staffMembership->tenant->offeredDisciplineCodes(),
+            'disciplineLabels' => $staffMembership->tenant->allDisciplineLabels(),
         ]);
     }
 
@@ -70,7 +71,7 @@ class AcceptInviteController extends Controller
         ];
 
         if ($isPractitioner) {
-            $clinicDisciplines = $staffMembership->tenant->requested_disciplines ?: ClinicRegistrationController::DISCIPLINES;
+            $clinicDisciplines = $staffMembership->tenant->offeredDisciplineCodes();
             $rules += [
                 'discipline' => ['required', Rule::in($clinicDisciplines)],
                 'license_number' => ['required', 'string', 'max:100'],

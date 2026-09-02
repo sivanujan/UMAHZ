@@ -3,13 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Onboarding\ClinicRegistrationController;
+use App\Models\IntakeFormTemplate;
 use App\Models\Tenant;
 use App\Scopes\TenantScope;
 use App\Support\ClinicOptions;
+use App\Support\Disciplines;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -32,6 +36,8 @@ class ClinicSettingsController extends Controller
             'countries' => ClinicOptions::COUNTRIES,
             'cities' => ClinicOptions::CITIES,
             'allDisciplines' => ClinicOptions::disciplines(),
+            'customDisciplines' => $tenant->customDisciplinesList(),
+            'disciplineLabels' => $tenant->allDisciplineLabels(),
         ]);
     }
 
@@ -78,10 +84,78 @@ class ClinicSettingsController extends Controller
 
         $data = $request->validate([
             'disciplines' => ['required', 'array', 'min:1'],
-            'disciplines.*' => [Rule::in(ClinicRegistrationController::DISCIPLINES)],
+            'disciplines.*' => ['required', 'string', 'max:60'],
+            'custom_disciplines' => ['nullable', 'array', 'max:30'],
+            'custom_disciplines.*' => ['nullable'],
         ]);
 
-        $tenant->update(['requested_disciplines' => array_values($data['disciplines'])]);
+        $customDisciplines = [];
+        $customSlugs = [];
+        $fixedCodes = ClinicRegistrationController::DISCIPLINES;
+        $fixedLabelsLower = array_map('strtolower', Disciplines::FIXED_LABELS);
+
+        // Include any custom disciplines sent in request
+        $incomingCustom = $data['custom_disciplines'] ?? $tenant->customDisciplinesList();
+
+        if (is_array($incomingCustom)) {
+            foreach ($incomingCustom as $item) {
+                $rawLabel = is_array($item) ? ($item['label'] ?? '') : (string) $item;
+                $label = Disciplines::sanitizeLabel($rawLabel);
+                if (empty($label)) {
+                    continue;
+                }
+                if (mb_strlen($label) > 50) {
+                    throw ValidationException::withMessages([
+                        'custom_disciplines' => 'Custom discipline name may not be greater than 50 characters.',
+                    ]);
+                }
+                $slug = is_array($item) && ! empty($item['slug'])
+                    ? Disciplines::slugify((string) $item['slug'])
+                    : Disciplines::slugify($label);
+
+                if (empty($slug)) {
+                    continue;
+                }
+
+                if (in_array($slug, $fixedCodes, true) || in_array(strtolower($label), $fixedLabelsLower, true)) {
+                    throw ValidationException::withMessages([
+                        'custom_disciplines' => "The discipline \"{$label}\" is already a standard platform discipline.",
+                    ]);
+                }
+
+                if (in_array($slug, $customSlugs, true)) {
+                    throw ValidationException::withMessages([
+                        'custom_disciplines' => "Duplicate custom discipline \"{$label}\" provided.",
+                    ]);
+                }
+
+                $customSlugs[] = $slug;
+                $customDisciplines[] = [
+                    'slug' => $slug,
+                    'label' => $label,
+                ];
+            }
+        }
+
+        // Strict tenant scope: all selected disciplines must belong to fixed 5 or this tenant's custom disciplines
+        $allowedCodes = array_merge($fixedCodes, $customSlugs);
+        foreach ($data['disciplines'] as $d) {
+            if (! in_array($d, $allowedCodes, true)) {
+                throw ValidationException::withMessages([
+                    'disciplines' => "Invalid discipline selected: {$d}.",
+                ]);
+            }
+        }
+
+        DB::transaction(function () use ($tenant, $data, $customDisciplines) {
+            $tenant->update([
+                'requested_disciplines' => array_values($data['disciplines']),
+                'custom_disciplines' => $customDisciplines,
+            ]);
+
+            // Ensure baseline starter templates or empty custom templates exist
+            IntakeFormTemplate::ensureDefaultsForTenant($tenant->id, $tenant->requested_disciplines);
+        });
 
         return back()->with('success', 'Disciplines updated.');
     }

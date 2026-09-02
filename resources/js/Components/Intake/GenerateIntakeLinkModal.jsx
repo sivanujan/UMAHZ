@@ -16,6 +16,7 @@ const DISCIPLINE_LABELS = {
 export default function GenerateIntakeLinkModal({
     client,
     offeredDisciplines = [],
+    disciplineLabels = {},
     appointments = [],
     onClose,
 }) {
@@ -179,7 +180,7 @@ export default function GenerateIntakeLinkModal({
                                 >
                                     {offeredDisciplines.map((disc) => (
                                         <option key={disc} value={disc}>
-                                            {DISCIPLINE_LABELS[disc] || disc}
+                                            {disciplineLabels?.[disc] || DISCIPLINE_LABELS[disc] || disc}
                                         </option>
                                     ))}
                                 </select>

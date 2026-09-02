@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Onboarding;
 
 use App\Http\Controllers\Controller;
+use App\Models\IntakeFormTemplate;
 use App\Models\PractitionerProfile;
 use App\Models\StaffMembership;
 use App\Models\Tenant;
@@ -10,6 +11,7 @@ use App\Models\User;
 use App\Rules\NotDisposableEmail;
 use App\Notifications\ClinicApplicationReceivedNotification;
 use App\Notifications\ClinicVerificationCodeNotification;
+use App\Support\Disciplines;
 use App\Support\EmailVerificationCode;
 use App\Support\Tenancy;
 use Illuminate\Auth\Events\Registered;
@@ -48,6 +50,7 @@ class ClinicRegistrationController extends Controller
     {
         return Inertia::render('Onboarding/Register', [
             'disciplines' => self::DISCIPLINES,
+            'disciplineLabels' => Disciplines::FIXED_LABELS,
             'subdomainSuffix' => '.'.Tenancy::centralDomain(),
             'provinces' => \App\Support\ClinicOptions::PROVINCES,
         ]);
@@ -172,13 +175,73 @@ class ClinicRegistrationController extends Controller
             'primary_contact_phone' => ['required', 'string', 'max:50'],
 
             'requested_disciplines' => ['required', 'array', 'min:1'],
-            'requested_disciplines.*' => [Rule::in(self::DISCIPLINES)],
+            'requested_disciplines.*' => ['required', 'string', 'max:60'],
+            'custom_disciplines' => ['nullable', 'array', 'max:30'],
+            'custom_disciplines.*' => ['nullable'],
             'estimated_practitioner_count' => ['required', 'integer', 'min:1', 'max:500'],
 
             'license_number' => ['required', 'string', 'max:100'],
             'licensing_body' => ['required', 'string', 'max:255'],
             'license_document' => ['required', 'file', 'extensions:pdf,jpg,jpeg,png', 'max:10240'],
         ]);
+
+        // Process and validate custom disciplines
+        $customDisciplines = [];
+        $customSlugs = [];
+        $fixedCodes = self::DISCIPLINES;
+        $fixedLabelsLower = array_map('strtolower', Disciplines::FIXED_LABELS);
+
+        if (! empty($data['custom_disciplines']) && is_array($data['custom_disciplines'])) {
+            foreach ($data['custom_disciplines'] as $item) {
+                $rawLabel = is_array($item) ? ($item['label'] ?? '') : (string) $item;
+                $label = Disciplines::sanitizeLabel($rawLabel);
+                if (empty($label)) {
+                    continue;
+                }
+                if (mb_strlen($label) > 50) {
+                    throw ValidationException::withMessages([
+                        'custom_disciplines' => 'Custom discipline name may not be greater than 50 characters.',
+                    ]);
+                }
+                $slug = is_array($item) && ! empty($item['slug'])
+                    ? Disciplines::slugify((string) $item['slug'])
+                    : Disciplines::slugify($label);
+
+                if (empty($slug)) {
+                    continue;
+                }
+
+                // Disallow duplicate of fixed 5
+                if (in_array($slug, $fixedCodes, true) || in_array(strtolower($label), $fixedLabelsLower, true)) {
+                    throw ValidationException::withMessages([
+                        'custom_disciplines' => "The discipline \"{$label}\" is already a standard platform discipline.",
+                    ]);
+                }
+
+                // Disallow duplicate within custom list
+                if (in_array($slug, $customSlugs, true)) {
+                    throw ValidationException::withMessages([
+                        'custom_disciplines' => "Duplicate custom discipline \"{$label}\" provided.",
+                    ]);
+                }
+
+                $customSlugs[] = $slug;
+                $customDisciplines[] = [
+                    'slug' => $slug,
+                    'label' => $label,
+                ];
+            }
+        }
+
+        // Validate requested_disciplines are all either in fixedCodes or in customSlugs
+        $allowedCodes = array_merge($fixedCodes, $customSlugs);
+        foreach ($data['requested_disciplines'] as $reqDisc) {
+            if (! in_array($reqDisc, $allowedCodes, true)) {
+                throw ValidationException::withMessages([
+                    'requested_disciplines' => "Invalid discipline selected: {$reqDisc}.",
+                ]);
+            }
+        }
 
         // The client can't be trusted to have completed the code step — the
         // email must carry a server-side "verified" marker or we refuse.
@@ -191,7 +254,7 @@ class ClinicRegistrationController extends Controller
         $primaryDiscipline = $data['requested_disciplines'][0];
         $document = $request->file('license_document');
 
-        $user = DB::transaction(function () use ($data, $primaryDiscipline, $document) {
+        $user = DB::transaction(function () use ($data, $customDisciplines, $primaryDiscipline, $document) {
             $user = User::create([
                 'name' => $data['name'],
                 'email' => $data['email'],
@@ -219,10 +282,14 @@ class ClinicRegistrationController extends Controller
                 'primary_contact_name' => $data['primary_contact_name'],
                 'primary_contact_email' => $data['primary_contact_email'],
                 'primary_contact_phone' => $data['primary_contact_phone'],
-                'requested_disciplines' => $data['requested_disciplines'],
+                'requested_disciplines' => array_values($data['requested_disciplines']),
+                'custom_disciplines' => $customDisciplines,
                 'estimated_practitioner_count' => $data['estimated_practitioner_count'],
                 'submitted_at' => now(),
             ]);
+
+            // Ensure baseline / empty templates exist for this clinic
+            IntakeFormTemplate::ensureDefaultsForTenant($tenant->id, $tenant->requested_disciplines);
 
             $membership = StaffMembership::create([
                 'tenant_id' => $tenant->id,
