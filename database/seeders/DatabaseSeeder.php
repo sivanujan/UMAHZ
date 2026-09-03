@@ -50,7 +50,7 @@ class DatabaseSeeder extends Seeder
                 'country' => 'US',
             ],
             'phone' => '+1 (555) 234-5678',
-            'email' => 'contact@lotuswellness.com',
+            'email' => 'contact@umahz.com',
             // Seeded demo tenants skip the setup wizard — they're already "set up".
             'onboarding_completed_at' => now(),
         ]);
@@ -93,7 +93,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // 4. Demo Clinic Owner
-        $ownerUser = User::firstOrCreate(['email' => 'owner@lotuswellness.com'], [
+        $ownerUser = User::firstOrCreate(['email' => 'owner@umahz.com'], [
             'name' => 'Dr. Eleanor Vance',
             'password' => Hash::make('password'),
             'email_verified_at' => now(),
@@ -112,7 +112,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // 5. Demo Practitioner
-        $practitionerUser = User::firstOrCreate(['email' => 'julian@lotuswellness.com'], [
+        $practitionerUser = User::firstOrCreate(['email' => 'practitioner@umahz.com'], [
             'name' => 'Julian Hayes, LAc',
             'password' => Hash::make('password'),
             'email_verified_at' => now(),
@@ -140,7 +140,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // 6. Demo Receptionist
-        $receptionistUser = User::firstOrCreate(['email' => 'maya@lotuswellness.com'], [
+        $receptionistUser = User::firstOrCreate(['email' => 'receptionist@umahz.com'], [
             'name' => 'Maya Torres',
             'password' => Hash::make('password'),
             'email_verified_at' => now(),
@@ -159,7 +159,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // 7. Multi-tenant staff member
-        $multiTenantUser = User::firstOrCreate(['email' => 'dana@multitenant.com'], [
+        $multiTenantUser = User::firstOrCreate(['email' => 'dana@umahz.com'], [
             'name' => 'Dana Whitfield',
             'password' => Hash::make('password'),
             'email_verified_at' => now(),
