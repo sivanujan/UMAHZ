@@ -52,6 +52,13 @@ export default function ViewIntakeModal({ client, intakeSummary, onClose }) {
     const schema = fullIntake?.schema || { sections: [] };
     const responses = fullIntake?.responses || {};
 
+    const clientDisplayName = client?.full_name || client?.name || `${client?.first_name || ''} ${client?.last_name || ''}`.trim() || 'Client';
+    const disciplineCode = fullIntake?.discipline || intakeSummary?.discipline;
+    const disciplineTitle = fullIntake?.discipline_label
+        || intakeSummary?.discipline_label
+        || DISCIPLINE_LABELS[disciplineCode]
+        || (disciplineCode ? disciplineCode.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()) : 'Health History');
+
     return (
         <>
             {/* Scoped Print Stylesheet */}
@@ -121,7 +128,7 @@ export default function ViewIntakeModal({ client, intakeSummary, onClose }) {
                                     </span>
                                 </div>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                    Client: <span className="font-semibold text-slate-700 dark:text-slate-200">{client.name}</span>
+                                    Client: <span className="font-semibold text-slate-700 dark:text-slate-200">{clientDisplayName}</span>
                                     {clinicName && ` • ${clinicName}`}
                                 </p>
                             </div>
@@ -333,7 +340,7 @@ export default function ViewIntakeModal({ client, intakeSummary, onClose }) {
                     <div className="grid grid-cols-2 gap-y-2.5 gap-x-6 text-xs">
                         <div>
                             <span className="text-slate-500 font-medium block text-[10px] uppercase tracking-wider">Patient Name</span>
-                            <span className="font-bold text-sm text-slate-900">{client.name}</span>
+                            <span className="font-bold text-sm text-slate-900">{clientDisplayName}</span>
                         </div>
                         <div>
                             <span className="text-slate-500 font-medium block text-[10px] uppercase tracking-wider">Health Discipline</span>
