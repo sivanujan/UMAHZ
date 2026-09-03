@@ -256,4 +256,14 @@ class Tenant extends Model
     {
         return $this->offeredDisciplineCodes();
     }
+
+    /**
+     * Alias for allDisciplineLabels().
+     *
+     * @return array<string, string>
+     */
+    public function allDisciplinesMap(): array
+    {
+        return $this->allDisciplineLabels();
+    }
 }

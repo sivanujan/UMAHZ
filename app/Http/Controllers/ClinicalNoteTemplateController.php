@@ -30,7 +30,7 @@ class ClinicalNoteTemplateController extends Controller
             ->get()
             ->keyBy('discipline');
 
-        $disciplineLabels = $tenant->allDisciplinesMap();
+        $disciplineLabels = $tenant->allDisciplineLabels();
 
         return Inertia::render('Settings/ClinicalNoteTemplates', [
             'templates' => $templates,
