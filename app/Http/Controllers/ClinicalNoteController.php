@@ -54,7 +54,7 @@ class ClinicalNoteController extends Controller
                 ->first();
 
             if ($existingNote) {
-                return redirect()->route('app.notes.edit', ['note' => $existingNote->id]);
+                return redirect("/app/notes/{$existingNote->id}/edit");
             }
         }
 
