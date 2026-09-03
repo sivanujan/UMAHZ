@@ -246,4 +246,14 @@ class Tenant extends Model
     {
         return $this->requested_disciplines ?: Disciplines::fixedCodes();
     }
+
+    /**
+     * Alias for offeredDisciplineCodes().
+     *
+     * @return array<int, string>
+     */
+    public function allOfferedDisciplines(): array
+    {
+        return $this->offeredDisciplineCodes();
+    }
 }

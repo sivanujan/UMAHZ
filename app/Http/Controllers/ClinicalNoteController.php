@@ -39,7 +39,7 @@ class ClinicalNoteController extends Controller
             ->firstOrFail();
 
         // If practitioner, resolve their profession; otherwise fallback to clinic's first discipline
-        $discipline = $membership->practitionerProfile?->profession ?? $tenant->allOfferedDisciplines()[0] ?? 'massage_therapy';
+        $discipline = $membership->practitionerProfile?->profession ?? $tenant->offeredDisciplineCodes()[0] ?? 'massage_therapy';
 
         $appointmentId = $request->query('appointment_id');
         $appointment = null;

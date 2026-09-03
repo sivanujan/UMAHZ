@@ -22,7 +22,7 @@ class ClinicalNoteTemplateController extends Controller
         $tenantId = TenantScope::getTenantId();
         $tenant = Tenant::findOrFail($tenantId);
 
-        $offeredDisciplines = $tenant->allOfferedDisciplines();
+        $offeredDisciplines = $tenant->offeredDisciplineCodes();
         ClinicalNoteTemplate::ensureDefaultsForTenant($tenantId, $offeredDisciplines);
 
         $templates = ClinicalNoteTemplate::where('tenant_id', $tenantId)
