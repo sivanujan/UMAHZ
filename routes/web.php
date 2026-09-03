@@ -206,6 +206,16 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
         Route::get('/clients/{client}/intakes/{intake}/files/{fieldId}', [\App\Http\Controllers\ClientIntakeController::class, 'file'])->name('clients.intakes.file');
         Route::delete('/clients/{client}/intakes/{intake}', [\App\Http\Controllers\ClientIntakeController::class, 'destroy'])->name('clients.intakes.destroy');
 
+        // Clinical documentation & notes — drafting, autosave, finalization, addenda, and viewing
+        Route::get('/clients/{client}/notes/create', [\App\Http\Controllers\ClinicalNoteController::class, 'create'])->name('clients.notes.create');
+        Route::post('/clients/{client}/notes', [\App\Http\Controllers\ClinicalNoteController::class, 'store'])->name('clients.notes.store');
+        Route::get('/notes/{note}/edit', [\App\Http\Controllers\ClinicalNoteController::class, 'edit'])->name('notes.edit');
+        Route::patch('/notes/{note}/autosave', [\App\Http\Controllers\ClinicalNoteController::class, 'autosave'])->name('notes.autosave');
+        Route::post('/notes/{note}/finalize', [\App\Http\Controllers\ClinicalNoteController::class, 'finalize'])->name('notes.finalize');
+        Route::get('/notes/{note}', [\App\Http\Controllers\ClinicalNoteController::class, 'show'])->name('notes.show');
+        Route::post('/notes/{note}/addenda', [\App\Http\Controllers\ClinicalNoteController::class, 'addAddendum'])->name('notes.addenda.store');
+        Route::delete('/notes/{note}', [\App\Http\Controllers\ClinicalNoteController::class, 'destroy'])->name('notes.destroy');
+
         // Calendar & booking — available to any active workspace role
         // (owner, practitioner, receptionist). Every action is tenant-scoped
         // by the Appointment global scope + BookingService boundary checks.
@@ -245,6 +255,11 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
             Route::patch('/settings/intake-forms/{template}', [\App\Http\Controllers\IntakeTemplateController::class, 'update'])->name('settings.intake_forms.update');
             Route::post('/settings/intake-forms/{template}/reset', [\App\Http\Controllers\IntakeTemplateController::class, 'reset'])->name('settings.intake_forms.reset');
 
+            // Clinical Note Templates configuration
+            Route::get('/settings/clinical-note-templates', [\App\Http\Controllers\ClinicalNoteTemplateController::class, 'index'])->name('settings.clinical_note_templates.index');
+            Route::patch('/settings/clinical-note-templates/{template}', [\App\Http\Controllers\ClinicalNoteTemplateController::class, 'update'])->name('settings.clinical_note_templates.update');
+            Route::post('/settings/clinical-note-templates/{template}/reset', [\App\Http\Controllers\ClinicalNoteTemplateController::class, 'reset'])->name('settings.clinical_note_templates.reset');
+
             // Locations & Rooms — owner-only management.
             Route::get('/locations', [LocationController::class, 'index'])->name('locations.index');
             Route::post('/locations', [LocationController::class, 'store'])->name('locations.store');
@@ -258,15 +273,6 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
             Route::patch('/rooms/{room}/toggle', [RoomController::class, 'toggle'])->name('rooms.toggle');
             Route::delete('/rooms/{room}', [RoomController::class, 'destroy'])->name('rooms.destroy');
         });
-
-        // Example of a per-route Spatie permission gate on top of the tenant
-        // role check above — clinical note-signing is not available to every
-        // staff role (e.g. receptionists) even within /app.
-        Route::post('/notes/{note}/finalize', function (ClinicalNote $note) {
-            $note->update(['status' => ClinicalNote::STATUS_SIGNED, 'signed_at' => now()]);
-
-            return back()->with('success', 'Note signed.');
-        })->middleware('permission:notes.finalize')->name('notes.finalize');
     });
 });
 

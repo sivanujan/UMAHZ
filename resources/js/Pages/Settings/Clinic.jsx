@@ -410,6 +410,20 @@ export default function ClinicSettings({ tenant, timezones, currencies, province
                         </Link>
                     </div>
                 </Card>
+
+                <Card icon={Stethoscope} title="Clinical Documentation Templates" subtitle="Configure profession-specific SOAP, TCM, and encounter note templates.">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <p className="text-xs text-slate-600 dark:text-slate-400 max-w-lg leading-relaxed">
+                            Customize versioned encounter note templates for practitioners across all offered disciplines. Supports SOAP notes, TCM pulse/tongue observations, training programming, and nutrition assessments.
+                        </p>
+                        <Link
+                            href="/app/settings/clinical-note-templates"
+                            className="inline-flex items-center px-4 py-2 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 text-violet-700 dark:text-violet-400 text-xs font-semibold rounded-xl border border-violet-200 dark:border-violet-800 transition shrink-0"
+                        >
+                            Configure Note Templates &rarr;
+                        </Link>
+                    </div>
+                </Card>
             </div>
         </AuthenticatedLayout>
     );

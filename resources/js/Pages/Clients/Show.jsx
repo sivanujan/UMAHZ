@@ -5,7 +5,7 @@ import {
     ArrowLeft, Users, Mail, Phone, Calendar, HeartHandshake,
     Pencil, Power, Trash2, CheckCircle2, AlertCircle, Clock, ShieldCheck,
     FileCheck2, Plus, Eye, ShieldAlert, AlertTriangle, ClipboardList,
-    Link2, Copy, Send, ClipboardEdit
+    Link2, Copy, Send, ClipboardEdit, Stethoscope, Lock, FileSignature
 } from 'lucide-react';
 import RecordConsentModal from '@/Components/Consent/RecordConsentModal';
 import ViewConsentModal from '@/Components/Consent/ViewConsentModal';
@@ -13,6 +13,7 @@ import WithdrawConsentModal from '@/Components/Consent/WithdrawConsentModal';
 import GenerateIntakeLinkModal from '@/Components/Intake/GenerateIntakeLinkModal';
 import StaffFillIntakeModal from '@/Components/Intake/StaffFillIntakeModal';
 import ViewIntakeModal from '@/Components/Intake/ViewIntakeModal';
+import NewNoteModal from '@/Components/ClinicalNotes/NewNoteModal';
 
 const fieldClass = 'w-full px-3.5 py-2.5 rounded-lg text-sm outline-none transition focus:ring-4 focus:ring-[#2563EB]/15 focus:border-[#2563EB]/50 border';
 const fieldStyle = { background: 'var(--umahz-hover)', borderColor: 'var(--umahz-border)', color: 'var(--umahz-text-primary)' };
@@ -40,6 +41,10 @@ function EditClientModal({ client, onClose }) {
         phone: client.phone || '',
         date_of_birth: client.date_of_birth || '',
         sex: client.sex || '',
+        street_address: client.address?.street || '',
+        city: client.address?.city || '',
+        province: client.address?.province || '',
+        postal_code: client.address?.postal_code || '',
         preferred_contact_method: client.preferred_contact_method || 'email',
         emergency_contact_name: client.emergency_contact?.name || '',
         emergency_contact_phone: client.emergency_contact?.phone || '',
@@ -107,13 +112,13 @@ function EditClientModal({ client, onClose }) {
                                 style={fieldStyle}
                                 value={data.email}
                                 onChange={(e) => setData('email', e.target.value)}
+                                required
                             />
                             {errors.email && <p className="text-xs mt-1 text-rose-500">{errors.email}</p>}
                         </div>
                         <div>
                             <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>Phone</label>
                             <input
-                                type="tel"
                                 className={fieldClass}
                                 style={fieldStyle}
                                 value={data.phone}
@@ -123,7 +128,7 @@ function EditClientModal({ client, onClose }) {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>Date of Birth</label>
                             <input
@@ -132,85 +137,112 @@ function EditClientModal({ client, onClose }) {
                                 style={fieldStyle}
                                 value={data.date_of_birth}
                                 onChange={(e) => setData('date_of_birth', e.target.value)}
-                                max={new Date().toISOString().split('T')[0]}
                             />
                             {errors.date_of_birth && <p className="text-xs mt-1 text-rose-500">{errors.date_of_birth}</p>}
                         </div>
                         <div>
-                            <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>Sex / Gender</label>
+                            <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>Biological / Assigned Sex</label>
                             <select
                                 className={fieldClass}
                                 style={fieldStyle}
                                 value={data.sex}
                                 onChange={(e) => setData('sex', e.target.value)}
                             >
-                                <option value="">Select Sex...</option>
+                                <option value="">Select sex (optional)</option>
                                 <option value="female">Female</option>
                                 <option value="male">Male</option>
-                                <option value="other">Other</option>
+                                <option value="intersex">Intersex</option>
                                 <option value="prefer_not_to_say">Prefer not to say</option>
                             </select>
                             {errors.sex && <p className="text-xs mt-1 text-rose-500">{errors.sex}</p>}
                         </div>
-                        <div>
-                            <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>Preferred Contact</label>
-                            <select
-                                className={fieldClass}
-                                style={fieldStyle}
-                                value={data.preferred_contact_method}
-                                onChange={(e) => setData('preferred_contact_method', e.target.value)}
-                            >
-                                <option value="email">Email</option>
-                                <option value="phone">Phone Call</option>
-                                <option value="sms">SMS / Text</option>
-                            </select>
-                        </div>
                     </div>
 
-                    <div className="pt-3 border-t" style={{ borderColor: 'var(--umahz-border)' }}>
-                        <div className="flex items-center gap-2 mb-3">
-                            <HeartHandshake className="w-4 h-4 text-violet-600" />
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Emergency Contact</h3>
-                        </div>
+                    <div>
+                        <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>Preferred Contact Method</label>
+                        <select
+                            className={fieldClass}
+                            style={fieldStyle}
+                            value={data.preferred_contact_method}
+                            onChange={(e) => setData('preferred_contact_method', e.target.value)}
+                        >
+                            <option value="email">Email</option>
+                            <option value="phone">Phone</option>
+                            <option value="sms">SMS</option>
+                        </select>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100">
+                        <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">Address</p>
                         <div className="space-y-3">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>Contact Name</label>
-                                    <input
-                                        className={fieldClass}
-                                        style={fieldStyle}
-                                        value={data.emergency_contact_name}
-                                        onChange={(e) => setData('emergency_contact_name', e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>Relationship</label>
-                                    <input
-                                        className={fieldClass}
-                                        style={fieldStyle}
-                                        value={data.emergency_contact_relationship}
-                                        onChange={(e) => setData('emergency_contact_relationship', e.target.value)}
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>Phone</label>
+                            <input
+                                placeholder="Street Address"
+                                className={fieldClass}
+                                style={fieldStyle}
+                                value={data.street_address}
+                                onChange={(e) => setData('street_address', e.target.value)}
+                            />
+                            <div className="grid grid-cols-3 gap-2">
                                 <input
-                                    type="tel"
+                                    placeholder="City"
                                     className={fieldClass}
                                     style={fieldStyle}
-                                    value={data.emergency_contact_phone}
-                                    onChange={(e) => setData('emergency_contact_phone', e.target.value)}
+                                    value={data.city}
+                                    onChange={(e) => setData('city', e.target.value)}
+                                />
+                                <input
+                                    placeholder="Province"
+                                    className={fieldClass}
+                                    style={fieldStyle}
+                                    value={data.province}
+                                    onChange={(e) => setData('province', e.target.value)}
+                                />
+                                <input
+                                    placeholder="Postal Code"
+                                    className={fieldClass}
+                                    style={fieldStyle}
+                                    value={data.postal_code}
+                                    onChange={(e) => setData('postal_code', e.target.value)}
                                 />
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-end gap-3 pt-4 border-t" style={{ borderColor: 'var(--umahz-border)' }}>
+                    <div className="pt-2 border-t border-slate-100">
+                        <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">Emergency Contact</p>
+                        <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                                <input
+                                    placeholder="Contact Name"
+                                    className={fieldClass}
+                                    style={fieldStyle}
+                                    value={data.emergency_contact_name}
+                                    onChange={(e) => setData('emergency_contact_name', e.target.value)}
+                                />
+                                <input
+                                    placeholder="Relationship"
+                                    className={fieldClass}
+                                    style={fieldStyle}
+                                    value={data.emergency_contact_relationship}
+                                    onChange={(e) => setData('emergency_contact_relationship', e.target.value)}
+                                />
+                            </div>
+                            <input
+                                placeholder="Contact Phone"
+                                className={fieldClass}
+                                style={fieldStyle}
+                                value={data.emergency_contact_phone}
+                                onChange={(e) => setData('emergency_contact_phone', e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 pt-3 border-t" style={{ borderColor: 'var(--umahz-border)' }}>
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 text-xs font-semibold rounded-lg hover:bg-[var(--umahz-hover)] text-slate-600 transition"
+                            className="px-4 py-2 text-xs font-semibold rounded-lg hover:bg-slate-100 transition"
+                            style={{ color: 'var(--umahz-text-secondary)' }}
                         >
                             Cancel
                         </button>
@@ -234,6 +266,8 @@ export default function ClientsShow({
     consentTypes = [],
     intakes = [],
     intakeTemplates = [],
+    clinicalNotes = [],
+    canCreateNote = false,
     clientAppointments = [],
     offeredDisciplines = [],
     disciplineLabels = {},
@@ -247,6 +281,8 @@ export default function ClientsShow({
     const [staffFillingIntake, setStaffFillingIntake] = useState(false);
     const [viewingIntake, setViewingIntake] = useState(null);
     const [copiedIntakeId, setCopiedIntakeId] = useState(null);
+
+    const [creatingNote, setCreatingNote] = useState(false);
 
     const { errors } = usePage().props;
 
@@ -804,6 +840,170 @@ export default function ClientsShow({
                     </div>
                 )}
             </div>
+
+            {/* CLINICAL DOCUMENTATION & NOTES CARD */}
+            <div
+                className="rounded-2xl border shadow-sm p-6"
+                style={{ background: 'var(--umahz-surface)', borderColor: 'var(--umahz-border)' }}
+            >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 flex items-center justify-center">
+                            <Stethoscope className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                                    Clinical Documentation & Notes
+                                </h2>
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-50 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300">
+                                    {clinicalNotes.length} encounters
+                                </span>
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                Immutable profession-specific SOAP, TCM, and clinical encounter records with signed attestation.
+                            </p>
+                        </div>
+                    </div>
+
+                    {canCreateNote && (
+                        <button
+                            type="button"
+                            onClick={() => setCreatingNote(true)}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold shadow-sm transition"
+                        >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>New Clinical Note</span>
+                        </button>
+                    )}
+                </div>
+
+                {clinicalNotes.length === 0 ? (
+                    <div className="py-12 text-center text-slate-400 text-xs border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
+                        <Stethoscope className="w-8 h-8 mx-auto mb-2 opacity-40 text-slate-400" />
+                        <p>No clinical encounter notes recorded for this client yet.</p>
+                        {canCreateNote && (
+                            <button
+                                type="button"
+                                onClick={() => setCreatingNote(true)}
+                                className="mt-2 text-violet-600 hover:underline font-semibold"
+                            >
+                                Start first clinical note
+                            </button>
+                        )}
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                            <thead>
+                                <tr className="border-b text-[10px] uppercase font-bold tracking-wider text-slate-400" style={{ borderColor: 'var(--umahz-border)' }}>
+                                    <th className="pb-3 font-semibold">Discipline & Template</th>
+                                    <th className="pb-3 font-semibold">Encounter / Date</th>
+                                    <th className="pb-3 font-semibold">Attending Practitioner</th>
+                                    <th className="pb-3 font-semibold">Record Status</th>
+                                    <th className="pb-3 font-semibold text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y" style={{ borderColor: 'var(--umahz-border)' }}>
+                                {clinicalNotes.map((n) => {
+                                    const isDraft = n.is_draft;
+                                    const isFinalized = n.is_finalized;
+                                    const isAddended = n.is_addended;
+
+                                    return (
+                                        <tr key={n.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition">
+                                            <td className="py-3.5 pr-4">
+                                                <div className="font-bold text-slate-900 dark:text-white">
+                                                    {n.discipline_label}
+                                                </div>
+                                                <div className="text-[11px] text-slate-400 mt-0.5">
+                                                    {n.template_name} (v{n.template_version})
+                                                </div>
+                                            </td>
+
+                                            <td className="py-3.5 pr-4 text-slate-600 dark:text-slate-300">
+                                                <div className="font-medium">
+                                                    {n.appointment?.starts_at
+                                                        ? new Date(n.appointment.starts_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                                                        : new Date(n.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                </div>
+                                                <div className="text-[11px] text-slate-400">
+                                                    {n.appointment?.service_name || 'Encounter Note'}
+                                                </div>
+                                            </td>
+
+                                            <td className="py-3.5 pr-4 text-slate-600 dark:text-slate-300">
+                                                <div className="font-medium">
+                                                    {n.signer_name || n.practitioner_name}
+                                                </div>
+                                                {n.signer_credentials && (
+                                                    <div className="text-[11px] text-slate-400">
+                                                        {n.signer_credentials}
+                                                    </div>
+                                                )}
+                                            </td>
+
+                                            <td className="py-3.5 pr-4">
+                                                {isDraft && (
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                                        <Clock className="w-3 h-3" />
+                                                        Draft (In Progress)
+                                                    </span>
+                                                )}
+                                                {isFinalized && (
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                                        <CheckCircle2 className="w-3 h-3" />
+                                                        Finalized & Signed
+                                                    </span>
+                                                )}
+                                                {isAddended && (
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                                        <ShieldCheck className="w-3 h-3" />
+                                                        Addended ({n.addenda_count})
+                                                    </span>
+                                                )}
+                                            </td>
+
+                                            <td className="py-3.5 pl-4 text-right">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    {isDraft && n.can_edit && (
+                                                        <Link
+                                                            href={`/app/notes/${n.id}/edit`}
+                                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-violet-600 text-white hover:bg-violet-700 transition shadow-sm"
+                                                        >
+                                                            <Pencil className="w-3 h-3" />
+                                                            Continue Draft
+                                                        </Link>
+                                                    )}
+
+                                                    {(isFinalized || isAddended) && (
+                                                        <Link
+                                                            href={`/app/notes/${n.id}`}
+                                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition"
+                                                        >
+                                                            <Eye className="w-3.5 h-3.5 text-violet-500" />
+                                                            View & Print
+                                                        </Link>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            {/* New Clinical Note Modal */}
+            {creatingNote && (
+                <NewNoteModal
+                    client={client}
+                    appointments={clientAppointments}
+                    onClose={() => setCreatingNote(false)}
+                />
+            )}
 
             {/* Edit Profile Modal */}
             {editing && (

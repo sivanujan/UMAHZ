@@ -174,12 +174,49 @@ class ClientController extends Controller
             ->take(10)
             ->get(['id', 'starts_at', 'service_name', 'status']);
 
+        $user = $request->user();
+        $canViewNoteBody = $user->can('create', \App\Models\ClinicalNote::class);
+
+        $clinicalNotes = $client->clinicalNotes()
+            ->with(['staffMembership.user', 'staffMembership.practitionerProfile', 'appointment', 'addenda'])
+            ->latest('created_at')
+            ->get()
+            ->map(fn (\App\Models\ClinicalNote $n) => [
+                'id' => $n->id,
+                'discipline' => $n->discipline,
+                'discipline_label' => $tenant?->disciplineLabel($n->discipline) ?? $n->discipline,
+                'template_name' => $n->template_name,
+                'template_version' => $n->template_version,
+                'status' => $n->status,
+                'is_draft' => $n->isDraft(),
+                'is_finalized' => $n->isFinalized(),
+                'is_addended' => $n->isAddended(),
+                'signer_name' => $n->signer_name,
+                'signer_credentials' => $n->signer_credentials,
+                'signed_at' => $n->signed_at?->toIso8601String(),
+                'finalized_at' => $n->finalized_at?->toIso8601String(),
+                'created_at' => $n->created_at->toIso8601String(),
+                'practitioner_name' => $n->staffMembership?->user?->name ?? 'Staff Practitioner',
+                'addenda_count' => $n->addenda->count(),
+                'appointment' => $n->appointment ? [
+                    'id' => $n->appointment->id,
+                    'starts_at' => $n->appointment->starts_at->toIso8601String(),
+                    'service_name' => $n->appointment->service_name,
+                ] : null,
+                'can_edit' => $user->can('update', $n),
+                'can_finalize' => $user->can('finalize', $n),
+                'can_addend' => $user->can('addAddendum', $n),
+                'can_view_body' => $canViewNoteBody,
+            ]);
+
         return Inertia::render('Clients/Show', [
             'client' => $this->present($client),
             'consents' => $consents,
             'consentTypes' => $consentTypes,
             'intakes' => $intakes,
             'intakeTemplates' => $intakeTemplates,
+            'clinicalNotes' => $clinicalNotes,
+            'canCreateNote' => $user->can('create', \App\Models\ClinicalNote::class),
             'clientAppointments' => $clientAppointments,
             'offeredDisciplines' => $offeredDisciplines,
             'disciplineLabels' => $tenant?->allDisciplineLabels() ?? \App\Support\Disciplines::FIXED_LABELS,
