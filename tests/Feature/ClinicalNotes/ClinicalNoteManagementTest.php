@@ -13,12 +13,12 @@ use App\Models\StaffMembership;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Scopes\TenantScope;
-use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ClinicalNoteManagementTest extends TestCase
 {
-    use DatabaseTransactions;
+    use RefreshDatabase;
 
     private Tenant $tenant;
     private User $owner;

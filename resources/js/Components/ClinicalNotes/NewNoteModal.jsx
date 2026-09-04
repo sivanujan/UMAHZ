@@ -2,15 +2,17 @@ import React, { useState } from 'react';
 import { router } from '@inertiajs/react';
 import { FileText, Calendar, Clock, Plus, ArrowRight, Stethoscope } from 'lucide-react';
 
-export default function NewNoteModal({ client, appointments = [], onClose }) {
+export default function NewNoteModal({ client, appointments = [], disciplines = [], onClose }) {
     const [selectedAppointmentId, setSelectedAppointmentId] = useState('');
+    const [selectedDiscipline, setSelectedDiscipline] = useState(disciplines[0]?.code || '');
 
     const handleProceed = (e) => {
         e.preventDefault();
-        const url = selectedAppointmentId
-            ? `/app/clients/${client.id}/notes/create?appointment_id=${selectedAppointmentId}`
-            : `/app/clients/${client.id}/notes/create`;
-        router.visit(url);
+        const params = new URLSearchParams();
+        if (selectedAppointmentId) params.set('appointment_id', selectedAppointmentId);
+        if (selectedDiscipline) params.set('discipline', selectedDiscipline);
+        const query = params.toString();
+        router.visit(`/app/clients/${client.id}/notes/create${query ? `?${query}` : ''}`);
     };
 
     const formatDate = (isoString) => {
@@ -56,6 +58,26 @@ export default function NewNoteModal({ client, appointments = [], onClose }) {
                 </div>
 
                 <form onSubmit={handleProceed} className="space-y-4 text-xs">
+                    {disciplines.length > 0 && (
+                        <div>
+                            <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                                Discipline / Template
+                            </label>
+                            <select
+                                value={selectedDiscipline}
+                                onChange={(e) => setSelectedDiscipline(e.target.value)}
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                            >
+                                {disciplines.map((d) => (
+                                    <option key={d.code} value={d.code}>{d.label}</option>
+                                ))}
+                            </select>
+                            <p className="mt-1 text-[10px] text-slate-400">
+                                The note opens with this discipline's template (SOAP, TCM, etc.).
+                            </p>
+                        </div>
+                    )}
+
                     <div>
                         <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                             Attach to Scheduled Appointment (Optional)

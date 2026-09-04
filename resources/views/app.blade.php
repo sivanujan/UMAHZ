@@ -3,6 +3,8 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        {{-- Read by raw fetch() calls (e.g. clinical-note autosave/create) to pass Laravel's CSRF check. --}}
+        <meta name="csrf-token" content="{{ csrf_token() }}">
 
         <title inertia>{{ config('app.name', 'UMAHZ Wellness') }}</title>
 

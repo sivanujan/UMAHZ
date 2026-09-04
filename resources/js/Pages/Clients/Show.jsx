@@ -976,6 +976,21 @@ export default function ClientsShow({
                                                         </Link>
                                                     )}
 
+                                                    {isDraft && n.can_delete && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                if (window.confirm('Delete this draft clinical note? This cannot be undone. Only unsigned drafts can be deleted — finalized records are kept permanently.')) {
+                                                                    router.delete(`/app/notes/${n.id}`, { preserveScroll: true });
+                                                                }
+                                                            }}
+                                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition"
+                                                        >
+                                                            <Trash2 className="w-3 h-3" />
+                                                            Delete
+                                                        </button>
+                                                    )}
+
                                                     {(isFinalized || isAddended) && (
                                                         <Link
                                                             href={`/app/notes/${n.id}`}
@@ -1001,6 +1016,10 @@ export default function ClientsShow({
                 <NewNoteModal
                     client={client}
                     appointments={clientAppointments}
+                    disciplines={offeredDisciplines.map((code) => ({
+                        code,
+                        label: disciplineLabels[code] || code,
+                    }))}
                     onClose={() => setCreatingNote(false)}
                 />
             )}

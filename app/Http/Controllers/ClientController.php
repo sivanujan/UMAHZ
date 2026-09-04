@@ -206,6 +206,7 @@ class ClientController extends Controller
                 'can_edit' => $user->can('update', $n),
                 'can_finalize' => $user->can('finalize', $n),
                 'can_addend' => $user->can('addAddendum', $n),
+                'can_delete' => $user->can('delete', $n),
                 'can_view_body' => $canViewNoteBody,
             ]);
 

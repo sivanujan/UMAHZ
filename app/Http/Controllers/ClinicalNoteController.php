@@ -38,8 +38,14 @@ class ClinicalNoteController extends Controller
             ->with('practitionerProfile')
             ->firstOrFail();
 
-        // If practitioner, resolve their profession; otherwise fallback to clinic's first discipline
-        $discipline = $membership->practitionerProfile?->profession ?? $tenant->offeredDisciplineCodes()[0] ?? 'massage_therapy';
+        // Discipline resolution order: an explicit choice from the "New Note"
+        // dialog (validated against what the clinic actually offers), else the
+        // practitioner's own profession, else the clinic's first discipline.
+        $offered = $tenant->offeredDisciplineCodes();
+        $requested = $request->query('discipline');
+        $discipline = ($requested && in_array($requested, $offered, true))
+            ? $requested
+            : ($membership->practitionerProfile?->profession ?? $offered[0] ?? 'massage_therapy');
 
         $appointmentId = $request->query('appointment_id');
         $appointment = null;
