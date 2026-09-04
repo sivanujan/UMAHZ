@@ -388,12 +388,30 @@ export default function PractitionerAppointments({
                                                         </span>
                                                     </div>
 
-                                                    {/* Quick 1-Tap Status Action Buttons */}
+                                                    {/* Quick 1-Tap Status Action Buttons & Note Action */}
                                                     {!isCancelled && (
                                                         <div
                                                             className="flex items-center gap-1.5 flex-wrap"
                                                             onClick={(e) => e.stopPropagation()}
                                                         >
+                                                            {appt.clinical_note_id ? (
+                                                                <a
+                                                                    href={appt.clinical_note_status === 'draft' ? `/app/notes/${appt.clinical_note_id}/edit` : `/app/notes/${appt.clinical_note_id}`}
+                                                                    className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 transition shadow-2xs"
+                                                                >
+                                                                    <FileText className="w-3 h-3 text-violet-600" />
+                                                                    <span>{appt.clinical_note_status === 'draft' ? 'Continue Note' : 'View Note'}</span>
+                                                                </a>
+                                                            ) : appt.client_id ? (
+                                                                <a
+                                                                    href={`/app/clients/${appt.client_id}/notes/create?appointment_id=${appt.id}`}
+                                                                    className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-violet-600 hover:bg-violet-700 text-white transition shadow-2xs"
+                                                                >
+                                                                    <FileText className="w-3 h-3" />
+                                                                    <span>Write Note</span>
+                                                                </a>
+                                                            ) : null}
+
                                                             {appt.status !== 'checked_in' && appt.status !== 'completed' && (
                                                                 <button
                                                                     type="button"

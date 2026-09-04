@@ -49,7 +49,7 @@ class PractitionerAppointmentController extends Controller
         $baseQuery = Appointment::query()
             ->where('tenant_id', $tenant->id)
             ->where('staff_membership_id', $membership->id)
-            ->with(['client', 'location', 'room']);
+            ->with(['client', 'location', 'room', 'clinicalNotes']);
 
         if ($view === 'today') {
             $dayStartLocal = CarbonImmutable::createFromFormat('Y-m-d', $todayStr, $tz)->startOfDay();
@@ -178,6 +178,8 @@ class PractitionerAppointmentController extends Controller
             'room_name' => $a->room?->name,
             'status' => $a->status,
             'notes' => $a->notes,
+            'clinical_note_id' => $a->clinicalNotes->first()?->id,
+            'clinical_note_status' => $a->clinicalNotes->first()?->status,
         ];
     }
 

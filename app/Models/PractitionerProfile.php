@@ -22,9 +22,13 @@ class PractitionerProfile extends Model
     public const VERIFICATION_VERIFIED = 'verified';
     public const VERIFICATION_REJECTED = 'rejected';
 
+    public const EMPLOYMENT_FULL_TIME = 'full_time';
+    public const EMPLOYMENT_PART_TIME = 'part_time';
+
     protected $fillable = [
         'staff_membership_id',
         'profession',
+        'employment_type',
         'credentials',
         'registration_number',
         'biography',

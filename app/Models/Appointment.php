@@ -62,4 +62,9 @@ class Appointment extends Model
     {
         return $this->belongsTo(Room::class);
     }
+
+    public function clinicalNotes(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ClinicalNote::class);
+    }
 }

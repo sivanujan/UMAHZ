@@ -30,6 +30,12 @@ return Application::configure(basePath: dirname(__DIR__))
             AddLinkHeadersForPreloadedAssets::class,
         ]);
 
+        // Stripe posts webhooks without a CSRF token; the route is protected by
+        // Stripe signature verification instead (Cashier's WebhookController).
+        $middleware->validateCsrfTokens(except: [
+            'stripe/webhook',
+        ]);
+
         $middleware->alias([
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,

@@ -12,6 +12,7 @@ use App\Http\Controllers\Onboarding\ClinicRegistrationController;
 use App\Notifications\ClinicApplicationApprovedNotification;
 use App\Notifications\ClinicApplicationNeedsInfoNotification;
 use App\Notifications\ClinicApplicationRejectedNotification;
+use App\Services\ClinicSubscriptionService;
 use App\Support\ClinicOptions;
 use App\Support\Tenancy;
 use Illuminate\Http\RedirectResponse;
@@ -50,6 +51,11 @@ class ClinicReviewController extends Controller
             ->map(fn (Tenant $tenant) => [
                 'id' => $tenant->id,
                 'name' => $tenant->name,
+                'plan_tier' => $tenant->plan_tier,
+                'plan_name' => $tenant->planName(),
+                'full_time_practitioners_count' => $tenant->full_time_practitioners_count,
+                'part_time_practitioners_count' => $tenant->part_time_practitioners_count,
+                'monthly_total' => $tenant->monthlyBillableTotal(),
                 'primary_contact_name' => $tenant->primary_contact_name,
                 'primary_contact_email' => $tenant->primary_contact_email,
                 'requested_disciplines' => $tenant->requested_disciplines,
@@ -80,6 +86,11 @@ class ClinicReviewController extends Controller
                 'name' => $tenant->name,
                 'status' => $tenant->status,
                 'slug' => $tenant->slug,
+                'plan_tier' => $tenant->plan_tier,
+                'plan_name' => $tenant->planName(),
+                'full_time_practitioners_count' => $tenant->full_time_practitioners_count,
+                'part_time_practitioners_count' => $tenant->part_time_practitioners_count,
+                'billing_breakdown' => $tenant->monthlyBillableBreakdown(),
                 'business_registration_number' => $tenant->business_registration_number,
                 'address' => $tenant->address,
                 'primary_contact_name' => $tenant->primary_contact_name,
@@ -224,12 +235,29 @@ class ClinicReviewController extends Controller
         return back()->with('success', "{$tenant->name} reactivated.");
     }
 
-    public function approve(Request $request, Tenant $tenant): RedirectResponse
+    public function approve(Request $request, Tenant $tenant, ClinicSubscriptionService $subscriptions): RedirectResponse
     {
         $this->authorize('review', $tenant);
 
-        // Status change + primary-practitioner verification + audit insert must
-        // all land together or not at all.
+        // A saved card is required before an application is ever submitted, so
+        // this should always hold — but guard so we never "approve" a clinic we
+        // then can't bill.
+        if (empty($tenant->stripe_id) || empty($tenant->stripe_pm_id)) {
+            return back()->withErrors(['approve' => 'This clinic has no saved payment method on file and cannot be approved.']);
+        }
+
+        // THE FIRST CHARGE happens here. If the card is declined we must NOT
+        // approve — surface the error and leave the application pending.
+        try {
+            $subscriptions->activate($tenant);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->withErrors(['approve' => 'Could not start the subscription — the first charge failed: '.$e->getMessage()]);
+        }
+
+        // Subscription is live; now flip status + verify practitioner + audit
+        // atomically.
         DB::transaction(function () use ($request, $tenant) {
             $tenant->update([
                 'status' => Tenant::STATUS_APPROVED,
@@ -246,6 +274,7 @@ class ClinicReviewController extends Controller
                     'reviewed_by' => $request->user()->id,
                 ]);
 
+            $this->logAuditEvent($request, $tenant, 'subscription.started');
             $this->logAuditEvent($request, $tenant, 'clinic.approved');
         });
 
@@ -254,7 +283,7 @@ class ClinicReviewController extends Controller
         $owner = $tenant->staffMemberships()->where('role', 'clinic_owner')->first()?->user;
         $this->notifySafely($owner, new ClinicApplicationApprovedNotification($tenant));
 
-        return back()->with('success', "{$tenant->name} approved.");
+        return back()->with('success', "{$tenant->name} approved — subscription started.");
     }
 
     public function requestMoreInfo(Request $request, Tenant $tenant): RedirectResponse
@@ -284,7 +313,7 @@ class ClinicReviewController extends Controller
         return back()->with('success', "Requested more information from {$tenant->name}.");
     }
 
-    public function reject(Request $request, Tenant $tenant): RedirectResponse
+    public function reject(Request $request, Tenant $tenant, ClinicSubscriptionService $subscriptions): RedirectResponse
     {
         $this->authorize('review', $tenant);
 
@@ -292,6 +321,10 @@ class ClinicReviewController extends Controller
         $data = $request->validate([
             'note' => ['required', 'string', 'max:2000'],
         ]);
+
+        // No charge ever happened (we only saved the card), so there is nothing
+        // to refund — just discard the saved payment method.
+        $subscriptions->discard($tenant);
 
         DB::transaction(function () use ($request, $tenant, $data) {
             $tenant->update([
@@ -301,6 +334,7 @@ class ClinicReviewController extends Controller
                 'review_note' => $data['note'],
             ]);
 
+            $this->logAuditEvent($request, $tenant, 'subscription.discarded');
             $this->logAuditEvent($request, $tenant, 'clinic.rejected', $data['note']);
         });
 

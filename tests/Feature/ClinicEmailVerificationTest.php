@@ -15,7 +15,7 @@ use Tests\TestCase;
 
 class ClinicEmailVerificationTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, \Tests\Concerns\RegistersClinics;
 
     public function test_send_code_emails_a_code_and_starts_the_cooldown(): void
     {
@@ -76,8 +76,10 @@ class ClinicEmailVerificationTest extends TestCase
 
         Storage::fake('local');
 
+        // Validation now runs on the card-capture (prepare) step, before any
+        // tenant is created.
         $this->from('http://umahz.test/clinics/register')
-            ->post('http://umahz.test/clinics/register', $this->payload())
+            ->post('http://umahz.test/clinics/register/prepare', $this->payload())
             ->assertSessionHasErrors('email');
 
         $this->assertDatabaseCount('tenants', 0);
@@ -96,7 +98,7 @@ class ClinicEmailVerificationTest extends TestCase
         // Simulate the applicant having cleared the code step.
         Cache::put('clinic_verify:verified:'.hash('sha256', 'ada@example.com'), true, 1800);
 
-        $this->post('http://umahz.test/clinics/register', $this->payload())
+        $this->registerClinicThroughPayment($this->payload())
             ->assertSessionHasNoErrors();
 
         $user = User::where('email', 'ada@example.com')->first();

@@ -8,7 +8,7 @@ use Tests\TestCase;
 
 class SubdomainRegistrationTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, \Tests\Concerns\RegistersClinics;
 
     private function existingTenant(string $subdomain): Tenant
     {
@@ -52,8 +52,14 @@ class SubdomainRegistrationTest extends TestCase
 
     public function test_registration_rejects_a_reserved_subdomain(): void
     {
+        if (! extension_loaded('fileinfo')) {
+            $this->markTestSkipped('ext-fileinfo is required for the license upload path.');
+        }
+        \Illuminate\Support\Facades\Storage::fake('local');
+
+        // Validation now runs on the card-capture (prepare) step.
         $this->from('http://umahz.test/clinics/register')
-            ->post('http://umahz.test/clinics/register', $this->payload(['subdomain' => 'api']))
+            ->post('http://umahz.test/clinics/register/prepare', $this->payload(['subdomain' => 'api']))
             ->assertSessionHasErrors('subdomain');
 
         $this->assertDatabaseCount('tenants', 0);
@@ -73,7 +79,7 @@ class SubdomainRegistrationTest extends TestCase
         \App\Support\EmailVerificationCode::verify('ada@example.com', $code);
 
         // Even if the client sends mixed case, the server normalises it.
-        $this->post('http://umahz.test/clinics/register', $this->payload(['subdomain' => 'Lotus-Wellness']))
+        $this->registerClinicThroughPayment($this->payload(['subdomain' => 'Lotus-Wellness']))
             ->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('tenants', ['subdomain' => 'lotus-wellness']);

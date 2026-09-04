@@ -57,7 +57,7 @@ class AcceptInviteController extends Controller
      * Activate the invited account: set a real password, mark the
      * membership active, and sign the user in.
      */
-    public function store(Request $request, StaffMembership $staffMembership): HttpResponse|RedirectResponse
+    public function store(Request $request, StaffMembership $staffMembership, \App\Services\ClinicSubscriptionService $subscriptions): HttpResponse|RedirectResponse
     {
         if ($staffMembership->status !== StaffMembership::STATUS_INVITED) {
             return redirect()->route('login')->with('status', 'This invitation has already been used or is no longer valid.');
@@ -74,6 +74,7 @@ class AcceptInviteController extends Controller
             $clinicDisciplines = $staffMembership->tenant->offeredDisciplineCodes();
             $rules += [
                 'discipline' => ['required', Rule::in($clinicDisciplines)],
+                'employment_type' => ['nullable', 'string', 'in:full_time,part_time'],
                 'license_number' => ['required', 'string', 'max:100'],
                 'licensing_body' => ['required', 'string', 'max:255'],
                 'license_document' => ['required', 'file', 'extensions:pdf,jpg,jpeg,png', 'max:10240'],
@@ -82,7 +83,7 @@ class AcceptInviteController extends Controller
 
         $data = $request->validate($rules);
 
-        $staffMembership->loadMissing('user');
+        $staffMembership->loadMissing('user', 'tenant');
         $user = $staffMembership->user;
 
         // Activating the account, the membership and (for practitioners) the
@@ -112,6 +113,7 @@ class AcceptInviteController extends Controller
                 PractitionerProfile::create([
                     'staff_membership_id' => $staffMembership->id,
                     'profession' => $data['discipline'],
+                    'employment_type' => $data['employment_type'] ?? PractitionerProfile::EMPLOYMENT_FULL_TIME,
                     'verification_status' => PractitionerProfile::VERIFICATION_PENDING,
                     'license_number' => $data['license_number'],
                     'licensing_body' => $data['licensing_body'],
@@ -122,6 +124,10 @@ class AcceptInviteController extends Controller
                 ]);
             }
         });
+
+        if ($staffMembership->tenant) {
+            $subscriptions->syncPractitionerCounts($staffMembership->tenant);
+        }
 
         Auth::login($user);
         $request->session()->regenerate();

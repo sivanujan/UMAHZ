@@ -30,7 +30,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Platform (clinic -> UMAHZ) billing gateway. Swapped for a fake in tests.
+        $this->app->bind(
+            \App\Billing\PlatformBilling::class,
+            \App\Billing\StripePlatformBilling::class,
+        );
     }
 
     /**
@@ -48,6 +52,12 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Consent::class, ConsentPolicy::class);
         Gate::policy(\App\Models\IntakeFormTemplate::class, \App\Policies\IntakeFormTemplatePolicy::class);
         Gate::policy(\App\Models\ClientIntake::class, \App\Policies\ClientIntakePolicy::class);
+        Gate::policy(\App\Models\ClinicalNote::class, \App\Policies\ClinicalNotePolicy::class);
+        Gate::policy(\App\Models\ClinicalNoteTemplate::class, \App\Policies\ClinicalNoteTemplatePolicy::class);
+
+        // The CLINIC -> UMAHZ platform subscription bills the Tenant as the
+        // Stripe customer (our own Stripe account, not Connect).
+        \Laravel\Cashier\Cashier::useCustomerModel(Tenant::class);
 
         $caPath = storage_path('cacert.pem');
         if (file_exists($caPath)) {

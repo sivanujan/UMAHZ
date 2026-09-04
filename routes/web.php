@@ -40,6 +40,12 @@ Route::domain($central)->group(function () {
         return Inertia::render('Features');
     })->name('features');
 
+    // Stripe webhooks for the clinic -> UMAHZ subscription. Signature-verified
+    // by Cashier's controller (STRIPE_WEBHOOK_SECRET); CSRF-exempt (see
+    // bootstrap/app.php). Central domain only.
+    Route::post('stripe/webhook', [\App\Http\Controllers\StripeWebhookController::class, 'handleWebhook'])
+        ->name('cashier.webhook');
+
     Route::get('/professions', function () {
         return Inertia::render('Professions/Index');
     })->name('professions.index');
@@ -75,7 +81,13 @@ Route::domain($central)->group(function () {
     // creates a new tenant. Central domain only.
     Route::middleware('guest')->group(function () {
         Route::get('clinics/register', [ClinicRegistrationController::class, 'create'])->name('clinics.register');
-        Route::post('clinics/register', [ClinicRegistrationController::class, 'store']);
+        // Card capture (SetupIntent) — validates the application + reserves the
+        // subdomain and returns a client secret; no charge, no tenant yet.
+        Route::post('clinics/register/prepare', [ClinicRegistrationController::class, 'prepare'])
+            ->middleware('throttle:10,1')->name('clinics.register.prepare');
+        // Finalize — only succeeds once a card is saved on the pending row.
+        Route::post('clinics/register', [ClinicRegistrationController::class, 'store'])
+            ->middleware('throttle:10,1');
         // Live subdomain availability check for the wizard.
         Route::get('clinics/register/subdomain', [ClinicRegistrationController::class, 'checkSubdomain'])
             ->name('clinics.register.subdomain');
@@ -112,6 +124,12 @@ Route::domain($central)->group(function () {
             Route::get('/{practitionerProfile}/document', [PractitionerReviewController::class, 'document'])->middleware('signed')->name('document');
             Route::post('/{practitionerProfile}/approve', [PractitionerReviewController::class, 'approve'])->name('approve');
             Route::post('/{practitionerProfile}/reject', [PractitionerReviewController::class, 'reject'])->name('reject');
+        });
+
+        Route::prefix('plans')->name('plans.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Admin\SubscriptionPlanController::class, 'index'])->name('index');
+            Route::put('/{tier}', [\App\Http\Controllers\Admin\SubscriptionPlanController::class, 'update'])->name('update');
+            Route::delete('/{tier}', [\App\Http\Controllers\Admin\SubscriptionPlanController::class, 'destroy'])->name('destroy');
         });
     });
 });
@@ -206,6 +224,16 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
         Route::get('/clients/{client}/intakes/{intake}/files/{fieldId}', [\App\Http\Controllers\ClientIntakeController::class, 'file'])->name('clients.intakes.file');
         Route::delete('/clients/{client}/intakes/{intake}', [\App\Http\Controllers\ClientIntakeController::class, 'destroy'])->name('clients.intakes.destroy');
 
+        // Clinical documentation & notes — drafting, autosave, finalization, addenda, and viewing
+        Route::get('/clients/{client}/notes/create', [\App\Http\Controllers\ClinicalNoteController::class, 'create'])->name('clients.notes.create');
+        Route::post('/clients/{client}/notes', [\App\Http\Controllers\ClinicalNoteController::class, 'store'])->name('clients.notes.store');
+        Route::get('/notes/{note}/edit', [\App\Http\Controllers\ClinicalNoteController::class, 'edit'])->name('notes.edit');
+        Route::patch('/notes/{note}/autosave', [\App\Http\Controllers\ClinicalNoteController::class, 'autosave'])->name('notes.autosave');
+        Route::post('/notes/{note}/finalize', [\App\Http\Controllers\ClinicalNoteController::class, 'finalize'])->name('notes.finalize');
+        Route::get('/notes/{note}', [\App\Http\Controllers\ClinicalNoteController::class, 'show'])->name('notes.show');
+        Route::post('/notes/{note}/addenda', [\App\Http\Controllers\ClinicalNoteController::class, 'addAddendum'])->name('notes.addenda.store');
+        Route::delete('/notes/{note}', [\App\Http\Controllers\ClinicalNoteController::class, 'destroy'])->name('notes.destroy');
+
         // Calendar & booking — available to any active workspace role
         // (owner, practitioner, receptionist). Every action is tenant-scoped
         // by the Appointment global scope + BookingService boundary checks.
@@ -229,6 +257,12 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
             Route::patch('/staff/{membership}', [StaffInvitationController::class, 'updateStatus'])->name('staff.update');
             Route::delete('/staff/{membership}', [StaffInvitationController::class, 'destroy'])->name('staff.destroy');
 
+            // Clinic Subscription & Billing — plan upgrade, card management, invoice downloads.
+            Route::get('/billing', [\App\Http\Controllers\ClinicBillingController::class, 'show'])->name('billing');
+            Route::put('/billing/plan', [\App\Http\Controllers\ClinicBillingController::class, 'updatePlan'])->name('billing.plan');
+            Route::post('/billing/payment-method', [\App\Http\Controllers\ClinicBillingController::class, 'updatePaymentMethod'])->name('billing.payment-method');
+            Route::get('/billing/invoices/{invoice}', [\App\Http\Controllers\ClinicBillingController::class, 'downloadInvoice'])->name('billing.invoice');
+
             // Clinic Settings — owner-only profile, branding & disciplines.
             Route::get('/settings', [ClinicSettingsController::class, 'show'])->name('settings');
             Route::patch('/settings/profile', [ClinicSettingsController::class, 'updateProfile'])->name('settings.profile');
@@ -245,6 +279,11 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
             Route::patch('/settings/intake-forms/{template}', [\App\Http\Controllers\IntakeTemplateController::class, 'update'])->name('settings.intake_forms.update');
             Route::post('/settings/intake-forms/{template}/reset', [\App\Http\Controllers\IntakeTemplateController::class, 'reset'])->name('settings.intake_forms.reset');
 
+            // Clinical Note Templates configuration
+            Route::get('/settings/clinical-note-templates', [\App\Http\Controllers\ClinicalNoteTemplateController::class, 'index'])->name('settings.clinical_note_templates.index');
+            Route::patch('/settings/clinical-note-templates/{template}', [\App\Http\Controllers\ClinicalNoteTemplateController::class, 'update'])->name('settings.clinical_note_templates.update');
+            Route::post('/settings/clinical-note-templates/{template}/reset', [\App\Http\Controllers\ClinicalNoteTemplateController::class, 'reset'])->name('settings.clinical_note_templates.reset');
+
             // Locations & Rooms — owner-only management.
             Route::get('/locations', [LocationController::class, 'index'])->name('locations.index');
             Route::post('/locations', [LocationController::class, 'store'])->name('locations.store');
@@ -258,15 +297,6 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
             Route::patch('/rooms/{room}/toggle', [RoomController::class, 'toggle'])->name('rooms.toggle');
             Route::delete('/rooms/{room}', [RoomController::class, 'destroy'])->name('rooms.destroy');
         });
-
-        // Example of a per-route Spatie permission gate on top of the tenant
-        // role check above — clinical note-signing is not available to every
-        // staff role (e.g. receptionists) even within /app.
-        Route::post('/notes/{note}/finalize', function (ClinicalNote $note) {
-            $note->update(['status' => ClinicalNote::STATUS_SIGNED, 'signed_at' => now()]);
-
-            return back()->with('success', 'Note signed.');
-        })->middleware('permission:notes.finalize')->name('notes.finalize');
     });
 });
 

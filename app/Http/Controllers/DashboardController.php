@@ -103,6 +103,18 @@ class DashboardController extends Controller
                 'due' => $this->dueLabel($invoice),
             ]);
 
+        $tenant = Tenant::find($tenantId);
+        $subscription = $tenant?->subscription(Tenant::PLATFORM_SUBSCRIPTION);
+        $subscriptionSummary = $tenant ? [
+            'plan_name' => $tenant->planName(),
+            'plan_tier' => $tenant->plan_tier ?? Tenant::PLAN_PRACTICE,
+            'status' => $tenant->subscription_status ?? Tenant::SUBSCRIPTION_NONE,
+            'is_active' => $subscription?->active() ?? false,
+            'monthly_total' => '$'.number_format($tenant->monthlyBillableBreakdown()['total'] ?? 0, 2),
+            'full_time' => $tenant->full_time_practitioners_count ?? 1,
+            'part_time' => $tenant->part_time_practitioners_count ?? 0,
+        ] : null;
+
         return Inertia::render('Dashboard/Owner', [
             'stats' => [
                 'todayAppointments' => Appointment::where('tenant_id', $tenantId)->whereDate('starts_at', $now->toDateString())->count(),
@@ -110,6 +122,7 @@ class DashboardController extends Controller
                 'activeLocations' => Location::count(),
                 'monthlyRevenue' => '$'.number_format($monthlyRevenue, 2),
             ],
+            'subscription' => $subscriptionSummary,
             'outstandingInvoices' => $outstandingInvoices,
             'staff' => $staff,
         ]);

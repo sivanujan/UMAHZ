@@ -12,6 +12,7 @@ import {
     ChevronDown,
     Sun,
     Moon,
+    CreditCard,
 } from 'lucide-react';
 import { ThemeProvider, useTheme } from '@/Contexts/ThemeContext';
 
@@ -104,6 +105,7 @@ function AppShell({ children, title }) {
         { name: 'Locations & Rooms', href: '/app/locations', icon: MapPin, show: isOwnerOrAdmin },
         { name: 'Staff Members', href: '/app/staff', icon: UserCheck, show: isOwnerOrAdmin },
         { name: 'Clinic Settings', href: '/app/settings', icon: Building2, show: isOwnerOrAdmin },
+        { name: 'Subscription & Billing', href: '/app/billing', icon: CreditCard, show: isOwnerOrAdmin },
     ].filter((i) => i.show);
 
     return (

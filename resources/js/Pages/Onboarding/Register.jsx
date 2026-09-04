@@ -8,12 +8,15 @@ import {
 import Logo from '@/Components/Common/Logo';
 import PasswordStrengthMeter from '@/Components/UI/PasswordStrengthMeter';
 import AddressPicker from '@/Components/AddressPicker';
+import PaymentStep from '@/Components/Onboarding/PaymentStep';
+
+import PlanStep from '@/Components/Onboarding/PlanStep';
 
 const NAVY = '#0D1B2A';
 const BLUE = '#2563EB';
 const GREEN = '#22C55E';
 const TEAL = '#06B6D4';
-const UI_FONT = "'Satoshi', system-ui, -apple-system, sans-serif";
+const UI_FONT = "'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Mirrors the server rule (config/tenancy.php): 3–40 chars, lowercase
 // alnum/hyphen, no leading/trailing hyphen. Authoritative availability
@@ -42,8 +45,10 @@ const SECTIONS = [
     { id: 'account', title: 'Your Account' },
     { id: 'clinic', title: 'Clinic Details' },
     { id: 'contact', title: 'Primary Contact' },
-    { id: 'practice', title: 'Practice' },
+    { id: 'practice', title: 'Disciplines' },
     { id: 'license', title: 'Your License' },
+    { id: 'plan', title: 'Plan & Team' },
+    { id: 'payment', title: 'Payment' },
 ];
 
 /** One small tinted icon beside every step heading — gives each step a
@@ -55,6 +60,8 @@ const STEP_ICONS = {
     contact: Phone,
     practice: Stethoscope,
     license: ShieldCheck,
+    plan: Sparkles,
+    payment: Sparkles,
 };
 
 /** Every field that belongs to each step — used both to mark fields touched
@@ -65,8 +72,10 @@ const STEP_FIELDS = {
     account: ['name', 'email', 'password', 'password_confirmation'],
     clinic: ['clinic_name', 'subdomain', 'business_registration_number', 'address_line1', 'address_city', 'address_region', 'address_country'],
     contact: ['primary_contact_name', 'primary_contact_email', 'primary_contact_phone'],
-    practice: ['requested_disciplines', 'estimated_practitioner_count'],
+    practice: ['requested_disciplines'],
     license: ['license_number', 'licensing_body', 'license_document'],
+    plan: ['plan_tier', 'full_time_practitioners_count', 'part_time_practitioners_count'],
+    payment: [],
 };
 
 const TRANSITION_STYLES = `
@@ -701,7 +710,11 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
 
         requested_disciplines: [],
         custom_disciplines: [],
-        estimated_practitioner_count: '',
+
+        plan_tier: 'practice',
+        full_time_practitioners_count: 1,
+        part_time_practitioners_count: 0,
+        estimated_practitioner_count: 1,
 
         license_number: '',
         licensing_body: '',
@@ -748,6 +761,11 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
                     headers: { Accept: 'application/json' },
                     signal: controller.signal,
                 });
+                if (!res.ok) {
+                    setSubdomainStatus('idle');
+                    setSubdomainMessage(null);
+                    return;
+                }
                 const json = await res.json();
                 if (json.available) {
                     setSubdomainStatus('available');
@@ -870,15 +888,26 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
         }));
     };
 
+    const planValid = !!data.plan_tier && (
+        data.plan_tier === 'balance'
+            ? (parseInt(data.full_time_practitioners_count, 10) === 1 && parseInt(data.part_time_practitioners_count, 10) === 0)
+            : (parseInt(data.full_time_practitioners_count, 10) >= 1 && parseInt(data.part_time_practitioners_count, 10) >= 0)
+    );
+
     const completion = {
         account: nameValid && emailValid && emailVerified && passwordValid && confirmValid,
         clinic: clinicNameValid && subdomainValid,
         contact: contactNameValid && contactEmailValid && contactPhoneValid,
-        practice: data.requested_disciplines.length > 0 && practitionerCountValid,
+        practice: data.requested_disciplines.length > 0,
         license: licenseNumberValid && licensingBodyValid && !!data.license_document,
+        plan: planValid,
+        // The payment step owns its own submit (Stripe card confirmation); it is
+        // never "complete" via the wizard's Next button.
+        payment: false,
     };
 
     const isLastStep = currentStep === SECTIONS.length - 1;
+    const isPaymentStep = SECTIONS[currentStep].id === 'payment';
     // Whether the current step's required fields are satisfied — drives the
     // "Next" button's enabled/disabled appearance (e.g. email must be verified
     // on step 1 before it looks clickable).
@@ -908,13 +937,15 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
         }
     };
 
+    // The form no longer submits directly to /clinics/register — the final
+    // Payment step captures a card first (prepare -> confirm -> finalize). This
+    // just stops an Enter keypress from doing a native submit; on non-payment
+    // steps it advances instead.
     const submit = (e) => {
         e.preventDefault();
-        const sectionId = SECTIONS[currentStep].id;
-        STEP_FIELDS[sectionId].forEach(markTouched);
-        setAttemptedSteps((s) => ({ ...s, [sectionId]: true }));
-        if (!completion[sectionId]) return;
-        post('/clinics/register', { forceFormData: true });
+        if (! isPaymentStep) {
+            goNext();
+        }
     };
 
     return (
@@ -925,7 +956,7 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
             <Head title="Apply to Join UMAHZ" />
             <style>{TRANSITION_STYLES}</style>
 
-            <div className="max-w-xl mx-auto">
+            <div className="max-w-xl md:max-w-2xl mx-auto">
                 <div className="relative mb-10">
                     <div
                         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[420px] h-[280px] rounded-full pointer-events-none"
@@ -1047,7 +1078,7 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
 
                             {currentStep === 3 && (
                                 <section className="space-y-4">
-                                    <StepHeading stepId="practice" title="Practice" />
+                                    <StepHeading stepId="practice" title="Disciplines Offered" subtitle="Select every discipline your clinic offers." />
                                     <DisciplineCards
                                         disciplines={disciplines}
                                         customDisciplines={data.custom_disciplines}
@@ -1056,11 +1087,6 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
                                         onAddCustom={handleAddCustom}
                                         onRemoveCustom={handleRemoveCustom}
                                         error={disciplinesError}
-                                    />
-                                    <Field
-                                        id="estimated_practitioner_count" label="Estimated Number of Practitioners" type="number" value={data.estimated_practitioner_count}
-                                        onChange={(e) => setData('estimated_practitioner_count', e.target.value)} onBlur={() => markTouched('estimated_practitioner_count')}
-                                        error={practitionerCountError} valid={practitionerCountValid} required placeholder="e.g. 3"
                                     />
                                 </section>
                             )}
@@ -1090,6 +1116,36 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
                                     />
                                 </section>
                             )}
+
+                            {currentStep === 5 && (
+                                <section className="space-y-4">
+                                    <StepHeading stepId="plan" title="Choose Your Plan" subtitle="Select a subscription tier and practitioner count. Card captured now; billed only on approval." />
+                                    <PlanStep
+                                        selectedTier={data.plan_tier}
+                                        onSelectTier={(tier) => setData('plan_tier', tier)}
+                                        ftCount={data.full_time_practitioners_count}
+                                        onChangeFt={(count) => setData((prev) => ({
+                                            ...prev,
+                                            full_time_practitioners_count: count,
+                                            estimated_practitioner_count: count + (prev.part_time_practitioners_count || 0),
+                                        }))}
+                                        ptCount={data.part_time_practitioners_count}
+                                        onChangePt={(count) => setData((prev) => ({
+                                            ...prev,
+                                            part_time_practitioners_count: count,
+                                            estimated_practitioner_count: (prev.full_time_practitioners_count || 1) + count,
+                                        }))}
+                                        error={errors.plan_tier}
+                                    />
+                                </section>
+                            )}
+
+                            {currentStep === 6 && (
+                                <section className="space-y-4">
+                                    <StepHeading stepId="payment" title="Secure your spot" subtitle="Add a card to verify your clinic. You're only charged once we approve you." />
+                                    <PaymentStep data={data} />
+                                </section>
+                            )}
                         </div>
 
                         <div className="flex gap-3">
@@ -1103,7 +1159,9 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
                                 </button>
                             )}
 
-                            {!isLastStep ? (
+                            {/* The payment step owns its own submit (Stripe card
+                                confirmation), so no wizard advance button there. */}
+                            {! isPaymentStep && (
                                 <button
                                     type="button"
                                     onClick={goNext}
@@ -1123,23 +1181,10 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
                                 >
                                     Next
                                 </button>
-                            ) : (
-                                <button
-                                    type="submit"
-                                    disabled={processing}
-                                    className="flex-1 py-3.5 px-4 text-white font-semibold text-sm rounded-full transition-all duration-300 ease-out flex items-center justify-center gap-2 hover:shadow-lg active:scale-[0.98] disabled:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0D1B2A]"
-                                    style={{
-                                        background: `linear-gradient(135deg, ${BLUE} 0%, ${TEAL} 100%)`,
-                                        boxShadow: '0 10px 30px -8px rgba(37,99,235,0.45)',
-                                    }}
-                                >
-                                    {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                                    {processing ? 'Submitting Application…' : 'Submit Application'}
-                                </button>
                             )}
                         </div>
 
-                        {isLastStep && (
+                        {isPaymentStep && (
                             <p className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
                                 <Clock className="w-3 h-3" style={{ color: TEAL }} />
                                 Reviewed within 1–2 business days — we'll email you either way.
