@@ -56,14 +56,23 @@ class StaffInvitationController extends Controller
      * (if one doesn't already exist) and an "invited" staff membership; the
      * user only gains real access once they accept via the emailed link.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, \App\Services\ClinicSubscriptionService $subscriptions): RedirectResponse
     {
         $data = $request->validate([
             'email' => ['required', 'email'],
             'role' => ['required', 'string', 'in:'.implode(',', self::INVITABLE_ROLES)],
+            'employment_type' => ['nullable', 'string', 'in:full_time,part_time'],
         ]);
 
         $tenantId = TenantScope::getTenantId();
+        $tenant = \App\Models\Tenant::find($tenantId);
+
+        if ($data['role'] === StaffMembership::ROLE_PRACTITIONER && $tenant && ! $subscriptions->canAddPractitioner($tenant)) {
+            $limit = $tenant->maxPractitioners() ?? 1;
+            return back()->withErrors([
+                'role' => "Your current plan ({$tenant->planName()}) is limited to {$limit} practitioner(s). Please upgrade your clinic subscription plan to add more practitioners.",
+            ]);
+        }
 
         $user = User::firstOrCreate(
             ['email' => $data['email']],
@@ -89,6 +98,10 @@ class StaffInvitationController extends Controller
             'invited_at' => now(),
         ]);
 
+        if ($tenant) {
+            $subscriptions->syncPractitionerCounts($tenant);
+        }
+
         $this->notifySafely($user, new StaffInvitationNotification($membership));
 
         return back()->with('success', "Invitation sent to {$data['email']}.");
@@ -98,7 +111,7 @@ class StaffInvitationController extends Controller
      * Suspend / reactivate a staff member (toggle their access without losing
      * their records).
      */
-    public function updateStatus(Request $request, StaffMembership $membership): RedirectResponse
+    public function updateStatus(Request $request, StaffMembership $membership, \App\Services\ClinicSubscriptionService $subscriptions): RedirectResponse
     {
         $data = $request->validate([
             'status' => ['required', Rule::in([StaffMembership::STATUS_ACTIVE, StaffMembership::STATUS_SUSPENDED])],
@@ -112,6 +125,10 @@ class StaffInvitationController extends Controller
             'joined_at' => $membership->joined_at ?? now(),
         ]);
 
+        if ($membership->tenant) {
+            $subscriptions->syncPractitionerCounts($membership->tenant);
+        }
+
         $verb = $data['status'] === StaffMembership::STATUS_ACTIVE ? 'reactivated' : 'suspended';
 
         return back()->with('success', "Staff member {$verb}.");
@@ -123,17 +140,26 @@ class StaffInvitationController extends Controller
      * their appointments and clinical notes — which cascade-delete with the
      * membership — are preserved.
      */
-    public function destroy(Request $request, StaffMembership $membership): RedirectResponse
+    public function destroy(Request $request, StaffMembership $membership, \App\Services\ClinicSubscriptionService $subscriptions): RedirectResponse
     {
         $this->authorizeManage($request, $membership, revoking: true);
+        $tenant = $membership->tenant;
 
         if ($membership->status === StaffMembership::STATUS_INVITED) {
             $membership->delete();
+
+            if ($tenant) {
+                $subscriptions->syncPractitionerCounts($tenant);
+            }
 
             return back()->with('success', 'Invitation cancelled.');
         }
 
         $membership->update(['status' => StaffMembership::STATUS_DEACTIVATED]);
+
+        if ($tenant) {
+            $subscriptions->syncPractitionerCounts($tenant);
+        }
 
         return back()->with('success', 'Staff member removed. Their records are retained.');
     }

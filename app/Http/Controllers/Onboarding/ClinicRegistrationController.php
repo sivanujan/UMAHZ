@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Onboarding;
 
+use App\Billing\PlatformBilling;
 use App\Http\Controllers\Controller;
 use App\Models\IntakeFormTemplate;
+use App\Models\PendingRegistration;
 use App\Models\PractitionerProfile;
 use App\Models\StaffMembership;
 use App\Models\Tenant;
@@ -22,6 +24,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -53,6 +56,7 @@ class ClinicRegistrationController extends Controller
             'disciplineLabels' => Disciplines::FIXED_LABELS,
             'subdomainSuffix' => '.'.Tenancy::centralDomain(),
             'provinces' => \App\Support\ClinicOptions::PROVINCES,
+            'tiers' => \App\Models\SubscriptionTierConfig::allTiers(),
         ]);
     }
 
@@ -70,10 +74,20 @@ class ClinicRegistrationController extends Controller
             ['subdomain' => Tenancy::rules()],
         );
 
+        // A subdomain temporarily reserved by another in-progress registration
+        // is treated as unavailable until that reservation expires.
+        $reserved = PendingRegistration::query()->live()
+            ->where('subdomain', $subdomain)
+            ->exists();
+
+        $available = $validator->passes() && ! $reserved;
+
         return response()->json([
             'subdomain' => $subdomain,
-            'available' => $validator->passes(),
-            'reason' => $validator->errors()->first('subdomain'),
+            'available' => $available,
+            'reason' => $reserved
+                ? 'That subdomain is currently reserved by another registration in progress.'
+                : $validator->errors()->first('subdomain'),
         ]);
     }
 
@@ -143,13 +157,13 @@ class ClinicRegistrationController extends Controller
     }
 
     /**
-     * Create the owner's User account, a new Tenant in pending_review, the
-     * clinic_owner staff membership, and a primary PractitionerProfile
-     * carrying the license info submitted with the application. Nothing
-     * here grants workspace access — EnsureStaffRole blocks every /app
-     * route until a super admin approves the tenant.
+     * Validate the full application payload and normalise custom disciplines.
+     * Shared by prepare() (card capture) and store() (finalize) so both apply
+     * exactly the same rules. Returns the validated data plus derived bits.
+     *
+     * @return array{data:array, customDisciplines:array, primaryDiscipline:string}
      */
-    public function store(Request $request): \Symfony\Component\HttpFoundation\Response
+    private function validateApplication(Request $request): array
     {
         // Normalise before validation so the `lowercase` rule reflects intent,
         // not casing the user happened to type.
@@ -178,12 +192,27 @@ class ClinicRegistrationController extends Controller
             'requested_disciplines.*' => ['required', 'string', 'max:60'],
             'custom_disciplines' => ['nullable', 'array', 'max:30'],
             'custom_disciplines.*' => ['nullable'],
-            'estimated_practitioner_count' => ['required', 'integer', 'min:1', 'max:500'],
+
+            'plan_tier' => ['required', 'string', Rule::in(\App\Billing\PlanPricing::TIERS)],
+            'full_time_practitioners_count' => ['required', 'integer', 'min:1', 'max:500'],
+            'part_time_practitioners_count' => ['required', 'integer', 'min:0', 'max:500'],
+            'estimated_practitioner_count' => ['nullable', 'integer', 'min:1', 'max:500'],
 
             'license_number' => ['required', 'string', 'max:100'],
             'licensing_body' => ['required', 'string', 'max:255'],
             'license_document' => ['required', 'file', 'extensions:pdf,jpg,jpeg,png', 'max:10240'],
         ]);
+
+        // Enforce Balance plan tier rule: 1 practitioner max, no add-ons
+        if ($data['plan_tier'] === \App\Billing\PlanPricing::TIER_BALANCE) {
+            if ((int) $data['full_time_practitioners_count'] !== 1 || (int) $data['part_time_practitioners_count'] !== 0) {
+                throw ValidationException::withMessages([
+                    'plan_tier' => 'The Balance plan is limited to 1 practitioner with no add-ons.',
+                ]);
+            }
+        }
+
+        $data['estimated_practitioner_count'] = (int) $data['full_time_practitioners_count'] + (int) $data['part_time_practitioners_count'];
 
         // Process and validate custom disciplines
         $customDisciplines = [];
@@ -251,44 +280,161 @@ class ClinicRegistrationController extends Controller
             ]);
         }
 
-        $primaryDiscipline = $data['requested_disciplines'][0];
+        return [
+            'data' => $data,
+            'customDisciplines' => $customDisciplines,
+            'primaryDiscipline' => $data['requested_disciplines'][0],
+        ];
+    }
+
+    /**
+     * STEP: capture a card before the application is submitted. Validates the
+     * full application, stashes it in a short-lived PendingRegistration (which
+     * reserves the subdomain), creates a Stripe customer + SetupIntent, and
+     * returns the client secret so the wizard can collect the card. NOTHING is
+     * charged and NO tenant is created here — a card must be saved first.
+     */
+    public function prepare(Request $request, PlatformBilling $billing): JsonResponse
+    {
+        $processed = $this->validateApplication($request);
+        $data = $processed['data'];
+
+        // Store the license file to a temporary path; it's moved into the
+        // tenant's own folder only once the application is finalized.
         $document = $request->file('license_document');
+        $licensePath = $document->storeAs(
+            'pending-licenses',
+            Str::uuid().'.'.$document->getClientOriginalExtension(),
+            'local'
+        );
 
-        $user = DB::transaction(function () use ($data, $customDisciplines, $primaryDiscipline, $document) {
-            $user = User::create([
-                'name' => $data['name'],
-                'email' => $data['email'],
-                'password' => Hash::make($data['password']),
+        $ttl = (int) config('billing.pending_registration_ttl_minutes', 30);
+
+        // One live pending row per email — re-preparing updates in place so an
+        // abandoned Stripe customer isn't multiplied on every keystroke.
+        $pending = PendingRegistration::query()->firstOrNew(['email' => $data['email']]);
+
+        // Password is hashed now; the "hashed" cast on User skips re-hashing an
+        // already-hashed value at finalize, so we never store it in the clear.
+        $payload = $data;
+        unset($payload['license_document']);
+        $payload['password'] = Hash::make($data['password']);
+        $payload['custom_disciplines'] = $processed['customDisciplines'];
+        $payload['primary_discipline'] = $processed['primaryDiscipline'];
+
+        $pending->fill([
+            'subdomain' => $data['subdomain'],
+            'plan_tier' => $data['plan_tier'],
+            'full_time_practitioners_count' => $data['full_time_practitioners_count'],
+            'part_time_practitioners_count' => $data['part_time_practitioners_count'],
+            'ip_address' => $request->ip(),
+            'payload' => $payload,
+            'license_document_path' => $licensePath,
+            'license_document_original_name' => $document->getClientOriginalName(),
+            'license_document_mime' => $document->getClientMimeType(),
+            'expires_at' => now()->addMinutes($ttl),
+        ]);
+
+        // Reuse an existing Stripe customer across re-prepares.
+        if (empty($pending->stripe_customer_id)) {
+            $pending->stripe_customer_id = $billing->createCustomer($data['email'], $data['clinic_name']);
+        }
+
+        $intent = $billing->createSetupIntent($pending->stripe_customer_id);
+        $pending->stripe_setup_intent_id = $intent['id'];
+        $pending->save();
+
+        return response()->json([
+            'pending_id' => $pending->id,
+            'client_secret' => $intent['client_secret'],
+            'publishable_key' => config('cashier.key'),
+        ]);
+    }
+
+    /**
+     * STEP: finalize the application AFTER a card has been saved. Verifies the
+     * SetupIntent actually saved a payment method, then promotes the pending
+     * registration into a real User + Tenant (pending_review) carrying the
+     * Stripe customer + saved card, and submits it to the admin. Still no
+     * charge — that happens only on approval.
+     */
+    public function store(Request $request, PlatformBilling $billing): \Symfony\Component\HttpFoundation\Response
+    {
+        $validated = $request->validate([
+            'pending_id' => ['required', 'uuid'],
+        ]);
+
+        $pending = PendingRegistration::query()->live()->find($validated['pending_id']);
+
+        if (! $pending) {
+            throw ValidationException::withMessages([
+                'pending_id' => 'Your registration session has expired. Please start again.',
             ]);
+        }
 
-            // Email ownership was already proven by the code at step 1, so the
-            // account starts verified — no after-the-fact verification link.
+        // A real card must be saved on the SetupIntent, or we do not submit.
+        $paymentMethodId = $billing->savedPaymentMethod($pending->stripe_setup_intent_id);
+
+        if (! $paymentMethodId) {
+            throw ValidationException::withMessages([
+                'card' => 'We could not confirm your card. Please re-enter your payment details.',
+            ]);
+        }
+
+        $payload = $pending->payload;
+
+        // Re-check uniqueness at the last moment (a race could have taken the
+        // email or subdomain since prepare()).
+        if (User::where('email', $payload['email'])->exists()) {
+            throw ValidationException::withMessages(['email' => 'An account with this email already exists.']);
+        }
+        if (Tenant::where('subdomain', $pending->subdomain)->exists()) {
+            throw ValidationException::withMessages(['subdomain' => 'That subdomain has just been taken. Please choose another.']);
+        }
+
+        $user = DB::transaction(function () use ($pending, $payload, $paymentMethodId) {
+            $user = User::create([
+                'name' => $payload['name'],
+                'email' => $payload['email'],
+                // Already hashed in prepare(); the "hashed" cast leaves it as-is.
+                'password' => $payload['password'],
+            ]);
             $user->markEmailAsVerified();
 
             $tenant = Tenant::create([
-                'name' => $data['clinic_name'],
-                'slug' => $this->uniqueSlug($data['clinic_name']),
-                'subdomain' => $data['subdomain'],
+                'name' => $payload['clinic_name'],
+                'slug' => $this->uniqueSlug($payload['clinic_name']),
+                'subdomain' => $pending->subdomain,
                 'status' => Tenant::STATUS_PENDING_REVIEW,
-                'business_registration_number' => $data['business_registration_number'] ?? null,
+                'plan_tier' => $payload['plan_tier'] ?? $pending->plan_tier ?? \App\Billing\PlanPricing::TIER_PRACTICE,
+                'full_time_practitioners_count' => $payload['full_time_practitioners_count'] ?? $pending->full_time_practitioners_count ?? 1,
+                'part_time_practitioners_count' => $payload['part_time_practitioners_count'] ?? $pending->part_time_practitioners_count ?? 0,
+                'business_registration_number' => $payload['business_registration_number'] ?? null,
                 'address' => [
-                    'line1' => $data['address_line1'] ?? null,
-                    'city' => $data['address_city'] ?? null,
-                    'region' => $data['address_region'] ?? null,
-                    'country' => $data['address_country'] ?? null,
-                    'lat' => $data['address_lat'] ?? null,
-                    'lng' => $data['address_lng'] ?? null,
+                    'line1' => $payload['address_line1'] ?? null,
+                    'city' => $payload['address_city'] ?? null,
+                    'region' => $payload['address_region'] ?? null,
+                    'country' => $payload['address_country'] ?? null,
+                    'lat' => $payload['address_lat'] ?? null,
+                    'lng' => $payload['address_lng'] ?? null,
                 ],
-                'primary_contact_name' => $data['primary_contact_name'],
-                'primary_contact_email' => $data['primary_contact_email'],
-                'primary_contact_phone' => $data['primary_contact_phone'],
-                'requested_disciplines' => array_values($data['requested_disciplines']),
-                'custom_disciplines' => $customDisciplines,
-                'estimated_practitioner_count' => $data['estimated_practitioner_count'],
+                'primary_contact_name' => $payload['primary_contact_name'],
+                'primary_contact_email' => $payload['primary_contact_email'],
+                'primary_contact_phone' => $payload['primary_contact_phone'],
+                'requested_disciplines' => array_values($payload['requested_disciplines']),
+                'custom_disciplines' => $payload['custom_disciplines'] ?? [],
+                'estimated_practitioner_count' => $payload['estimated_practitioner_count'] ?? 1,
                 'submitted_at' => now(),
+                'subscription_status' => Tenant::SUBSCRIPTION_NONE,
             ]);
 
-            // Ensure baseline / empty templates exist for this clinic
+            // Attach the saved Stripe customer + card (opaque tokens only). These
+            // columns are Cashier-managed, so set them directly.
+            $tenant->forceFill([
+                'stripe_id' => $pending->stripe_customer_id,
+                'stripe_pm_id' => $paymentMethodId,
+            ])->save();
+
             IntakeFormTemplate::ensureDefaultsForTenant($tenant->id, $tenant->requested_disciplines);
 
             $membership = StaffMembership::create([
@@ -299,40 +445,33 @@ class ClinicRegistrationController extends Controller
                 'joined_at' => now(),
             ]);
 
-            // storeAs (not store) — store()'s auto-generated filename guesses
-            // the extension from file content via ext-fileinfo, which isn't
-            // guaranteed to be enabled; the client-supplied extension is fine
-            // since we already validated it against an explicit allow-list.
-            $path = $document->storeAs(
-                "licenses/{$tenant->id}",
-                Str::uuid().'.'.$document->getClientOriginalExtension(),
-                'local'
-            );
+            // Move the license out of the temp folder into the tenant's own path.
+            $finalPath = "licenses/{$tenant->id}/".basename($pending->license_document_path);
+            Storage::disk('local')->move($pending->license_document_path, $finalPath);
 
             PractitionerProfile::create([
                 'staff_membership_id' => $membership->id,
-                'profession' => $primaryDiscipline,
+                'profession' => $payload['primary_discipline'],
+                'employment_type' => PractitionerProfile::EMPLOYMENT_FULL_TIME,
                 'verification_status' => PractitionerProfile::VERIFICATION_PENDING,
-                'license_number' => $data['license_number'],
-                'licensing_body' => $data['licensing_body'],
-                'license_document_path' => $path,
-                'license_document_original_name' => $document->getClientOriginalName(),
-                'license_document_mime' => $document->getClientMimeType(),
+                'license_number' => $payload['license_number'],
+                'licensing_body' => $payload['licensing_body'],
+                'license_document_path' => $finalPath,
+                'license_document_original_name' => $pending->license_document_original_name,
+                'license_document_mime' => $pending->license_document_mime,
                 'is_primary_contact' => true,
             ]);
+
+            $pending->delete();
 
             return $user;
         });
 
         event(new Registered($user));
-
-        // One-time markers are spent — drop them.
-        EmailVerificationCode::clear($data['email']);
-
+        EmailVerificationCode::clear($payload['email']);
         Auth::login($user);
 
         $tenant = $user->tenants()->first();
-
         $this->notifySafely($user, new ClinicApplicationReceivedNotification($tenant));
 
         // Registration happens on the central domain; the owner's application

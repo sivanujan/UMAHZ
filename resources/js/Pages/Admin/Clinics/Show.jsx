@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import {
     ArrowLeft, Building2, MapPin, IdCard, User, Mail, Phone, Users, Stethoscope,
-    Check, AlertTriangle, XCircle, FileText, Loader2, Trash2, Pencil, Ban, RotateCcw,
+    Check, AlertTriangle, XCircle, FileText, Loader2, Trash2, Pencil, Ban, RotateCcw, AlertCircle,
 } from 'lucide-react';
 
 const DISCIPLINE_LABELS = {
@@ -60,19 +60,26 @@ function NoteModal({ title, confirmLabel, confirmClass, onCancel, onConfirm, pro
 }
 
 export default function ClinicShow({ tenant, primaryPractitioner }) {
+    const { errors, flash } = usePage().props;
     const [modal, setModal] = useState(null); // 'needs_more_info' | 'reject' | 'remove' | null
     const [processing, setProcessing] = useState(false);
     const [confirmName, setConfirmName] = useState('');
 
     const approve = () => {
         setProcessing(true);
-        router.post(`/admin/clinics/${tenant.id}/approve`, {}, { onFinish: () => setProcessing(false) });
+        router.post(`/admin/clinics/${tenant.id}/approve`, {}, {
+            preserveScroll: true,
+            onFinish: () => setProcessing(false),
+        });
     };
 
     const submitNote = (note) => {
         setProcessing(true);
         const url = modal === 'reject' ? `/admin/clinics/${tenant.id}/reject` : `/admin/clinics/${tenant.id}/request-info`;
-        router.post(url, { note }, { onFinish: () => { setProcessing(false); setModal(null); } });
+        router.post(url, { note }, {
+            preserveScroll: true,
+            onFinish: () => { setProcessing(false); setModal(null); },
+        });
     };
 
     const setStatus = (action) => {
@@ -98,6 +105,25 @@ export default function ClinicShow({ tenant, primaryPractitioner }) {
                 <ArrowLeft className="w-3.5 h-3.5" /> Back to queue
             </Link>
 
+            {/* Error or Flash Alerts */}
+            {errors && Object.keys(errors).length > 0 && (
+                <div className="mb-6 p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-sm flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                        {Object.values(errors).map((err, i) => (
+                            <p key={i} className="font-medium">{err}</p>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {flash?.success && (
+                <div className="mb-6 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-sm flex items-center gap-3">
+                    <Check className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                    <p className="font-medium">{flash.success}</p>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                 <div className="lg:col-span-3 space-y-6">
                     <div className="bg-slate-900 rounded-xl border border-slate-800 p-6">
@@ -120,6 +146,47 @@ export default function ClinicShow({ tenant, primaryPractitioner }) {
                             <InfoRow icon={Users} label="Estimated Practitioners" value={tenant.estimated_practitioner_count} />
                         </div>
                     </div>
+
+                    {tenant.billing_breakdown && (
+                        <div className="bg-slate-900 rounded-xl border border-slate-800 p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-white font-semibold text-sm">Subscription Plan & Billing</h3>
+                                <span className="px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                                    {tenant.billing_breakdown.tier_name || tenant.plan_name} Plan
+                                </span>
+                            </div>
+
+                            <div className="rounded-xl bg-slate-950/80 border border-slate-800/80 p-4 space-y-3 mb-4">
+                                <div className="flex justify-between text-xs text-slate-300">
+                                    <span>Base Plan ({tenant.billing_breakdown.tier_name})</span>
+                                    <span className="font-semibold text-white">${tenant.billing_breakdown.base_price?.toFixed(2)} CAD/mo</span>
+                                </div>
+
+                                {tenant.billing_breakdown.additional_ft_count > 0 && (
+                                    <div className="flex justify-between text-xs text-slate-300">
+                                        <span>+ {tenant.billing_breakdown.additional_ft_count} Extra Full-Time Practitioner(s)</span>
+                                        <span className="font-semibold text-white">+${tenant.billing_breakdown.additional_ft_cost?.toFixed(2)} CAD/mo</span>
+                                    </div>
+                                )}
+
+                                {tenant.billing_breakdown.additional_pt_count > 0 && (
+                                    <div className="flex justify-between text-xs text-slate-300">
+                                        <span>+ {tenant.billing_breakdown.additional_pt_count} Part-Time Practitioner(s)</span>
+                                        <span className="font-semibold text-white">+${tenant.billing_breakdown.additional_pt_cost?.toFixed(2)} CAD/mo</span>
+                                    </div>
+                                )}
+
+                                <div className="border-t border-slate-800 pt-2.5 flex justify-between items-center text-sm font-semibold">
+                                    <span className="text-slate-200">First Monthly Charge on Approval</span>
+                                    <span className="text-emerald-400 text-base">{tenant.billing_breakdown.total_monthly_formatted || `$${tenant.billing_breakdown.total_monthly?.toFixed(2)} CAD/mo`}</span>
+                                </div>
+                            </div>
+
+                            <p className="text-[11px] text-slate-500 leading-relaxed">
+                                Base includes 1 full-time practitioner. Total practitioners: {tenant.billing_breakdown.total_practitioners} ({tenant.full_time_practitioners_count} FT, {tenant.part_time_practitioners_count} PT).
+                            </p>
+                        </div>
+                    )}
 
                     {primaryPractitioner && (
                         <div className="bg-slate-900 rounded-xl border border-slate-800 p-6">
@@ -173,7 +240,15 @@ export default function ClinicShow({ tenant, primaryPractitioner }) {
                                     disabled={processing}
                                     className="w-full py-2.5 rounded-lg text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                                 >
-                                    <Check className="w-4 h-4" /> Approve Clinic
+                                    {processing ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" /> Approving & Charging...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Check className="w-4 h-4" /> Approve Clinic
+                                        </>
+                                    )}
                                 </button>
                                 <button
                                     onClick={() => setModal('needs_more_info')}

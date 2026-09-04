@@ -1,8 +1,8 @@
 import React from 'react';
-import { Head, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { useTheme } from '@/Contexts/ThemeContext';
-import { Calendar, Users, Building, DollarSign, Sparkles, ReceiptText, UserCog, TrendingUp } from 'lucide-react';
+import { Calendar, Users, Building, DollarSign, Sparkles, ReceiptText, UserCog, TrendingUp, CreditCard, ArrowRight, ShieldCheck } from 'lucide-react';
 
 /* Staff availability → semantic color + dot. Colors are given as rgba tints so
    the same pill reads correctly on both light and dark surfaces. */
@@ -115,7 +115,7 @@ function StaffAvailability({ staff }) {
     );
 }
 
-export default function OwnerDashboard({ stats, outstandingInvoices, staff }) {
+export default function OwnerDashboard({ stats, outstandingInvoices, staff, subscription }) {
     const { auth } = usePage().props;
     const user = auth.user;
     const tenant = auth.tenant;
@@ -135,15 +135,38 @@ export default function OwnerDashboard({ stats, outstandingInvoices, staff }) {
                     style={{ background: 'radial-gradient(circle, rgba(6,182,212,0.35) 0%, transparent 70%)' }}
                     aria-hidden="true"
                 />
-                <div className="relative z-10">
-                    <div className="flex items-center space-x-2 text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#7DD3FC' }}>
-                        <Sparkles className="w-4 h-4" />
-                        <span>Multi-Tenant Practice Workspace</span>
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div>
+                        <div className="flex items-center space-x-2 text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#7DD3FC' }}>
+                            <Sparkles className="w-4 h-4" />
+                            <span>Multi-Tenant Practice Workspace</span>
+                        </div>
+                        <h1 className="text-2xl font-bold tracking-tight">Welcome back, {user?.name}</h1>
+                        <p className="text-sm mt-1" style={{ color: 'rgba(226,232,240,0.85)' }}>
+                            Here is today's business overview for <span className="font-semibold text-white">{tenant?.name || 'Your Clinic'}</span>.
+                        </p>
                     </div>
-                    <h1 className="text-2xl font-bold tracking-tight">Welcome back, {user?.name}</h1>
-                    <p className="text-sm mt-1" style={{ color: 'rgba(226,232,240,0.85)' }}>
-                        Here is today's business overview for <span className="font-semibold text-white">{tenant?.name || 'Your Clinic'}</span>.
-                    </p>
+
+                    {subscription && (
+                        <div className="p-3.5 px-4 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-between gap-4 shrink-0">
+                            <div>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-sky-200 block">
+                                    Current Plan
+                                </span>
+                                <p className="text-sm font-bold text-white mt-0.5">
+                                    {subscription.plan_name} ({subscription.monthly_total}/mo)
+                                </p>
+                            </div>
+                            <Link
+                                href="/app/billing"
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-900 hover:bg-slate-100 transition-colors flex items-center gap-1 shrink-0"
+                            >
+                                <CreditCard className="w-3.5 h-3.5 text-blue-600" />
+                                <span>Billing</span>
+                                <ArrowRight className="w-3 h-3" />
+                            </Link>
+                        </div>
+                    )}
                 </div>
             </div>
 

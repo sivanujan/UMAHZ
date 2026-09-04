@@ -44,6 +44,7 @@ class BookingService
 
         $this->assertReferencesBelongToTenant($tenant, $data);
         $this->assertWithinBusinessHours($tenant, $localStart, $duration);
+        $this->assertWithinMonthlyAppointmentLimit($tenant);
 
         return DB::transaction(function () use ($data, $startsAt, $endsAt) {
             $this->lockResources($data['staff_membership_id'], $data['room_id'] ?? null);
@@ -307,6 +308,21 @@ class BookingService
                     'room_id' => 'This room is already booked during that time.',
                 ]);
             }
+        }
+    }
+
+    /**
+     * Ensure the tenant has not reached their monthly appointment limit under their current plan.
+     *
+     * @throws \Illuminate\Validation\ValidationException
+     */
+    protected function assertWithinMonthlyAppointmentLimit(Tenant $tenant): void
+    {
+        if (! $tenant->canBookAppointment()) {
+            $limit = $tenant->maxMonthlyAppointments();
+            throw ValidationException::withMessages([
+                'starts_at' => "Monthly appointment limit reached ({$limit} appointments/month on the {$tenant->planName()} plan). Please upgrade your clinic subscription plan to book more appointments.",
+            ]);
         }
     }
 

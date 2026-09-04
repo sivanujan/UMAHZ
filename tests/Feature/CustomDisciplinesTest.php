@@ -18,7 +18,7 @@ use Tests\TestCase;
 
 class CustomDisciplinesTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, \Tests\Concerns\RegistersClinics;
 
     private function clinic(string $sub, array $overrides = []): Tenant
     {
@@ -83,7 +83,7 @@ class CustomDisciplinesTest extends TestCase
             'license_document' => UploadedFile::fake()->create('license.pdf', 500, 'application/pdf'),
         ];
 
-        $response = $this->post('http://umahz.test/clinics/register', $payload);
+        $response = $this->registerClinicThroughPayment($payload);
         $response->assertRedirect('http://apexwellness.umahz.test/clinic/status');
 
         $tenant = Tenant::where('subdomain', 'apexwellness')->first();
@@ -144,7 +144,7 @@ class CustomDisciplinesTest extends TestCase
         ];
 
         $response = $this->from('http://umahz.test/clinics/register')
-            ->post('http://umahz.test/clinics/register', $payload);
+            ->post('http://umahz.test/clinics/register/prepare', $payload);
         $response->assertSessionHasErrors('custom_disciplines');
     }
 
@@ -175,7 +175,7 @@ class CustomDisciplinesTest extends TestCase
         ];
 
         $response = $this->from('http://umahz.test/clinics/register')
-            ->post('http://umahz.test/clinics/register', $payload);
+            ->post('http://umahz.test/clinics/register/prepare', $payload);
         $response->assertSessionHasErrors('custom_disciplines');
     }
 
