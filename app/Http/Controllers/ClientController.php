@@ -5,10 +5,17 @@ namespace App\Http\Controllers;
 use App\Models\Appointment;
 use App\Models\AuditEvent;
 use App\Models\Client;
+use App\Models\ClientIntake;
+use App\Models\ClinicalNote;
 use App\Models\Consent;
 use App\Models\ConsentType;
+use App\Models\IntakeFormTemplate;
+use App\Models\Invoice;
+use App\Models\StaffMembership;
+use App\Models\Tenant;
 use App\Rules\NotDisposableEmail;
 use App\Scopes\TenantScope;
+use App\Support\Disciplines;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -133,19 +140,19 @@ class ClientController extends Controller
                 'pdf_url' => $t->pdf_path ? url("/app/consent-types/{$t->id}/document") : null,
             ]);
 
-        $tenant = $client->tenant ?: \App\Models\Tenant::find($tenantId);
-        $offeredDisciplines = $tenant?->offeredDisciplineCodes() ?: \App\Support\Disciplines::FIXED_CODES;
+        $tenant = $client->tenant ?: Tenant::find($tenantId);
+        $offeredDisciplines = $tenant?->offeredDisciplineCodes() ?: Disciplines::FIXED_CODES;
 
-        \App\Models\IntakeFormTemplate::ensureDefaultsForTenant($tenantId, $offeredDisciplines);
+        IntakeFormTemplate::ensureDefaultsForTenant($tenantId, $offeredDisciplines);
 
         $intakes = $client->intakes()
             ->with(['submittedByUser', 'appointment'])
             ->latest('created_at')
             ->get()
-            ->map(fn (\App\Models\ClientIntake $i) => [
+            ->map(fn (ClientIntake $i) => [
                 'id' => $i->id,
                 'discipline' => $i->discipline,
-                'discipline_label' => $tenant?->disciplineLabel($i->discipline) ?? \App\Support\Disciplines::FIXED_LABELS[$i->discipline] ?? $i->discipline,
+                'discipline_label' => $tenant?->disciplineLabel($i->discipline) ?? Disciplines::FIXED_LABELS[$i->discipline] ?? $i->discipline,
                 'template_name' => $i->template_name,
                 'status' => $i->status,
                 'submission_type' => $i->submission_type,
@@ -164,7 +171,7 @@ class ClientController extends Controller
                 ] : null,
             ]);
 
-        $intakeTemplates = \App\Models\IntakeFormTemplate::where('tenant_id', $tenantId)
+        $intakeTemplates = IntakeFormTemplate::where('tenant_id', $tenantId)
             ->where('is_active', true)
             ->whereIn('discipline', $offeredDisciplines)
             ->get(['id', 'discipline', 'name', 'description', 'schema']);
@@ -175,13 +182,13 @@ class ClientController extends Controller
             ->get(['id', 'starts_at', 'service_name', 'status']);
 
         $user = $request->user();
-        $canViewNoteBody = $user->can('create', \App\Models\ClinicalNote::class);
+        $canViewNoteBody = $user->can('create', ClinicalNote::class);
 
         $clinicalNotes = $client->clinicalNotes()
             ->with(['staffMembership.user', 'staffMembership.practitionerProfile', 'appointment', 'addenda'])
             ->latest('created_at')
             ->get()
-            ->map(fn (\App\Models\ClinicalNote $n) => [
+            ->map(fn (ClinicalNote $n) => [
                 'id' => $n->id,
                 'discipline' => $n->discipline,
                 'discipline_label' => $tenant?->disciplineLabel($n->discipline) ?? $n->discipline,
@@ -210,6 +217,29 @@ class ClientController extends Controller
                 'can_view_body' => $canViewNoteBody,
             ]);
 
+        // Patient-billing: invoice list + status for the client profile, plus
+        // whether the current user's role may bill (owner/receptionist).
+        $membership = $request->attributes->get('staffMembership');
+        $canBill = in_array($membership?->role, [
+            StaffMembership::ROLE_CLINIC_OWNER,
+            StaffMembership::ROLE_RECEPTIONIST,
+        ], true);
+
+        $invoices = $client->invoices()
+            ->latest('created_at')
+            ->get()
+            ->map(fn (Invoice $inv) => [
+                'id' => $inv->id,
+                'reference' => $inv->reference(),
+                'status' => $inv->status,
+                'currency' => strtoupper($inv->currency),
+                'total_amount' => $inv->total_amount,
+                'amount_due' => $inv->amountDue(),
+                'issued_at' => $inv->issued_at?->toIso8601String(),
+                'due_date' => $inv->due_date?->toDateString(),
+                'created_at' => $inv->created_at->toIso8601String(),
+            ]);
+
         return Inertia::render('Clients/Show', [
             'client' => $this->present($client),
             'consents' => $consents,
@@ -217,10 +247,13 @@ class ClientController extends Controller
             'intakes' => $intakes,
             'intakeTemplates' => $intakeTemplates,
             'clinicalNotes' => $clinicalNotes,
-            'canCreateNote' => $user->can('create', \App\Models\ClinicalNote::class),
+            'canCreateNote' => $user->can('create', ClinicalNote::class),
             'clientAppointments' => $clientAppointments,
             'offeredDisciplines' => $offeredDisciplines,
-            'disciplineLabels' => $tenant?->allDisciplineLabels() ?? \App\Support\Disciplines::FIXED_LABELS,
+            'disciplineLabels' => $tenant?->allDisciplineLabels() ?? Disciplines::FIXED_LABELS,
+            'invoices' => $invoices,
+            'canBill' => $canBill,
+            'canAcceptCards' => $tenant?->canAcceptCardPayments() ?? false,
         ]);
     }
 

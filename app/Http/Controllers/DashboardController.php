@@ -85,21 +85,23 @@ class DashboardController extends Controller
             ];
         });
 
-        $monthlyRevenue = Invoice::where('tenant_id', $tenantId)
+        // Revenue = paid patient invoices this month. Amounts are integer minor
+        // units; divide only for display formatting (never for money math).
+        $monthlyRevenue = (int) Invoice::where('tenant_id', $tenantId)
             ->where('status', Invoice::STATUS_PAID)
             ->whereMonth('paid_at', $now->month)
             ->whereYear('paid_at', $now->year)
-            ->sum('amount');
+            ->sum('total_amount');
 
         $outstandingInvoices = Invoice::with('client')
             ->where('tenant_id', $tenantId)
-            ->whereIn('status', [Invoice::STATUS_DUE, Invoice::STATUS_OVERDUE])
+            ->where('status', Invoice::STATUS_OPEN)
             ->orderBy('due_date')
             ->limit(5)
             ->get()
             ->map(fn (Invoice $invoice) => [
                 'client' => $invoice->client->first_name.' '.$invoice->client->last_name,
-                'amount' => '$'.number_format($invoice->amount, 2),
+                'amount' => $this->money($invoice->amountDue()),
                 'due' => $this->dueLabel($invoice),
             ]);
 
@@ -120,7 +122,7 @@ class DashboardController extends Controller
                 'todayAppointments' => Appointment::where('tenant_id', $tenantId)->whereDate('starts_at', $now->toDateString())->count(),
                 'totalClients' => Client::count(),
                 'activeLocations' => Location::count(),
-                'monthlyRevenue' => '$'.number_format($monthlyRevenue, 2),
+                'monthlyRevenue' => $this->money($monthlyRevenue),
             ],
             'subscription' => $subscriptionSummary,
             'outstandingInvoices' => $outstandingInvoices,
@@ -199,11 +201,11 @@ class DashboardController extends Controller
 
         $balancesDue = Invoice::with('client')
             ->where('tenant_id', $tenantId)
-            ->whereIn('status', [Invoice::STATUS_DUE, Invoice::STATUS_OVERDUE])
+            ->where('status', Invoice::STATUS_OPEN)
             ->get()
             ->map(fn (Invoice $invoice) => [
                 'client_name' => $invoice->client->first_name.' '.$invoice->client->last_name,
-                'amount' => '$'.number_format($invoice->amount, 2),
+                'amount' => $this->money($invoice->amountDue()),
             ]);
 
         return Inertia::render('Dashboard/Receptionist', [
@@ -247,18 +249,18 @@ class DashboardController extends Controller
 
         $allInvoices = $client->invoices()->get();
 
-        $dueInvoices = $allInvoices->whereIn('status', [Invoice::STATUS_DUE, Invoice::STATUS_OVERDUE]);
+        $dueInvoices = $allInvoices->where('status', Invoice::STATUS_OPEN);
 
         $balances = $dueInvoices->map(fn (Invoice $invoice) => [
-            'description' => $invoice->description,
-            'amount' => '$'.number_format($invoice->amount, 2),
+            'description' => $invoice->reference(),
+            'amount' => $this->money($invoice->amountDue()),
         ])->values();
 
         $totalInvoiceCount = $allInvoices->count();
         $paidInvoiceCount = $allInvoices->where('status', Invoice::STATUS_PAID)->count();
 
         $balanceStats = [
-            'totalDue' => '$'.number_format($dueInvoices->sum('amount'), 2),
+            'totalDue' => $this->money((int) $dueInvoices->sum(fn (Invoice $i) => $i->amountDue())),
             'paidRatio' => $totalInvoiceCount > 0 ? round($paidInvoiceCount / $totalInvoiceCount, 2) : 1,
         ];
 
@@ -287,9 +289,15 @@ class DashboardController extends Controller
         ]);
     }
 
+    /** Format integer minor units as a currency string (display only). */
+    protected function money(int $minorUnits): string
+    {
+        return '$'.number_format($minorUnits / 100, 2);
+    }
+
     protected function dueLabel(Invoice $invoice): string
     {
-        if (!$invoice->due_date) {
+        if (! $invoice->due_date) {
             return 'No due date';
         }
 

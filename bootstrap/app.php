@@ -34,6 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Stripe signature verification instead (Cashier's WebhookController).
         $middleware->validateCsrfTokens(except: [
             'stripe/webhook',
+            'stripe/connect/webhook',
         ]);
 
         $middleware->alias([

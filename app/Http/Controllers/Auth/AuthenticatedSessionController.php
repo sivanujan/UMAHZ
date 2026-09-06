@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Support\RoleRedirect;
+use App\Support\Tenancy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,12 +25,11 @@ class AuthenticatedSessionController extends Controller
         // On normal central login, client self-registration is hidden (clients
         // register on the portal), while clinic onboarding is offered.
         $host = $request->getHost();
-        $isCentral = $host === \App\Support\Tenancy::centralDomain();
-        $isPortal = $host === \App\Support\Tenancy::portalHost();
+        $isCentral = $host === Tenancy::centralDomain();
+        $isPortal = $host === Tenancy::portalHost();
 
         return Inertia::render('Auth/Login', [
             'status' => session('status'),
-            'demoCredentialsEnabled' => ! app()->environment('production'),
             'canRegisterClient' => $isPortal,
             'canRegisterClinic' => $isCentral,
         ]);
@@ -45,7 +45,7 @@ class AuthenticatedSessionController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (!Auth::attempt($credentials, $request->boolean('remember'))) {
+        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
             return back()->withErrors([
                 'email' => 'The provided credentials do not match our records.',
             ])->onlyInput('email');

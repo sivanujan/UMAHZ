@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Billing\PlanPricing;
 use App\Support\Disciplines;
+use App\Support\Tenancy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -16,32 +18,52 @@ use Laravel\Cashier\Billable;
 
 class Tenant extends Model
 {
-    use HasFactory, HasUuids, SoftDeletes, Billable;
+    use Billable, HasFactory, HasUuids, SoftDeletes;
 
     public const STATUS_PENDING_REVIEW = 'pending_review';
+
     public const STATUS_NEEDS_MORE_INFO = 'needs_more_info';
+
     public const STATUS_APPROVED = 'approved';
+
     public const STATUS_REJECTED = 'rejected';
+
     public const STATUS_SUSPENDED = 'suspended';
 
     // Tier constants
     public const PLAN_BALANCE = 'balance';
+
     public const PLAN_PRACTICE = 'practice';
+
     public const PLAN_THRIVE = 'thrive';
 
     public const TIER_BALANCE = self::PLAN_BALANCE;
+
     public const TIER_PRACTICE = self::PLAN_PRACTICE;
+
     public const TIER_THRIVE = self::PLAN_THRIVE;
 
     // Coarse mirror of the CLINIC -> UMAHZ platform subscription (Stripe is the
     // source of truth; kept in sync by the approve flow + webhooks).
     public const SUBSCRIPTION_NONE = 'none';
+
     public const SUBSCRIPTION_ACTIVE = 'active';
+
     public const SUBSCRIPTION_PAST_DUE = 'past_due';
+
     public const SUBSCRIPTION_CANCELED = 'canceled';
 
     /** Cashier subscription "type" for the platform plan. */
     public const PLATFORM_SUBSCRIPTION = 'platform';
+
+    // Stripe Connect (patient -> clinic payments) onboarding status. This is a
+    // SEPARATE system from the platform subscription above; a clinic's connected
+    // account is where its own patients' card payments settle.
+    public const CONNECT_NONE = 'none';
+
+    public const CONNECT_PENDING = 'pending';
+
+    public const CONNECT_CONNECTED = 'connected';
 
     protected $fillable = [
         'name',
@@ -75,6 +97,11 @@ class Tenant extends Model
         'subscription_status',
         'payment_failed_at',
         'stripe_pm_id',
+        'stripe_connect_account_id',
+        'stripe_connect_status',
+        'stripe_connect_charges_enabled',
+        'stripe_connect_payouts_enabled',
+        'stripe_connect_details_submitted',
     ];
 
     protected function casts(): array
@@ -91,7 +118,27 @@ class Tenant extends Model
             'payment_failed_at' => 'datetime',
             'full_time_practitioners_count' => 'integer',
             'part_time_practitioners_count' => 'integer',
+            'stripe_connect_charges_enabled' => 'boolean',
+            'stripe_connect_payouts_enabled' => 'boolean',
+            'stripe_connect_details_submitted' => 'boolean',
         ];
+    }
+
+    /**
+     * Whether this clinic has a fully onboarded connected account and can take
+     * card payments from patients. Until then it can still record manual
+     * (cash / e-transfer) payments, but not charge cards.
+     */
+    public function canAcceptCardPayments(): bool
+    {
+        return $this->stripe_connect_status === self::CONNECT_CONNECTED
+            && $this->stripe_connect_account_id !== null
+            && (bool) $this->stripe_connect_charges_enabled;
+    }
+
+    public function hasConnectAccount(): bool
+    {
+        return $this->stripe_connect_account_id !== null;
     }
 
     public function isBalancePlan(): bool
@@ -121,7 +168,7 @@ class Tenant extends Model
 
     public function monthlyBillableBreakdown(): array
     {
-        return \App\Billing\PlanPricing::calculateBreakdown(
+        return PlanPricing::calculateBreakdown(
             $this->plan_tier ?? self::PLAN_PRACTICE,
             $this->full_time_practitioners_count ?? 1,
             $this->part_time_practitioners_count ?? 0
@@ -148,7 +195,7 @@ class Tenant extends Model
      */
     public function tierConfig(): array
     {
-        return \App\Models\SubscriptionTierConfig::getTier($this->plan_tier ?? self::PLAN_PRACTICE) ?? [];
+        return SubscriptionTierConfig::getTier($this->plan_tier ?? self::PLAN_PRACTICE) ?? [];
     }
 
     /**
@@ -182,11 +229,11 @@ class Tenant extends Model
      */
     public function currentMonthAppointmentsCount(): int
     {
-        return \App\Models\Appointment::withoutGlobalScopes()
+        return Appointment::withoutGlobalScopes()
             ->where('tenant_id', $this->id)
             ->whereYear('starts_at', now()->year)
             ->whereMonth('starts_at', now()->month)
-            ->whereNotIn('status', [\App\Models\Appointment::STATUS_CANCELLED])
+            ->whereNotIn('status', [Appointment::STATUS_CANCELLED])
             ->count();
     }
 
@@ -208,12 +255,12 @@ class Tenant extends Model
      */
     public function currentPractitionersCount(): int
     {
-        return \App\Models\StaffMembership::withoutGlobalScopes()
+        return StaffMembership::withoutGlobalScopes()
             ->where('tenant_id', $this->id)
-            ->where('role', \App\Models\StaffMembership::ROLE_PRACTITIONER)
+            ->where('role', StaffMembership::ROLE_PRACTITIONER)
             ->whereIn('status', [
-                \App\Models\StaffMembership::STATUS_ACTIVE,
-                \App\Models\StaffMembership::STATUS_INVITED,
+                StaffMembership::STATUS_ACTIVE,
+                StaffMembership::STATUS_INVITED,
             ])
             ->count();
     }
@@ -249,7 +296,7 @@ class Tenant extends Model
      */
     public function subdomainHost(): string
     {
-        return \App\Support\Tenancy::hostFor($this->subdomain);
+        return Tenancy::hostFor($this->subdomain);
     }
 
     /**
@@ -258,7 +305,7 @@ class Tenant extends Model
      */
     public function appUrl(string $path = ''): string
     {
-        return \App\Support\Tenancy::urlFor($this->subdomain, $path);
+        return Tenancy::urlFor($this->subdomain, $path);
     }
 
     public function reviewedBy(): BelongsTo
@@ -286,6 +333,20 @@ class Tenant extends Model
     public function clients(): HasMany
     {
         return $this->hasMany(Client::class);
+    }
+
+    // NOTE: deliberately NOT named invoices()/payments() — Cashier's Billable
+    // trait already provides invoices() for the platform subscription (Stripe
+    // invoices). These are the patient-billing (Connect) records and must stay
+    // separate from that method.
+    public function patientInvoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
+    public function patientPayments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
     }
 
     public function locations(): HasMany

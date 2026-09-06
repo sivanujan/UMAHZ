@@ -2,12 +2,24 @@
 
 namespace App\Providers;
 
+use App\Billing\PlatformBilling;
+use App\Billing\StripePlatformBilling;
 use App\Models\Appointment;
+use App\Models\ClientIntake;
+use App\Models\ClinicalNote;
+use App\Models\ClinicalNoteTemplate;
 use App\Models\Consent;
+use App\Models\IntakeFormTemplate;
 use App\Models\PractitionerProfile;
 use App\Models\Tenant;
+use App\PatientBilling\Contracts\PaymentProvider;
+use App\PatientBilling\StripePaymentProvider;
 use App\Policies\AppointmentPolicy;
+use App\Policies\ClientIntakePolicy;
+use App\Policies\ClinicalNotePolicy;
+use App\Policies\ClinicalNoteTemplatePolicy;
 use App\Policies\ConsentPolicy;
+use App\Policies\IntakeFormTemplatePolicy;
 use App\Policies\PractitionerProfilePolicy;
 use App\Policies\TenantPolicy;
 use GuzzleHttp\Client as GuzzleClient;
@@ -17,6 +29,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Cashier\Cashier;
 use Resend\Client as ResendClient;
 use Resend\Transporters\HttpTransporter;
 use Resend\ValueObjects\ApiKey;
@@ -32,8 +45,17 @@ class AppServiceProvider extends ServiceProvider
     {
         // Platform (clinic -> UMAHZ) billing gateway. Swapped for a fake in tests.
         $this->app->bind(
-            \App\Billing\PlatformBilling::class,
-            \App\Billing\StripePlatformBilling::class,
+            PlatformBilling::class,
+            StripePlatformBilling::class,
+        );
+
+        // Patient -> clinic payment provider (Stripe Connect today). All billing
+        // logic depends on the PaymentProvider contract, never on Stripe
+        // directly, so the processor can be swapped/extended later. Entirely
+        // separate from the platform billing above. Swapped for a fake in tests.
+        $this->app->singleton(
+            PaymentProvider::class,
+            StripePaymentProvider::class,
         );
     }
 
@@ -50,14 +72,14 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(PractitionerProfile::class, PractitionerProfilePolicy::class);
         Gate::policy(Appointment::class, AppointmentPolicy::class);
         Gate::policy(Consent::class, ConsentPolicy::class);
-        Gate::policy(\App\Models\IntakeFormTemplate::class, \App\Policies\IntakeFormTemplatePolicy::class);
-        Gate::policy(\App\Models\ClientIntake::class, \App\Policies\ClientIntakePolicy::class);
-        Gate::policy(\App\Models\ClinicalNote::class, \App\Policies\ClinicalNotePolicy::class);
-        Gate::policy(\App\Models\ClinicalNoteTemplate::class, \App\Policies\ClinicalNoteTemplatePolicy::class);
+        Gate::policy(IntakeFormTemplate::class, IntakeFormTemplatePolicy::class);
+        Gate::policy(ClientIntake::class, ClientIntakePolicy::class);
+        Gate::policy(ClinicalNote::class, ClinicalNotePolicy::class);
+        Gate::policy(ClinicalNoteTemplate::class, ClinicalNoteTemplatePolicy::class);
 
         // The CLINIC -> UMAHZ platform subscription bills the Tenant as the
         // Stripe customer (our own Stripe account, not Connect).
-        \Laravel\Cashier\Cashier::useCustomerModel(Tenant::class);
+        Cashier::useCustomerModel(Tenant::class);
 
         $caPath = storage_path('cacert.pem');
         if (file_exists($caPath)) {

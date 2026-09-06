@@ -14,6 +14,7 @@ import GenerateIntakeLinkModal from '@/Components/Intake/GenerateIntakeLinkModal
 import StaffFillIntakeModal from '@/Components/Intake/StaffFillIntakeModal';
 import ViewIntakeModal from '@/Components/Intake/ViewIntakeModal';
 import NewNoteModal from '@/Components/ClinicalNotes/NewNoteModal';
+import BillingSection from '@/Components/Billing/BillingSection';
 
 const fieldClass = 'w-full px-3.5 py-2.5 rounded-lg text-sm outline-none transition focus:ring-4 focus:ring-[#2563EB]/15 focus:border-[#2563EB]/50 border';
 const fieldStyle = { background: 'var(--umahz-hover)', borderColor: 'var(--umahz-border)', color: 'var(--umahz-text-primary)' };
@@ -271,6 +272,9 @@ export default function ClientsShow({
     clientAppointments = [],
     offeredDisciplines = [],
     disciplineLabels = {},
+    invoices = [],
+    canBill = false,
+    canAcceptCards = false,
 }) {
     const [editing, setEditing] = useState(false);
     const [recordingConsent, setRecordingConsent] = useState(false);
@@ -1010,6 +1014,15 @@ export default function ClientsShow({
                     </div>
                 )}
             </div>
+
+            {/* BILLING & PAYMENTS CARD */}
+            <BillingSection
+                clientId={client.id}
+                invoices={invoices}
+                canBill={canBill}
+                canAcceptCards={canAcceptCards}
+                appointments={clientAppointments}
+            />
 
             {/* New Clinical Note Modal */}
             {creatingNote && (
