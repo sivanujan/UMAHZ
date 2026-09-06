@@ -95,7 +95,7 @@ Route::domain($central)->group(function () {
     // and signing secret (STRIPE_CONNECT_WEBHOOK_SECRET) from the subscription
     // webhook above; signature-verified + idempotent; CSRF-exempt. Central only.
     Route::post('stripe/connect/webhook', [ConnectWebhookController::class, 'handle'])
-        ->name('patient_billing.connect.webhook');
+        ->name('stripe.connect.webhook');
 
     Route::get('/professions', function () {
         return Inertia::render('Professions/Index');
