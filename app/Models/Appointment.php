@@ -7,16 +7,22 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Appointment extends Model
 {
-    use HasFactory, HasUuids, BelongsToTenant;
+    use BelongsToTenant, HasFactory, HasUuids;
 
     public const STATUS_SCHEDULED = 'scheduled';
+
     public const STATUS_CONFIRMED = 'confirmed';
+
     public const STATUS_CHECKED_IN = 'checked_in';
+
     public const STATUS_COMPLETED = 'completed';
+
     public const STATUS_CANCELLED = 'cancelled';
+
     public const STATUS_NO_SHOW = 'no_show';
 
     protected $fillable = [
@@ -63,8 +69,13 @@ class Appointment extends Model
         return $this->belongsTo(Room::class);
     }
 
-    public function clinicalNotes(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function clinicalNotes(): HasMany
     {
         return $this->hasMany(ClinicalNote::class);
+    }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
     }
 }

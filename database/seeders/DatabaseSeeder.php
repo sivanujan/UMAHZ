@@ -9,11 +9,14 @@ use App\Models\ClinicalNote;
 use App\Models\Invoice;
 use App\Models\Location;
 use App\Models\Message;
+use App\Models\Payment;
 use App\Models\PractitionerProfile;
 use App\Models\Room;
 use App\Models\StaffMembership;
 use App\Models\Tenant;
 use App\Models\User;
+use App\PatientBilling\InvoiceService;
+use App\PatientBilling\PaymentService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Permission;
@@ -379,45 +382,40 @@ class DatabaseSeeder extends Seeder
             $made++;
         }
 
-        // 12. Invoices — outstanding balances for the owner/receptionist/
-        // client views, plus paid invoices behind this month's revenue.
-        Invoice::create([
-            'tenant_id' => $tenant->id,
+        // 12. Patient-billing invoices — outstanding balances for the owner/
+        // receptionist/client views, plus paid invoices behind this month's
+        // revenue. Money is integer minor units; created via the real services
+        // so numbering + totals match production behaviour.
+        $invoiceService = app(InvoiceService::class);
+        $paymentService = app(PaymentService::class);
+
+        $invoiceService->create($tenant, [
             'client_id' => $sophia->id,
-            'description' => 'Acupuncture Initial Assessment',
-            'amount' => 120.00,
-            'status' => Invoice::STATUS_DUE,
             'due_date' => now()->addDays(3)->toDateString(),
+            'line_items' => [['description' => 'Acupuncture Initial Assessment', 'quantity' => 1, 'unit_amount' => 12_000]],
         ]);
 
-        Invoice::create([
-            'tenant_id' => $tenant->id,
+        $invoiceService->create($tenant, [
             'client_id' => $marcus->id,
-            'description' => 'Herbal Consultation & Follow-up',
-            'amount' => 85.00,
-            'status' => Invoice::STATUS_OVERDUE,
             'due_date' => now()->subDays(2)->toDateString(),
+            'line_items' => [['description' => 'Herbal Consultation & Follow-up', 'quantity' => 1, 'unit_amount' => 8_500]],
         ]);
 
-        Invoice::create([
-            'tenant_id' => $tenant->id,
+        $invoiceService->create($tenant, [
             'client_id' => $ravi->id,
-            'description' => 'Acupuncture Session',
-            'amount' => 120.00,
-            'status' => Invoice::STATUS_DUE,
             'due_date' => now()->addDays(5)->toDateString(),
+            'line_items' => [['description' => 'Acupuncture Session', 'quantity' => 1, 'unit_amount' => 12_000]],
         ]);
 
         foreach (Appointment::where('tenant_id', $tenant->id)->where('status', Appointment::STATUS_COMPLETED)->get() as $appointment) {
-            Invoice::create([
-                'tenant_id' => $tenant->id,
+            $unit = [9_500, 12_000, 13_500, 15_000][random_int(0, 3)];
+            $invoice = $invoiceService->create($tenant, [
                 'client_id' => $appointment->client_id,
                 'appointment_id' => $appointment->id,
-                'description' => $appointment->service_name,
-                'amount' => [95.00, 120.00, 135.00, 150.00][random_int(0, 3)],
-                'status' => Invoice::STATUS_PAID,
-                'paid_at' => $appointment->ends_at,
+                'line_items' => [['description' => $appointment->service_name, 'quantity' => 1, 'unit_amount' => $unit]],
             ]);
+            // Paid in cash at the desk (marks the invoice paid).
+            $paymentService->recordManual($invoice, Payment::METHOD_CASH, $unit);
         }
 
         // 13. Clinical notes — one unsigned note waiting on Julian.

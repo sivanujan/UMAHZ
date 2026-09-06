@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { Mail, Lock, Check, Eye, EyeOff, AlertCircle, Loader2, ChevronDown } from 'lucide-react';
+import { Mail, Lock, Check, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 import Logo from '@/Components/Common/Logo';
 
 const ROYAL_BLUE = '#5B2EFF';
@@ -29,17 +29,16 @@ const GoogleIcon = () => (
     </svg>
 );
 
-export default function Login({ status, demoCredentialsEnabled, canRegisterClient = false, canRegisterClinic = true }) {
+export default function Login({ status, canRegisterClient = false, canRegisterClinic = true }) {
     const { data, setData, post, processing, errors } = useForm({
-        email: 'owner@lotuswellness.com',
-        password: 'password',
+        email: '',
+        password: '',
         remember: false,
     });
 
     const [touchedEmail, setTouchedEmail] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [oauthNotice, setOauthNotice] = useState('');
-    const [showDemo, setShowDemo] = useState(false);
 
     const emailFormatError = touchedEmail && data.email && !EMAIL_RE.test(data.email) ? 'Enter a valid email address' : null;
     const emailError = errors.email || emailFormatError;
@@ -206,28 +205,6 @@ export default function Login({ status, demoCredentialsEnabled, canRegisterClien
                             Own a wellness clinic?{' '}
                             <Link href="/clinics/register" className="font-semibold transition-opacity duration-200 hover:opacity-75" style={{ color: ROYAL_BLUE }}>Set up your clinic</Link>
                         </p>
-                    )}
-
-                    {demoCredentialsEnabled && (
-                        <div className="pt-5 border-t border-slate-100">
-                            <button
-                                type="button"
-                                onClick={() => setShowDemo((s) => !s)}
-                                className="w-full flex items-center justify-between text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors duration-200"
-                            >
-                                <span className="inline-flex items-center gap-1.5">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
-                                    Demo Test Credentials (dev only)
-                                </span>
-                                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showDemo ? 'rotate-180' : ''}`} />
-                            </button>
-                            {showDemo && (
-                                <div className="mt-3 text-xs text-slate-400 space-y-1.5">
-                                    <p>• Owner: <code className="bg-slate-100 px-1 py-0.5 rounded" style={{ color: DEEP_NAVY }}>owner@lotuswellness.com</code> (pass: <code className="bg-slate-100 px-1 py-0.5 rounded">password</code>)</p>
-                                    <p>• Practitioner: <code className="bg-slate-100 px-1 py-0.5 rounded" style={{ color: DEEP_NAVY }}>julian@lotuswellness.com</code> (pass: <code className="bg-slate-100 px-1 py-0.5 rounded">password</code>)</p>
-                                </div>
-                            )}
-                        </div>
                     )}
                 </div>
             </div>
