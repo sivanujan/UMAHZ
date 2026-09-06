@@ -43,6 +43,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Tell Cashier not to register its default webhook route so that our custom
+        // App\Http\Controllers\StripeWebhookController (with tenant sync) can be used.
+        Cashier::ignoreRoutes();
+
         // Platform (clinic -> UMAHZ) billing gateway. Swapped for a fake in tests.
         $this->app->bind(
             PlatformBilling::class,
