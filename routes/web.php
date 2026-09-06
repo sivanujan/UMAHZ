@@ -25,7 +25,9 @@ use App\Http\Controllers\PatientBilling\PatientPayController;
 use App\Http\Controllers\PatientBilling\PaymentController;
 use App\Http\Controllers\Portal\SettingsController;
 use App\Http\Controllers\PractitionerAppointmentController;
+use App\Http\Controllers\ClinicHomeController;
 use App\Http\Controllers\PublicIntakeController;
+
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\Settings\StaffInvitationController;
 use App\Http\Controllers\StripeWebhookController;
@@ -36,6 +38,37 @@ use Inertia\Inertia;
 
 $central = Tenancy::centralDomain();
 $portalHost = Tenancy::portalHost();
+
+/*
+|--------------------------------------------------------------------------
+| Public Storage Files (Logos, Builder Images, Attachments)
+|--------------------------------------------------------------------------
+| Accessible across central domain, portal, and all clinic subdomains.
+*/
+Route::get('/storage/{path}', function (string $path) {
+    $filePath = storage_path('app/public/' . $path);
+    if (! file_exists($filePath)) {
+        abort(404, 'File not found.');
+    }
+
+    $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+    $mimeTypes = [
+        'png'  => 'image/png',
+        'jpg'  => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'gif'  => 'image/gif',
+        'webp' => 'image/webp',
+        'svg'  => 'image/svg+xml',
+        'ico'  => 'image/x-icon',
+        'pdf'  => 'application/pdf',
+    ];
+    $contentType = $mimeTypes[$ext] ?? (function_exists('mime_content_type') ? (@mime_content_type($filePath) ?: 'application/octet-stream') : 'application/octet-stream');
+
+    return response()->file($filePath, [
+        'Content-Type'  => $contentType,
+        'Cache-Control' => 'public, max-age=31536000',
+    ]);
+})->where('path', '.*')->name('storage.local');
 
 /*
 |--------------------------------------------------------------------------
@@ -183,11 +216,10 @@ Route::domain($portalHost)->group(function () {
 | Registered last so the wildcard doesn't shadow the central/portal hosts.
 */
 Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(function () {
-    // Landing on the subdomain root goes straight to the workspace (which in
-    // turn bounces guests to login). Host-relative so it stays on the current
-    // clinic subdomain — route('app.dashboard') can't be generated here
-    // because its {tenant} domain parameter is unknown at this point.
-    Route::get('/', fn () => redirect('/app/dashboard'));
+    // Branded public home page — visible to everyone, no auth required.
+    // Previously redirected guests straight to /app/dashboard, which is a
+    // terrible UX for patients landing on the clinic's subdomain URL.
+    Route::get('/', [ClinicHomeController::class, 'show'])->name('clinic.home');
 
     // Public unauthenticated patient intake form completion
     Route::get('/intake/{token}', [PublicIntakeController::class, 'show'])->name('intake.public.show');
@@ -198,6 +230,8 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
     Route::post('/pay/send-otp', [PatientPayController::class, 'sendOtp'])->middleware('throttle:5,1')->name('patient.pay.send-otp');
     Route::post('/pay/verify-otp', [PatientPayController::class, 'verifyOtp'])->middleware('throttle:10,1')->name('patient.pay.verify-otp');
     Route::post('/pay/invoices/{invoice}/card', [PatientPayController::class, 'startPayment'])->middleware('throttle:10,1')->name('patient.pay.card');
+    Route::post('/pay/invoices/{invoice}/confirm', [PatientPayController::class, 'confirmPayment'])->name('patient.pay.confirm');
+    Route::post('/pay/invoices/{invoice}/fail', [PatientPayController::class, 'reportFailure'])->name('patient.pay.fail');
     Route::get('/pay/invoices/{invoice}/receipt', [PatientPayController::class, 'receipt'])->name('patient.pay.receipt');
     Route::post('/pay/logout', [PatientPayController::class, 'logout'])->name('patient.pay.logout');
 
@@ -313,6 +347,17 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
             Route::patch('/settings/profile', [ClinicSettingsController::class, 'updateProfile'])->name('settings.profile');
             Route::patch('/settings/disciplines', [ClinicSettingsController::class, 'updateDisciplines'])->name('settings.disciplines');
             Route::post('/settings/branding', [ClinicSettingsController::class, 'updateBranding'])->name('settings.branding');
+
+            // Public home page content — owner customises tagline, description,
+            // cover image, social links, hours/address visibility.
+            Route::get('/settings/homepage', [ClinicSettingsController::class, 'showHomepage'])->name('settings.homepage.show');
+            Route::post('/settings/homepage', [ClinicSettingsController::class, 'updateHomepage'])->name('settings.homepage');
+
+            // Drag-drop Page Builder for public home page
+            Route::get('/settings/page-builder', [ClinicSettingsController::class, 'showPageBuilder'])->name('settings.page-builder');
+            Route::post('/settings/page-layout', [ClinicSettingsController::class, 'saveLayout'])->name('settings.page-layout');
+            Route::get('/settings/page-builder/assets', [ClinicSettingsController::class, 'listBuilderAssets'])->name('settings.page-builder.assets');
+            Route::post('/settings/page-builder/upload', [ClinicSettingsController::class, 'uploadBuilderImage'])->name('settings.page-builder.upload');
 
             // Consent types & templates configuration
             Route::get('/settings/consents', [ConsentTypeController::class, 'index'])->name('settings.consents.index');

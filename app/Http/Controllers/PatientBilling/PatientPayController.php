@@ -212,6 +212,103 @@ class PatientPayController extends Controller
     }
 
     /**
+     * Confirm card payment completion immediately upon Stripe.js success.
+     * Idempotently marks payment & invoice succeeded and dispatches receipt email.
+     */
+    public function confirmPayment(Request $request): JsonResponse
+    {
+        $tenant = $this->resolveTenant($request);
+        $token = $this->extractToken($request, $tenant->id);
+        $verifiedEmail = PatientPayOtp::validateSessionToken($tenant->id, $token);
+
+        if (! $verifiedEmail) {
+            return response()->json(['message' => 'Session expired.'], 401);
+        }
+
+        $invoiceId = (string) $request->route('invoice');
+        $data = $request->validate([
+            'payment_intent_id' => ['required', 'string'],
+        ]);
+
+        $invoiceModel = Invoice::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->whereKey($invoiceId)
+            ->with('client')
+            ->first();
+
+        if (
+            ! $invoiceModel ||
+            ! $invoiceModel->client ||
+            PatientPayOtp::normalize((string) $invoiceModel->client->email) !== $verifiedEmail
+        ) {
+            abort(404);
+        }
+
+        $payment = $this->payments->confirmCardPayment($data['payment_intent_id']);
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Payment processed successfully.',
+            'receipt_url' => Tenancy::urlFor($tenant->subdomain, "/pay/invoices/{$invoiceModel->id}/receipt"),
+        ]);
+    }
+
+    /**
+     * Record a card payment failure from Stripe.js and dispatch failure notification email.
+     */
+    public function reportFailure(Request $request): JsonResponse
+    {
+        $tenant = $this->resolveTenant($request);
+        $token = $this->extractToken($request, $tenant->id);
+        $verifiedEmail = PatientPayOtp::validateSessionToken($tenant->id, $token);
+
+        if (! $verifiedEmail) {
+            return response()->json(['message' => 'Session expired.'], 401);
+        }
+
+        $invoiceId = (string) $request->route('invoice');
+        $data = $request->validate([
+            'payment_intent_id' => ['nullable', 'string'],
+            'error_message'     => ['nullable', 'string'],
+        ]);
+
+        $invoiceModel = Invoice::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->whereKey($invoiceId)
+            ->with('client')
+            ->first();
+
+        if (
+            ! $invoiceModel ||
+            ! $invoiceModel->client ||
+            PatientPayOtp::normalize((string) $invoiceModel->client->email) !== $verifiedEmail
+        ) {
+            abort(404);
+        }
+
+        if (! empty($data['payment_intent_id'])) {
+            $this->payments->markCardFailed($data['payment_intent_id'], $data['error_message'] ?? null);
+        } elseif ($invoiceModel->client?->email) {
+            try {
+                \Illuminate\Support\Facades\Notification::route('mail', $invoiceModel->client->email)
+                    ->notify(new \App\Notifications\PatientPaymentFailedNotification(
+                        $invoiceModel,
+                        null,
+                        $tenant,
+                        $data['error_message'] ?? null
+                    ));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Could not send payment failure notification: ' . $e->getMessage());
+            }
+        }
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Payment failure recorded.',
+        ]);
+    }
+
+    /**
      * View a printable patient receipt for a paid invoice.
      */
     public function receipt(Request $request): Response|RedirectResponse

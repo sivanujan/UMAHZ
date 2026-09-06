@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AddressPicker from '@/Components/AddressPicker';
-import { Building2, Mail, Phone, MapPin, Stethoscope, Palette, Upload, Check, ShieldCheck, ClipboardList, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { Building2, Mail, Phone, MapPin, Stethoscope, Palette, Upload, Check, ShieldCheck, ClipboardList, Plus, Sparkles, Trash2, Globe } from 'lucide-react';
 
 const DISCIPLINE_LABELS = {
     massage_therapy: 'Massage Therapy',
@@ -382,6 +382,29 @@ export default function ClinicSettings({ tenant, timezones, currencies, province
                 <ProfileSection tenant={tenant} timezones={timezones} currencies={currencies} provinces={provinces} countries={countries} cities={cities} />
                 <DisciplinesSection tenant={tenant} allDisciplines={allDisciplines} customDisciplines={customDisciplines} disciplineLabels={disciplineLabels} />
                 <BrandingSection tenant={tenant} />
+
+                <Card icon={Globe} title="Public Home Page" subtitle="Customize what patients see when they visit your clinic's public URL.">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <p className="text-xs text-slate-600 dark:text-slate-400 max-w-lg leading-relaxed">
+                            Add your tagline, clinic description, cover photo, social media links, and custom
+                            call-to-action buttons. Patients will see Pay Invoices and Staff Login by default.
+                        </p>
+                        <div className="flex items-center gap-2 shrink-0">
+                            <Link
+                                href="/app/settings/homepage"
+                                className="inline-flex items-center px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 transition"
+                            >
+                                Simple Settings
+                            </Link>
+                            <Link
+                                href="/app/settings/page-builder"
+                                className="inline-flex items-center px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold rounded-xl shadow-sm transition"
+                            >
+                                Visual Page Builder ✨
+                            </Link>
+                        </div>
+                    </div>
+                </Card>
 
                 <Card icon={ShieldCheck} title="Informed Consent Agreements" subtitle="Configure legal agreement texts and consent forms for your clinic.">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

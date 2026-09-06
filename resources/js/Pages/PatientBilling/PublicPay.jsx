@@ -56,6 +56,7 @@ export default function PublicPay({
     const [sessionToken, setSessionToken] = useState(initialToken);
     const [invoices, setInvoices] = useState(initialInvoices);
     const [payingInvoice, setPayingInvoice] = useState(null);
+    const [successBanner, setSuccessBanner] = useState(null);
 
     // Cooldown countdown timer
     useEffect(() => {
@@ -157,13 +158,22 @@ export default function PublicPay({
                 setEmail('');
                 setCode('');
                 setStep('email');
+                setSuccessBanner(null);
             },
         });
     };
 
-    const handlePaymentSuccess = (paidInvoiceId) => {
+    const handlePaymentSuccess = (paidInvoiceId, receiptUrl, amount, currency, reference) => {
         setPayingInvoice(null);
-        // Refresh invoice list
+        setSuccessBanner({
+            invoiceId: paidInvoiceId,
+            reference: reference,
+            amount: amount,
+            currency: currency,
+            receiptUrl: receiptUrl,
+        });
+
+        // Refresh invoice in state
         setInvoices((prev) =>
             prev.map((inv) =>
                 inv.id === paidInvoiceId
@@ -386,6 +396,43 @@ export default function PublicPay({
 
                 {step === 'invoices' && (
                     <div className="space-y-6 animate-in fade-in duration-300">
+                        {/* Success Notification Banner */}
+                        {successBanner && (
+                            <div className="p-4 sm:p-5 rounded-3xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 shadow-md shadow-emerald-900/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-300">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                                        <CheckCircle2 className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm sm:text-base font-bold text-emerald-950 dark:text-emerald-200">
+                                            Payment of {fmt(successBanner.amount, successBanner.currency)} for {successBanner.reference} was successful!
+                                        </h4>
+                                        <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
+                                            An official receipt has been emailed to <strong>{email}</strong>.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 self-end sm:self-auto">
+                                    <a
+                                        href={successBanner.receiptUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all"
+                                    >
+                                        <Printer className="w-3.5 h-3.5" />
+                                        <span>View Receipt</span>
+                                    </a>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSuccessBanner(null)}
+                                        className="p-2 rounded-xl text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Status bar */}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-sm">
                             <div className="flex items-center gap-2.5">
@@ -447,10 +494,17 @@ export default function PublicPay({
                 <PatientCardPaymentModal
                     invoice={payingInvoice}
                     clinic={clinic}
+                    userEmail={email}
                     sessionToken={sessionToken}
                     publishableKey={publishableKey}
                     onClose={() => setPayingInvoice(null)}
-                    onSuccess={() => handlePaymentSuccess(payingInvoice.id)}
+                    onSuccess={(receiptUrl) => handlePaymentSuccess(
+                        payingInvoice.id,
+                        receiptUrl,
+                        payingInvoice.amount_due,
+                        payingInvoice.currency,
+                        payingInvoice.reference
+                    )}
                 />
             )}
         </div>
@@ -618,9 +672,11 @@ function InvoiceCard({ invoice, clinic, onPayClick }) {
     );
 }
 
-function PatientCardPaymentModal({ invoice, clinic, sessionToken, publishableKey, onClose, onSuccess }) {
+function PatientCardPaymentModal({ invoice, clinic, userEmail, sessionToken, publishableKey, onClose, onSuccess }) {
     const [status, setStatus] = useState('init'); // init | ready | processing | done | error
     const [error, setError] = useState(null);
+    const [receiptUrl, setReceiptUrl] = useState(`/pay/invoices/${invoice.id}/receipt`);
+    const [currentPaymentIntentId, setCurrentPaymentIntentId] = useState(null);
     const stripeRef = useRef(null);
     const elementsRef = useRef(null);
 
@@ -642,6 +698,8 @@ function PatientCardPaymentModal({ invoice, clinic, sessionToken, publishableKey
                 if (!res.ok) {
                     throw new Error(data.message || 'Could not initialize card payment.');
                 }
+
+                setCurrentPaymentIntentId(data.payment_intent_id);
 
                 const StripeCtor = await loadStripeJs();
                 if (cancelled) return;
@@ -680,54 +738,140 @@ function PatientCardPaymentModal({ invoice, clinic, sessionToken, publishableKey
         });
 
         if (err) {
-            setError(err.message);
+            setError(err.message || 'Your card could not be processed. Please check details or try another card.');
             setStatus('ready');
+
+            // Dispatch payment failure notification email to patient
+            fetch(`/pay/invoices/${invoice.id}/fail`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-Patient-Pay-Token': sessionToken || '',
+                },
+                body: JSON.stringify({
+                    payment_intent_id: currentPaymentIntentId,
+                    error_message: err.message,
+                }),
+            }).catch(() => {});
+
             return;
         }
 
         if (paymentIntent && (paymentIntent.status === 'succeeded' || paymentIntent.status === 'processing')) {
+            // Confirm payment on backend immediately and dispatch receipt email
+            try {
+                const confRes = await fetch(`/pay/invoices/${invoice.id}/confirm`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-Patient-Pay-Token': sessionToken || '',
+                    },
+                    body: JSON.stringify({
+                        payment_intent_id: paymentIntent.id,
+                    }),
+                });
+                const confData = await confRes.json();
+                if (confData.receipt_url) {
+                    setReceiptUrl(confData.receipt_url);
+                }
+            } catch (confirmErr) {
+                console.warn('Confirmation notice:', confirmErr);
+            }
+
             setStatus('done');
-            setTimeout(() => {
-                onSuccess();
-            }, 1200);
         }
     };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-6 sm:p-7 relative">
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                >
-                    <X className="w-4 h-4" />
-                </button>
+                {status !== 'processing' && (
+                    <button
+                        type="button"
+                        onClick={status === 'done' ? () => onSuccess(receiptUrl) : onClose}
+                        className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                )}
 
                 <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                        <CreditCard className="w-5 h-5" />
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
+                        status === 'done'
+                            ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400'
+                            : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400'
+                    }`}>
+                        {status === 'done' ? <CheckCircle2 className="w-5 h-5" /> : <CreditCard className="w-5 h-5" />}
                     </div>
                     <div>
                         <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                            Pay {invoice.reference}
+                            {status === 'done' ? 'Payment Completed' : `Pay ${invoice.reference}`}
                         </h2>
                         <p className="text-xs text-slate-500">Direct payment to {clinic.name}</p>
                     </div>
                 </div>
 
                 {error && (
-                    <div className="mb-4 p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200/80 dark:border-red-900/50 text-red-700 dark:text-red-300 text-xs flex items-start gap-2">
-                        <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                        <span>{error}</span>
+                    <div className="mb-4 p-4 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200/80 dark:border-red-900/50 text-red-800 dark:text-red-300 text-xs flex flex-col gap-2">
+                        <div className="flex items-start gap-2">
+                            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-red-600 dark:text-red-400" />
+                            <div>
+                                <span className="font-bold block">Payment Unsuccessful</span>
+                                <span>{error}</span>
+                            </div>
+                        </div>
+                        <div className="text-[11px] text-red-600 dark:text-red-400 pt-1 border-t border-red-200/60 dark:border-red-900/40">
+                            📧 A notification with details has been sent to <strong>{userEmail}</strong>. No funds were charged. You can retry below.
+                        </div>
                     </div>
                 )}
 
                 {status === 'done' ? (
-                    <div className="py-8 text-center text-emerald-600 animate-in zoom-in-95 duration-300">
-                        <CheckCircle2 className="w-12 h-12 mx-auto mb-3" />
-                        <h3 className="text-base font-bold text-slate-900 dark:text-white">Payment Succeeded</h3>
-                        <p className="text-xs text-slate-500 mt-1">Thank you! Updating your invoice status…</p>
+                    <div className="py-5 text-center animate-in zoom-in-95 duration-300 space-y-4">
+                        <div className="w-16 h-16 rounded-3xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-inner">
+                            <CheckCircle2 className="w-9 h-9" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">
+                                Payment Successful!
+                            </h3>
+                            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                                We received your payment of <strong className="text-slate-900 dark:text-white">{fmt(invoice.amount_due, invoice.currency)}</strong> for invoice <strong className="text-slate-900 dark:text-white">{invoice.reference}</strong>.
+                            </p>
+                        </div>
+
+                        <div className="p-3.5 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-900/50 text-xs text-emerald-800 dark:text-emerald-300 text-left space-y-1">
+                            <div className="flex items-center gap-1.5 font-semibold">
+                                <Mail className="w-3.5 h-3.5 shrink-0" />
+                                <span>Receipt Emailed</span>
+                            </div>
+                            <p className="text-[11px] text-emerald-700 dark:text-emerald-400">
+                                An official receipt has been sent to <strong>{userEmail}</strong>.
+                            </p>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-2">
+                            <a
+                                href={receiptUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold shadow-md shadow-emerald-600/25 flex items-center justify-center gap-2 transition-all"
+                            >
+                                <Printer className="w-4 h-4" />
+                                <span>View &amp; Print Receipt</span>
+                            </a>
+                            <button
+                                type="button"
+                                onClick={() => onSuccess(receiptUrl)}
+                                className="w-full py-3 px-4 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            >
+                                Back to Invoices
+                            </button>
+                        </div>
                     </div>
                 ) : (
                     <form onSubmit={handlePay}>

@@ -54,6 +54,16 @@ class PaymentService
 
             $this->applySucceededPayment($locked, $amount);
 
+            // Send payment receipt email
+            if ($locked->client?->email) {
+                try {
+                    \Illuminate\Support\Facades\Notification::route('mail', $locked->client->email)
+                        ->notify(new \App\Notifications\PatientPaymentReceiptNotification($locked, $payment, $locked->tenant));
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Could not send manual payment receipt email: ' . $e->getMessage());
+                }
+            }
+
             return $payment;
         });
     }
@@ -134,22 +144,34 @@ class PaymentService
 
             $invoice = Invoice::withoutGlobalScopes()
                 ->whereKey($payment->invoice_id)
+                ->with(['client', 'tenant'])
                 ->lockForUpdate()
                 ->first();
 
             if ($invoice) {
                 $this->applySucceededPayment($invoice, (int) $payment->amount);
+
+                // Dispatch payment receipt email
+                if ($invoice->client?->email) {
+                    try {
+                        \Illuminate\Support\Facades\Notification::route('mail', $invoice->client->email)
+                            ->notify(new \App\Notifications\PatientPaymentReceiptNotification($invoice, $payment, $invoice->tenant));
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::warning('Could not send card payment receipt email: ' . $e->getMessage());
+                    }
+                }
             }
 
             return $payment;
         });
     }
 
-    /** Mark a card payment failed (webhook payment_intent.payment_failed). */
-    public function markCardFailed(string $paymentIntentId): ?Payment
+    /** Mark a card payment failed (webhook payment_intent.payment_failed or frontend report). */
+    public function markCardFailed(string $paymentIntentId, ?string $errorMessage = null): ?Payment
     {
         $payment = Payment::withoutGlobalScopes()
             ->where('stripe_payment_intent_id', $paymentIntentId)
+            ->with(['invoice.client', 'invoice.tenant'])
             ->first();
 
         if (! $payment || $payment->status === Payment::STATUS_SUCCEEDED) {
@@ -157,6 +179,20 @@ class PaymentService
         }
 
         $payment->forceFill(['status' => Payment::STATUS_FAILED])->save();
+
+        if ($payment->invoice && $payment->invoice->client?->email) {
+            try {
+                \Illuminate\Support\Facades\Notification::route('mail', $payment->invoice->client->email)
+                    ->notify(new \App\Notifications\PatientPaymentFailedNotification(
+                        $payment->invoice,
+                        $payment,
+                        $payment->invoice->tenant,
+                        $errorMessage
+                    ));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Could not send payment failure email: ' . $e->getMessage());
+            }
+        }
 
         return $payment;
     }
