@@ -21,6 +21,7 @@ use App\Http\Controllers\Onboarding\OnboardingController;
 use App\Http\Controllers\PatientBilling\ClinicConnectController;
 use App\Http\Controllers\PatientBilling\ConnectWebhookController;
 use App\Http\Controllers\PatientBilling\InvoiceController;
+use App\Http\Controllers\PatientBilling\PatientPayController;
 use App\Http\Controllers\PatientBilling\PaymentController;
 use App\Http\Controllers\Portal\SettingsController;
 use App\Http\Controllers\PractitionerAppointmentController;
@@ -191,6 +192,14 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
     // Public unauthenticated patient intake form completion
     Route::get('/intake/{token}', [PublicIntakeController::class, 'show'])->name('intake.public.show');
     Route::post('/intake/{token}', [PublicIntakeController::class, 'submit'])->name('intake.public.submit');
+
+    // Public patient invoice pay portal with OTP verification
+    Route::get('/pay', [PatientPayController::class, 'show'])->name('patient.pay');
+    Route::post('/pay/send-otp', [PatientPayController::class, 'sendOtp'])->middleware('throttle:5,1')->name('patient.pay.send-otp');
+    Route::post('/pay/verify-otp', [PatientPayController::class, 'verifyOtp'])->middleware('throttle:10,1')->name('patient.pay.verify-otp');
+    Route::post('/pay/invoices/{invoice}/card', [PatientPayController::class, 'startPayment'])->middleware('throttle:10,1')->name('patient.pay.card');
+    Route::get('/pay/invoices/{invoice}/receipt', [PatientPayController::class, 'receipt'])->name('patient.pay.receipt');
+    Route::post('/pay/logout', [PatientPayController::class, 'logout'])->name('patient.pay.logout');
 
     /*
     | Clinic application status — /clinic/status
