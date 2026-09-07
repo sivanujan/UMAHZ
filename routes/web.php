@@ -333,6 +333,7 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
             Route::get('/billing', [ClinicBillingController::class, 'show'])->name('billing');
             Route::put('/billing/plan', [ClinicBillingController::class, 'updatePlan'])->name('billing.plan');
             Route::post('/billing/payment-method', [ClinicBillingController::class, 'updatePaymentMethod'])->name('billing.payment-method');
+            Route::post('/billing/setup-intent', [ClinicBillingController::class, 'createSetupIntent'])->name('billing.setup-intent');
             Route::get('/billing/invoices/{invoice}', [ClinicBillingController::class, 'downloadInvoice'])->name('billing.invoice');
 
             // Connect payments onboarding — owner connects the clinic's own

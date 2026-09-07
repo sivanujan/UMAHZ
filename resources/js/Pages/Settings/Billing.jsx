@@ -403,6 +403,7 @@ export default function Billing({
                     onClose={() => setIsUpdateCardOpen(false)}
                     stripeKey={stripeKey}
                     setupIntentSecret={setupIntentSecret}
+                    hasExistingCard={!!paymentMethod}
                 />
             )}
         </AuthenticatedLayout>
@@ -676,12 +677,13 @@ function ChangePlanModal({ isOpen, onClose, currentPlan, currentFt, currentPt, t
 }
 
 /**
- * Modal for updating payment card with Stripe Elements
+ * Modal for adding or updating payment card with Stripe Elements
  */
-function UpdateCardModal({ isOpen, onClose, stripeKey, setupIntentSecret }) {
+function UpdateCardModal({ isOpen, onClose, stripeKey, setupIntentSecret, hasExistingCard }) {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
+    const [clientSecret, setClientSecret] = useState(setupIntentSecret || null);
     const cardRef = useRef(null);
     const stripeRef = useRef(null);
     const cardElementRef = useRef(null);
@@ -693,6 +695,33 @@ function UpdateCardModal({ isOpen, onClose, stripeKey, setupIntentSecret }) {
             try {
                 setLoading(true);
                 setError(null);
+
+                if (!stripeKey) {
+                    setError('Stripe publishable key is not configured. Please ensure STRIPE_KEY is set in your environment.');
+                    setLoading(false);
+                    return;
+                }
+
+                // If setupIntentSecret is not provided via prop, fetch one on-demand
+                let secret = setupIntentSecret;
+                if (!secret) {
+                    try {
+                        const { data } = await window.axios.post('/app/billing/setup-intent');
+                        secret = data.client_secret;
+                        if (mounted) {
+                            setClientSecret(secret);
+                        }
+                    } catch (fetchErr) {
+                        if (mounted) {
+                            const msg = fetchErr?.response?.data?.error || 'Could not initialize payment setup. Please try again.';
+                            setError(msg);
+                            setLoading(false);
+                            return;
+                        }
+                    }
+                } else {
+                    setClientSecret(secret);
+                }
 
                 const Stripe = await loadStripeJs();
                 if (!mounted) return;
@@ -728,21 +757,39 @@ function UpdateCardModal({ isOpen, onClose, stripeKey, setupIntentSecret }) {
         return () => {
             mounted = false;
         };
-    }, [stripeKey]);
+    }, [stripeKey, setupIntentSecret]);
 
     const handleConfirmCard = async (e) => {
         e.preventDefault();
-        if (!stripeRef.current || !cardElementRef.current || !setupIntentSecret) {
+        setError(null);
+
+        let activeSecret = clientSecret;
+
+        // Fallback: If activeSecret is still missing, attempt fetching on-demand
+        if (!activeSecret) {
+            setSubmitting(true);
+            try {
+                const { data } = await window.axios.post('/app/billing/setup-intent');
+                activeSecret = data.client_secret;
+                setClientSecret(activeSecret);
+            } catch (fetchErr) {
+                setSubmitting(false);
+                setError('Payment setup is not ready. Please refresh.');
+                return;
+            }
+        }
+
+        if (!stripeRef.current || !cardElementRef.current || !activeSecret) {
             setError('Payment setup is not ready. Please refresh.');
+            setSubmitting(false);
             return;
         }
 
         setSubmitting(true);
-        setError(null);
 
         try {
             const { setupIntent, error: stripeError } = await stripeRef.current.confirmCardSetup(
-                setupIntentSecret,
+                activeSecret,
                 { payment_method: { card: cardElementRef.current } }
             );
 
@@ -765,6 +812,9 @@ function UpdateCardModal({ isOpen, onClose, stripeKey, setupIntentSecret }) {
                         setError(errs.card || 'Could not save payment method.');
                     },
                 });
+            } else {
+                setSubmitting(false);
+                setError('Card verification was not completed. Please try again.');
             }
         } catch (err) {
             setError('An unexpected error occurred while confirming your card.');
@@ -778,9 +828,11 @@ function UpdateCardModal({ isOpen, onClose, stripeKey, setupIntentSecret }) {
                 <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <CreditCard className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                        <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                            Update Payment Card
-                        </h3>
+                        <div>
+                            <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                                {hasExistingCard ? 'Update Payment Card' : 'Add Payment Card'}
+                            </h3>
+                        </div>
                     </div>
                     <button
                         onClick={onClose}
@@ -802,10 +854,18 @@ function UpdateCardModal({ isOpen, onClose, stripeKey, setupIntentSecret }) {
                         <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-2">
                             Card Information
                         </label>
-                        <div
-                            ref={cardRef}
-                            className="p-3.5 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-300 dark:border-slate-700 min-h-[44px]"
-                        />
+                        <div className="relative">
+                            <div
+                                ref={cardRef}
+                                className="p-3.5 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-300 dark:border-slate-700 min-h-[44px]"
+                            />
+                            {loading && (
+                                <div className="absolute inset-0 bg-slate-50/80 dark:bg-slate-800/80 rounded-xl flex items-center justify-center text-xs text-slate-500 gap-2">
+                                    <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
+                                    <span>Initializing secure payment form...</span>
+                                </div>
+                            )}
+                        </div>
                         <p className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1">
                             <Lock className="w-3 h-3" />
                             <span>End-to-end encrypted directly with Stripe.</span>
@@ -828,10 +888,10 @@ function UpdateCardModal({ isOpen, onClose, stripeKey, setupIntentSecret }) {
                             {submitting ? (
                                 <>
                                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                    <span>Saving Card...</span>
+                                    <span>{hasExistingCard ? 'Updating Card...' : 'Saving Card...'}</span>
                                 </>
                             ) : (
-                                <span>Save Card</span>
+                                <span>{hasExistingCard ? 'Update Card' : 'Save Card'}</span>
                             )}
                         </button>
                     </div>
