@@ -43,8 +43,8 @@ class ClinicBillingController extends Controller
         $paymentMethod = null;
         $intentClientSecret = null;
 
-        if ($tenant->stripe_id) {
-            try {
+        try {
+            if ($tenant->stripe_id) {
                 $defaultPm = $tenant->defaultPaymentMethod();
                 if ($defaultPm) {
                     $paymentMethod = [
@@ -55,13 +55,22 @@ class ClinicBillingController extends Controller
                         'exp_year' => $defaultPm->card->exp_year ?? null,
                     ];
                 }
+            }
 
-                // SetupIntent for updating card
+            // Always create/ensure customer and generate SetupIntent for adding or updating card
+            if (config('cashier.key') && config('cashier.secret')) {
+                if (! $tenant->stripe_id) {
+                    $tenant->createOrGetStripeCustomer([
+                        'email' => $tenant->email ?? $request->user()?->email,
+                        'name' => $tenant->name,
+                    ]);
+                }
+
                 $setupIntent = $tenant->createSetupIntent();
                 $intentClientSecret = $setupIntent->client_secret;
-            } catch (\Throwable $e) {
-                report($e);
             }
+        } catch (\Throwable $e) {
+            report($e);
         }
 
         // 3. Past Invoices History
@@ -100,6 +109,42 @@ class ClinicBillingController extends Controller
             'invoices' => $invoices,
             'tiers' => array_values(SubscriptionTierConfig::allTiers()),
         ]);
+    }
+
+    /**
+     * Generate a new SetupIntent client secret on demand for card entry/updates.
+     */
+    public function createSetupIntent(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $tenant = $request->get('tenant') ?? $request->user()->tenants()->first();
+
+        try {
+            if (! config('cashier.key') || ! config('cashier.secret')) {
+                return response()->json([
+                    'error' => 'Stripe credentials are not configured.',
+                ], 500);
+            }
+
+            if (! $tenant->stripe_id) {
+                $tenant->createOrGetStripeCustomer([
+                    'email' => $tenant->email ?? $request->user()?->email,
+                    'name' => $tenant->name,
+                ]);
+            }
+
+            $setupIntent = $tenant->createSetupIntent();
+
+            return response()->json([
+                'client_secret' => $setupIntent->client_secret,
+                'publishable_key' => config('cashier.key'),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'error' => 'Could not initialize payment setup: '.$e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
@@ -156,6 +201,13 @@ class ClinicBillingController extends Controller
         ]);
 
         try {
+            if (! $tenant->stripe_id) {
+                $tenant->createOrGetStripeCustomer([
+                    'email' => $tenant->email ?? $request->user()?->email,
+                    'name' => $tenant->name,
+                ]);
+            }
+
             $tenant->updateDefaultPaymentMethod($validated['payment_method_id']);
             $tenant->update(['stripe_pm_id' => $validated['payment_method_id']]);
         } catch (\Throwable $e) {
