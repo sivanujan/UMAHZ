@@ -1,11 +1,7 @@
 import React from 'react';
-import { Check, Sparkles, Zap, Shield, Users, Plus, Minus, Info } from 'lucide-react';
+import { Check, Sparkles, Zap, Shield, Users, Plus, Minus, Info, CheckCircle2 } from 'lucide-react';
 
 const BLUE = '#2563EB';
-const NAVY = '#0D1B2A';
-const TEAL = '#06B6D4';
-const GREEN = '#22C55E';
-const LIGHT_GRAY = '#F1F5F9';
 const FONT_MANROPE = "'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 
 export const TIERS = {
@@ -19,15 +15,22 @@ export const TIERS = {
         maxAppointments: 20,
         extraFtPrice: 0,
         extraPtPrice: 0,
-        badge: 'Solo Practitioner',
+        badge: 'Solo',
         badgeIcon: Shield,
+        badgeColor: {
+            bg: 'bg-slate-100',
+            text: 'text-slate-700',
+            border: 'border-slate-200/90',
+            icon: 'text-slate-500',
+        },
         features: [
-            '1 practitioner only (capped)',
-            'Up to 20 appointments / mo',
-            'Online booking & calendar',
-            'Charting & intake forms',
-            'Billing & invoicing',
+            '1 practitioner seat (capped)',
+            'Up to 20 appointments / month',
+            'Online booking & client calendar',
+            'SOAP charting & intake forms',
+            'Patient billing & invoicing',
         ],
+        extraPricingNote: 'Solo practitioner only (no add-on seats)',
     },
     practice: {
         id: 'practice',
@@ -39,16 +42,23 @@ export const TIERS = {
         maxAppointments: null,
         extraFtPrice: 35.0,
         extraPtPrice: 17.5,
-        badge: 'Most Popular',
+        badge: 'Clinic',
         badgeIcon: Sparkles,
+        badgeColor: {
+            bg: 'bg-blue-50',
+            text: 'text-[#2563EB]',
+            border: 'border-blue-200/80',
+            icon: 'text-[#2563EB]',
+        },
+        isPopular: true,
         features: [
             'Includes 1 full-time practitioner',
-            'Unlimited appointments',
-            '+$35/mo per extra FT practitioner',
-            '+$17.50/mo per extra PT practitioner',
-            'Custom disciplines & templates',
-            'Multi-practitioner scheduling',
+            'Unlimited appointments & clients',
+            'Custom disciplines & intake forms',
+            'Multi-practitioner room scheduling',
+            'Unified client records & consent audit',
         ],
+        extraPricingNote: 'Extra seats: +$35/mo FT · +$17.50/mo PT',
     },
     thrive: {
         id: 'thrive',
@@ -60,16 +70,22 @@ export const TIERS = {
         maxAppointments: null,
         extraFtPrice: 40.0,
         extraPtPrice: 20.0,
-        badge: 'Full Featured',
+        badge: 'Full',
         badgeIcon: Zap,
+        badgeColor: {
+            bg: 'bg-purple-50',
+            text: 'text-purple-700',
+            border: 'border-purple-200/80',
+            icon: 'text-purple-600',
+        },
         features: [
             'Includes 1 full-time practitioner',
-            'Unlimited appointments',
-            '+$40/mo per extra FT practitioner',
-            '+$20/mo per extra PT practitioner',
-            'Priority support & analytics',
-            'Custom branding & white-label',
+            'Unlimited appointments & clients',
+            'Priority clinical support & analytics',
+            'Custom clinic branding & templates',
+            'Advanced reporting & financial export',
         ],
+        extraPricingNote: 'Extra seats: +$40/mo FT · +$20/mo PT',
     },
 };
 
@@ -80,6 +96,23 @@ export function normalizeTiers(rawTiers = {}) {
     Object.entries(rawTiers).forEach(([key, val]) => {
         if (!val) return;
         const defaultTier = TIERS[key] || TIERS.practice;
+
+        // Clean feature list: separate benefit bullets from add-on seat pricing
+        const rawFeatures = Array.isArray(val.features) ? val.features : defaultTier.features;
+        const benefitFeatures = rawFeatures.filter(
+            (f) => typeof f === 'string' && !f.trim().startsWith('+$') && !f.toLowerCase().includes('per extra')
+        );
+
+        const extraFtPrice = val.addon_price_ft !== undefined ? parseFloat(val.addon_price_ft) : (val.extraFtPrice || defaultTier.extraFtPrice);
+        const extraPtPrice = val.addon_price_pt !== undefined ? parseFloat(val.addon_price_pt) : (val.extraPtPrice || defaultTier.extraPtPrice);
+
+        let extraPricingNote = defaultTier.extraPricingNote;
+        if (key === 'balance') {
+            extraPricingNote = 'Solo practitioner only (no add-on seats)';
+        } else if (extraFtPrice || extraPtPrice) {
+            extraPricingNote = `Extra seats: +$${extraFtPrice.toFixed(2)}/mo FT · +$${extraPtPrice.toFixed(2)}/mo PT`;
+        }
+
         result[key] = {
             id: key,
             name: val.name || defaultTier.name,
@@ -88,11 +121,14 @@ export function normalizeTiers(rawTiers = {}) {
             includedFt: val.included_full_time !== undefined ? parseInt(val.included_full_time, 10) : (val.includedFt || defaultTier.includedFt),
             maxPractitioners: val.max_practitioners !== undefined ? val.max_practitioners : defaultTier.maxPractitioners,
             maxAppointments: val.max_appointments_per_month !== undefined ? val.max_appointments_per_month : defaultTier.maxAppointments,
-            extraFtPrice: val.addon_price_ft !== undefined ? parseFloat(val.addon_price_ft) : (val.extraFtPrice || defaultTier.extraFtPrice),
-            extraPtPrice: val.addon_price_pt !== undefined ? parseFloat(val.addon_price_pt) : (val.extraPtPrice || defaultTier.extraPtPrice),
-            badge: val.badge || defaultTier.badge,
+            extraFtPrice,
+            extraPtPrice,
+            badge: key === 'balance' ? 'Solo' : key === 'practice' ? 'Clinic' : 'Full',
             badgeIcon: defaultTier.badgeIcon || Sparkles,
-            features: Array.isArray(val.features) ? val.features : defaultTier.features,
+            badgeColor: defaultTier.badgeColor,
+            isPopular: key === 'practice',
+            features: benefitFeatures.length > 0 ? benefitFeatures : defaultTier.features,
+            extraPricingNote,
         };
     });
 
@@ -134,7 +170,16 @@ export function calculateMonthlyTotal(tierId, fullTimeCount = 1, partTimeCount =
     };
 }
 
-export default function PlanStep({ selectedTier, onSelectTier, ftCount, onChangeFt, ptCount, onChangePt, error, tiers: rawTiers }) {
+export default function PlanStep({
+    selectedTier,
+    onSelectTier,
+    ftCount,
+    onChangeFt,
+    ptCount,
+    onChangePt,
+    error,
+    tiers: rawTiers,
+}) {
     const activeTiers = normalizeTiers(rawTiers);
     const currentTier = selectedTier || 'practice';
     const breakdown = calculateMonthlyTotal(currentTier, ftCount, ptCount, activeTiers);
@@ -147,245 +192,380 @@ export default function PlanStep({ selectedTier, onSelectTier, ftCount, onChange
         }
     };
 
+    const extraFtCost = breakdown.extraFtCost;
+    const extraPtCost = breakdown.extraPtCost;
+
     return (
-        <div className="space-y-6" style={{ fontFamily: FONT_MANROPE }}>
+        <div className="space-y-6 sm:space-y-7" style={{ fontFamily: FONT_MANROPE }}>
+            {/* Step Header */}
             <div>
-                <h3 className="text-[14px] font-bold text-[#0D1B2A] tracking-tight mb-1">
+                <h3 className="text-base font-bold text-[#0D1B2A] tracking-tight mb-1">
                     Select your clinic subscription plan
                 </h3>
                 <p className="text-[13px] text-slate-500 leading-relaxed">
-                    All plans are billed monthly in CAD after admin review. Card is captured now, but nothing is charged today.
+                    All plans are billed monthly in CAD after platform review. Card is verified now, but nothing is charged today.
                 </p>
             </div>
 
             {error && (
-                <div className="p-4 bg-rose-50 border border-rose-200/80 rounded-2xl text-[13px] text-rose-700 font-medium flex items-center gap-2">
-                    <Info className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                <div
+                    role="alert"
+                    className="p-4 bg-rose-50 border border-rose-200/80 rounded-2xl text-[13px] text-rose-700 font-medium flex items-center gap-2.5 shadow-xs"
+                >
+                    <Info className="w-4 h-4 text-rose-500 flex-shrink-0" aria-hidden="true" />
                     <span>{error}</span>
                 </div>
             )}
 
-            {/* 3 Tier Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
+            {/* 3 Subscription Plan Cards Grid */}
+            <div
+                role="radiogroup"
+                aria-label="Subscription Plans"
+                className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5 items-stretch pt-3 sm:pt-4"
+            >
                 {Object.values(activeTiers).map((tier) => {
                     const isSelected = currentTier === tier.id;
+                    const isRecommended = tier.isPopular || tier.id === 'practice';
                     const BadgeIcon = tier.badgeIcon || Sparkles;
+                    const badgeColors = tier.badgeColor || {
+                        bg: 'bg-slate-100',
+                        text: 'text-slate-700',
+                        border: 'border-slate-200/80',
+                        icon: 'text-slate-500',
+                    };
 
                     return (
                         <div
                             key={tier.id}
+                            role="radio"
+                            aria-checked={isSelected}
+                            tabIndex={0}
                             onClick={() => handleTierChange(tier.id)}
-                            className={`group relative rounded-2xl cursor-pointer transition-all duration-200 flex flex-col justify-between p-5 ${
+                            onKeyDown={(e) => {
+                                if (e.key === ' ' || e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleTierChange(tier.id);
+                                }
+                            }}
+                            className={`group relative rounded-2xl cursor-pointer transition-all duration-200 flex flex-col justify-between p-5 select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 ${
+                                isRecommended
+                                    ? 'md:-translate-y-2.5 shadow-md shadow-blue-900/5'
+                                    : 'hover:shadow-md'
+                            } ${
                                 isSelected
-                                    ? 'bg-blue-50/40 border-2 border-[#2563EB] shadow-lg shadow-blue-500/10'
-                                    : 'bg-white border border-slate-200/90 hover:border-slate-300 hover:shadow-md'
-                            }`}
-                            style={isSelected ? { borderTopWidth: '4px', borderTopColor: BLUE } : {}}
+                                    ? isRecommended
+                                        ? 'bg-blue-50/40 border-2 border-[#2563EB] shadow-lg shadow-blue-500/15'
+                                        : 'bg-blue-50/40 border-2 border-[#2563EB] shadow-md shadow-blue-500/10'
+                                    : isRecommended
+                                    ? 'bg-white border-2 border-[#2563EB] hover:shadow-lg'
+                                    : 'bg-white border border-slate-200/90 hover:border-slate-300'
+                            } motion-reduce:transform-none`}
                         >
-                            {/* Card Content Top Section */}
-                            <div>
-                                {/* Top Bar: Exactly ONE badge on left, radio selector on right */}
+                            {/* "Most Popular" Ribbon Badge Centered on Top Edge */}
+                            {isRecommended && (
+                                <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+                                    <span className="inline-flex items-center gap-1.5 bg-[#2563EB] text-white text-[11px] font-bold uppercase tracking-wider px-3 py-0.5 rounded-full shadow-sm shadow-blue-600/30 whitespace-nowrap">
+                                        <Sparkles className="w-3 h-3 text-white" aria-hidden="true" />
+                                        <span>Most Popular</span>
+                                    </span>
+                                </div>
+                            )}
+
+                            <div className="flex flex-col flex-1">
+                                {/* Row 1: Consistent Badge on Left, Selection Radio Indicator on Right */}
                                 <div className="h-7 flex items-center justify-between">
                                     <span
-                                        className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-0.5 rounded-full font-semibold transition-colors ${
-                                            isSelected
-                                                ? 'bg-[#2563EB] text-white shadow-xs'
-                                                : 'bg-slate-100 text-slate-600 border border-slate-200/70 font-medium'
-                                        }`}
+                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide border ${badgeColors.bg} ${badgeColors.text} ${badgeColors.border}`}
                                     >
-                                        <BadgeIcon className={`w-3 h-3 ${isSelected ? 'text-white' : 'text-slate-400'}`} />
-                                        {tier.badge}
+                                        <BadgeIcon
+                                            className={`w-3 h-3 flex-shrink-0 ${badgeColors.icon}`}
+                                            aria-hidden="true"
+                                        />
+                                        <span>{tier.badge}</span>
                                     </span>
 
-                                    {/* Selection Radio Circle */}
+                                    {/* Selection Radio Circle Indicator */}
                                     <span
                                         className={`w-5 h-5 rounded-full flex items-center justify-center transition-all ${
                                             isSelected
-                                                ? 'bg-[#2563EB] border border-[#2563EB] text-white shadow-xs'
-                                                : 'border border-slate-300 bg-white group-hover:border-slate-400'
+                                                ? 'bg-[#2563EB] text-white shadow-xs'
+                                                : 'border-2 border-slate-300 bg-white group-hover:border-slate-400'
                                         }`}
+                                        aria-hidden="true"
                                     >
                                         {isSelected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
                                     </span>
                                 </div>
 
-                                {/* Title */}
-                                <h4 className="mt-3 text-[17px] sm:text-[18px] font-bold text-[#0D1B2A] tracking-tight leading-snug">
-                                    {tier.name}
-                                </h4>
+                                {/* Row 2: Plan Name */}
+                                <div className="h-7 mt-3 flex items-center">
+                                    <h4 className="text-lg font-bold text-[#0D1B2A] tracking-tight leading-tight">
+                                        {tier.name}
+                                    </h4>
+                                </div>
 
-                                {/* Tagline (Fixed height ensures price aligns at the exact same Y position) */}
-                                <div className="h-[36px] mt-1 flex items-center">
-                                    <p className="text-[12px] sm:text-[12.5px] text-slate-500 leading-snug">
+                                {/* Row 3: Description / Tagline (Equal Min-Height) */}
+                                <div className="min-h-[38px] mt-1 flex items-start">
+                                    <p className="text-[12.5px] text-slate-500 leading-snug">
                                         {tier.tagline}
                                     </p>
                                 </div>
 
-                                {/* Price Section (Identical height & alignment across all cards) */}
+                                {/* Row 4: Price Block (Equal Vertical Baseline Across All Cards) */}
                                 <div className="mt-3 mb-4 pb-3.5 border-b border-slate-100">
                                     <div className="flex items-baseline gap-1.5">
-                                        <span className="text-[30px] sm:text-[32px] font-extrabold text-[#0D1B2A] tracking-tight leading-none">
+                                        <span className="text-[32px] font-extrabold text-[#0D1B2A] tracking-tight leading-none">
                                             ${tier.basePrice}
                                         </span>
-                                        <span className="text-[12.5px] font-semibold text-slate-500">
+                                        <span className="text-xs font-semibold text-slate-500">
                                             CAD / mo
                                         </span>
                                     </div>
-                                    <p className="text-[11px] text-slate-400 font-medium mt-1.5 h-[16px] flex items-center">
-                                        {tier.id === 'balance' ? '1 practitioner included' : 'Includes 1 full-time practitioner'}
+                                    <p className="text-[11.5px] text-slate-500 font-medium mt-1.5 min-h-[18px] flex items-center">
+                                        {tier.id === 'balance'
+                                            ? '1 practitioner included (capped)'
+                                            : 'Includes 1 full-time practitioner'}
                                     </p>
                                 </div>
 
-                                {/* Feature List */}
-                                <ul className="space-y-2.5">
+                                {/* Row 5: Clean Feature Benefits Checklist */}
+                                <ul className="space-y-2.5 flex-1">
                                     {(tier.features || []).map((feat, idx) => (
-                                        <li key={idx} className="flex items-start gap-2 text-[12px] sm:text-[12.5px] text-slate-600 leading-snug">
-                                            <div className="w-4 h-4 rounded-full bg-emerald-50 text-[#22C55E] flex items-center justify-center flex-shrink-0 mt-0.5">
-                                                <Check className="w-2.5 h-2.5" strokeWidth={3} />
+                                        <li
+                                            key={idx}
+                                            className="flex items-start gap-2.5 text-[12.5px] text-slate-600 leading-snug"
+                                        >
+                                            <div className="w-4 h-4 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0 mt-0.5 ring-1 ring-emerald-100">
+                                                <Check className="w-2.5 h-2.5" strokeWidth={3} aria-hidden="true" />
                                             </div>
-                                            <span className="whitespace-normal break-words">{feat}</span>
+                                            <span className="flex-1">{feat}</span>
                                         </li>
                                     ))}
                                 </ul>
+
+                                {/* Row 6: Dedicated Muted Helper Line for Extra Practitioner Pricing */}
+                                <div className="pt-3 mt-4 border-t border-slate-100 min-h-[28px] flex items-center">
+                                    <p className="text-[11px] text-slate-400 font-medium leading-tight">
+                                        {tier.extraPricingNote}
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     );
                 })}
             </div>
 
-            {/* Practitioner Counters (for Practice and Thrive) */}
+            {/* Practitioner Team Configurator */}
             {currentTier !== 'balance' ? (
-                <div className="bg-[#F8FAFC] border border-slate-200/80 rounded-2xl p-5 space-y-4 shadow-sm">
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-200/60">
+                <div className="bg-[#F8FAFC] border border-slate-200/80 rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
+                    <div className="flex items-center justify-between pb-3.5 border-b border-slate-200/60">
                         <div>
-                            <h4 className="text-[14px] font-bold text-[#0D1B2A] tracking-tight">
+                            <h4 className="text-sm font-bold text-[#0D1B2A] tracking-tight">
                                 Configure Practitioner Team
                             </h4>
-                            <p className="text-[13px] text-slate-500 mt-0.5">
-                                Add part-time or additional full-time practitioners to your plan
+                            <p className="text-xs text-slate-500 mt-0.5">
+                                Add full-time or part-time practitioner seats to your {activeTiers[currentTier]?.name || currentTier} plan
                             </p>
                         </div>
-                        <div className="w-8 h-8 rounded-xl bg-blue-50 text-[#2563EB] flex items-center justify-center">
-                            <Users className="w-4 h-4" />
+                        <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#2563EB] border border-blue-100 flex items-center justify-center flex-shrink-0">
+                            <Users className="w-4 h-4" aria-hidden="true" />
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {/* Full-time Practitioners Counter */}
-                        <div className="bg-white border border-slate-200/80 rounded-xl p-4 flex items-center justify-between shadow-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
+                        {/* Full-Time Practitioners Counter */}
+                        <div className="bg-white border border-slate-200/80 rounded-xl p-4 flex flex-col justify-between gap-3 shadow-xs">
                             <div>
-                                <span className="text-[13px] font-semibold text-[#0D1B2A] block">
-                                    Full-Time Practitioners
-                                </span>
-                                <span className="text-[11px] text-slate-500 font-medium">
-                                    1 included (+${(activeTiers[currentTier]?.extraFtPrice || 35).toFixed(2)}/mo each extra)
-                                </span>
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[13px] font-bold text-[#0D1B2A]">
+                                        Full-Time Practitioners
+                                    </span>
+                                    {breakdown.extraFtCount > 0 ? (
+                                        <span className="text-[11px] font-bold text-[#2563EB] bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 tabular-nums">
+                                            +${extraFtCost.toFixed(2)}/mo
+                                        </span>
+                                    ) : (
+                                        <span className="text-[11px] font-medium text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
+                                            Base included
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="text-[11.5px] text-slate-500 mt-1 flex items-center gap-1.5 flex-wrap">
+                                    <span className="inline-flex items-center gap-1 font-semibold text-slate-600">
+                                        1 included
+                                    </span>
+                                    <span className="text-slate-300">·</span>
+                                    <span>
+                                        +${(activeTiers[currentTier]?.extraFtPrice || 35).toFixed(2)} CAD/mo each extra
+                                    </span>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2 ml-3">
-                                <button
-                                    type="button"
-                                    onClick={() => onChangeFt(Math.max(1, (parseInt(ftCount, 10) || 1) - 1))}
-                                    disabled={parseInt(ftCount, 10) <= 1}
-                                    className="w-8 h-8 rounded-xl bg-[#F1F5F9] border border-slate-200/80 flex items-center justify-center text-[#0D1B2A] hover:bg-slate-200/80 transition-colors disabled:opacity-30 disabled:cursor-not-allowed active:scale-95"
-                                    aria-label="Decrease full-time practitioners"
-                                >
-                                    <Minus className="w-3.5 h-3.5" />
-                                </button>
-                                <span className="w-7 text-center text-[15px] font-bold text-[#0D1B2A]">
-                                    {ftCount || 1}
-                                </span>
-                                <button
-                                    type="button"
-                                    onClick={() => onChangeFt((parseInt(ftCount, 10) || 1) + 1)}
-                                    className="w-8 h-8 rounded-xl bg-[#F1F5F9] border border-slate-200/80 flex items-center justify-center text-[#0D1B2A] hover:bg-slate-200/80 transition-colors active:scale-95"
-                                    aria-label="Increase full-time practitioners"
-                                >
-                                    <Plus className="w-3.5 h-3.5" />
-                                </button>
+
+                            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                                <span className="text-xs font-medium text-slate-500">Seat count</span>
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => onChangeFt(Math.max(1, (parseInt(ftCount, 10) || 1) - 1))}
+                                        disabled={parseInt(ftCount, 10) <= 1}
+                                        className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200/80 flex items-center justify-center text-[#0D1B2A] hover:bg-slate-200/80 transition-colors disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] active:scale-95"
+                                        aria-label="Decrease full-time practitioners"
+                                    >
+                                        <Minus className="w-3.5 h-3.5" />
+                                    </button>
+                                    <span className="w-8 text-center text-sm font-bold text-[#0D1B2A] font-mono tabular-nums">
+                                        {ftCount || 1}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => onChangeFt((parseInt(ftCount, 10) || 1) + 1)}
+                                        className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200/80 flex items-center justify-center text-[#0D1B2A] hover:bg-slate-200/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] active:scale-95"
+                                        aria-label="Increase full-time practitioners"
+                                    >
+                                        <Plus className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Part-time Practitioners Counter */}
-                        <div className="bg-white border border-slate-200/80 rounded-xl p-4 flex items-center justify-between shadow-xs">
+                        {/* Part-Time Practitioners Counter */}
+                        <div className="bg-white border border-slate-200/80 rounded-xl p-4 flex flex-col justify-between gap-3 shadow-xs">
                             <div>
-                                <span className="text-[13px] font-semibold text-[#0D1B2A] block">
-                                    Part-Time Practitioners
-                                </span>
-                                <span className="text-[11px] text-slate-500 font-medium">
-                                    +${(activeTiers[currentTier]?.extraPtPrice || 17.5).toFixed(2)}/mo each
-                                </span>
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[13px] font-bold text-[#0D1B2A]">
+                                        Part-Time Practitioners
+                                    </span>
+                                    {breakdown.extraPtCount > 0 ? (
+                                        <span className="text-[11px] font-bold text-[#2563EB] bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 tabular-nums">
+                                            +${extraPtCost.toFixed(2)}/mo
+                                        </span>
+                                    ) : (
+                                        <span className="text-[11px] font-medium text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
+                                            None added
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="text-[11.5px] text-slate-500 mt-1 flex items-center gap-1.5 flex-wrap">
+                                    <span className="inline-flex items-center gap-1 font-semibold text-slate-600">
+                                        0 included
+                                    </span>
+                                    <span className="text-slate-300">·</span>
+                                    <span>
+                                        +${(activeTiers[currentTier]?.extraPtPrice || 17.5).toFixed(2)} CAD/mo each
+                                    </span>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2 ml-3">
-                                <button
-                                    type="button"
-                                    onClick={() => onChangePt(Math.max(0, (parseInt(ptCount, 10) || 0) - 1))}
-                                    disabled={parseInt(ptCount, 10) <= 0}
-                                    className="w-8 h-8 rounded-xl bg-[#F1F5F9] border border-slate-200/80 flex items-center justify-center text-[#0D1B2A] hover:bg-slate-200/80 transition-colors disabled:opacity-30 disabled:cursor-not-allowed active:scale-95"
-                                    aria-label="Decrease part-time practitioners"
-                                >
-                                    <Minus className="w-3.5 h-3.5" />
-                                </button>
-                                <span className="w-7 text-center text-[15px] font-bold text-[#0D1B2A]">
-                                    {ptCount || 0}
-                                </span>
-                                <button
-                                    type="button"
-                                    onClick={() => onChangePt((parseInt(ptCount, 10) || 0) + 1)}
-                                    className="w-8 h-8 rounded-xl bg-[#F1F5F9] border border-slate-200/80 flex items-center justify-center text-[#0D1B2A] hover:bg-slate-200/80 transition-colors active:scale-95"
-                                    aria-label="Increase part-time practitioners"
-                                >
-                                    <Plus className="w-3.5 h-3.5" />
-                                </button>
+
+                            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                                <span className="text-xs font-medium text-slate-500">Seat count</span>
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => onChangePt(Math.max(0, (parseInt(ptCount, 10) || 0) - 1))}
+                                        disabled={parseInt(ptCount, 10) <= 0}
+                                        className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200/80 flex items-center justify-center text-[#0D1B2A] hover:bg-slate-200/80 transition-colors disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] active:scale-95"
+                                        aria-label="Decrease part-time practitioners"
+                                    >
+                                        <Minus className="w-3.5 h-3.5" />
+                                    </button>
+                                    <span className="w-8 text-center text-sm font-bold text-[#0D1B2A] font-mono tabular-nums">
+                                        {ptCount || 0}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => onChangePt((parseInt(ptCount, 10) || 0) + 1)}
+                                        className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200/80 flex items-center justify-center text-[#0D1B2A] hover:bg-slate-200/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] active:scale-95"
+                                        aria-label="Increase part-time practitioners"
+                                    >
+                                        <Plus className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             ) : (
-                /* Restyled Neutral Warning Banner - Light Gray #F1F5F9 background, Deep Navy #0D1B2A text */
-                <div className="rounded-2xl border border-slate-300/80 bg-[#F1F5F9] p-4.5 flex items-start gap-3 shadow-xs">
-                    <div className="w-5 h-5 rounded-full bg-amber-100/90 text-amber-700 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Shield className="w-3.5 h-3.5" />
+                /* Balance Tier Policy Callout */
+                <div className="rounded-2xl border border-slate-200/90 bg-[#F8FAFC] p-4 sm:p-5 flex items-start gap-3.5 shadow-xs">
+                    <div className="w-6 h-6 rounded-lg bg-amber-50 text-amber-700 border border-amber-200/70 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <Shield className="w-3.5 h-3.5" aria-hidden="true" />
                     </div>
-                    <div className="text-[13px] text-[#0D1B2A] leading-relaxed">
-                        <span className="font-bold text-[#0D1B2A]">Balance Tier Cap:</span> Limited to 1 solo practitioner and up to {activeTiers.balance?.maxAppointments || 20} appointments/month. No add-on practitioners permitted on this plan.
+                    <div className="text-[13px] text-slate-700 leading-relaxed">
+                        <span className="font-bold text-[#0D1B2A]">Solo Practitioner Limit:</span> The Balance plan
+                        is designed for independent practitioners. It includes 1 seat and up to{' '}
+                        {activeTiers.balance?.maxAppointments || 20} appointments per month. Need team collaboration
+                        or higher volume? Select <span className="font-semibold text-[#2563EB]">Practice</span> or{' '}
+                        <span className="font-semibold text-[#2563EB]">Thrive</span>.
                     </div>
                 </div>
             )}
 
-            {/* Bottom Order Summary Panel */}
-            <div className="bg-[#0D1B2A] text-white rounded-2xl p-5 space-y-3 shadow-xl shadow-slate-900/10 border border-slate-800">
-                <div className="flex justify-between items-center text-[13px] text-slate-300 pb-2.5 border-b border-slate-800">
-                    <span className="font-semibold text-slate-200">{activeTiers[currentTier]?.name || currentTier} Base Plan</span>
-                    <span className="font-medium text-slate-200">${breakdown.basePrice.toFixed(2)} CAD / mo</span>
+            {/* Total Cost Summary (Dark Card) */}
+            <div className="bg-[#0D1B2A] text-white rounded-2xl p-5 sm:p-6 space-y-3.5 shadow-xl shadow-slate-900/10 border border-slate-800">
+                <div className="space-y-2.5 text-[13px]">
+                    {/* Line Item: Base Plan */}
+                    <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-slate-300 font-medium">
+                            {activeTiers[currentTier]?.name || currentTier} base plan
+                        </span>
+                        <span className="flex-1 border-b border-dotted border-slate-700/80 mx-2 mb-1" aria-hidden="true" />
+                        <span className="font-mono font-semibold text-slate-100 tabular-nums">
+                            ${breakdown.basePrice.toFixed(2)} CAD
+                        </span>
+                    </div>
+
+                    {/* Line Item: Extra Full-Time Practitioners */}
+                    {breakdown.extraFtCount > 0 && (
+                        <div className="flex items-baseline justify-between gap-2 text-slate-300">
+                            <span>
+                                +{breakdown.extraFtCount}{' '}
+                                {breakdown.extraFtCount === 1 ? 'full-time practitioner' : 'full-time practitioners'}
+                                <span className="text-xs text-slate-400 font-normal ml-1.5">
+                                    ({breakdown.extraFtCount} × ${(activeTiers[currentTier]?.extraFtPrice || 35).toFixed(2)})
+                                </span>
+                            </span>
+                            <span className="flex-1 border-b border-dotted border-slate-700/80 mx-2 mb-1" aria-hidden="true" />
+                            <span className="font-mono font-semibold text-slate-100 tabular-nums">
+                                +${breakdown.extraFtCost.toFixed(2)} CAD
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Line Item: Part-Time Practitioners */}
+                    {breakdown.extraPtCount > 0 && (
+                        <div className="flex items-baseline justify-between gap-2 text-slate-300">
+                            <span>
+                                +{breakdown.extraPtCount}{' '}
+                                {breakdown.extraPtCount === 1 ? 'part-time practitioner' : 'part-time practitioners'}
+                                <span className="text-xs text-slate-400 font-normal ml-1.5">
+                                    ({breakdown.extraPtCount} × ${(activeTiers[currentTier]?.extraPtPrice || 17.5).toFixed(2)})
+                                </span>
+                            </span>
+                            <span className="flex-1 border-b border-dotted border-slate-700/80 mx-2 mb-1" aria-hidden="true" />
+                            <span className="font-mono font-semibold text-slate-100 tabular-nums">
+                                +${breakdown.extraPtCost.toFixed(2)} CAD
+                            </span>
+                        </div>
+                    )}
                 </div>
 
-                {breakdown.extraFtCount > 0 && (
-                    <div className="flex justify-between items-center text-[13px] text-slate-300">
-                        <span>+ {breakdown.extraFtCount} Extra Full-Time ({breakdown.extraFtCount} × ${(activeTiers[currentTier]?.extraFtPrice || 35).toFixed(2)})</span>
-                        <span className="font-medium text-slate-200">+${breakdown.extraFtCost.toFixed(2)} CAD / mo</span>
-                    </div>
-                )}
-
-                {breakdown.extraPtCount > 0 && (
-                    <div className="flex justify-between items-center text-[13px] text-slate-300">
-                        <span>+ {breakdown.extraPtCount} Part-Time ({breakdown.extraPtCount} × ${(activeTiers[currentTier]?.extraPtPrice || 17.5).toFixed(2)})</span>
-                        <span className="font-medium text-slate-200">+${breakdown.extraPtCost.toFixed(2)} CAD / mo</span>
-                    </div>
-                )}
-
-                <div className="pt-3 border-t border-slate-800 flex justify-between items-center">
+                {/* Total Cost Row with Green Reassurance Note */}
+                <div className="pt-3.5 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                        <span className="text-[13px] font-medium text-slate-400 block">Total Monthly Cost</span>
-                        <span className="text-[11px] text-[#22C55E] font-semibold flex items-center gap-1 mt-0.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E]" />
-                            Charged only after platform approval
+                        <span className="text-[13px] font-semibold text-slate-300 block">
+                            Total monthly cost
+                        </span>
+                        <span className="text-[12px] text-emerald-400 font-medium inline-flex items-center gap-1.5 mt-0.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" aria-hidden="true" />
+                            <span>Charged only after platform approval</span>
                         </span>
                     </div>
-                    <div className="text-right">
-                        <span className="text-[28px] font-extrabold text-white tracking-tight leading-none">
+
+                    <div className="flex items-baseline gap-1.5 sm:text-right">
+                        <span className="text-3xl sm:text-[32px] font-extrabold text-white tracking-tight leading-none font-mono tabular-nums">
                             ${breakdown.total.toFixed(2)}
                         </span>
-                        <span className="text-[13px] text-slate-400 font-medium ml-1.5">
+                        <span className="text-xs font-semibold text-slate-400">
                             CAD / mo
                         </span>
                     </div>

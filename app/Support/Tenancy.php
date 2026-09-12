@@ -30,8 +30,12 @@ class Tenancy
      * The fully-qualified host for a clinic subdomain, e.g.
      * "lotus.umahz.com" (no scheme, no port).
      */
-    public static function hostFor(string $subdomain): string
+    public static function hostFor(?string $subdomain): ?string
     {
+        if (empty($subdomain)) {
+            return null;
+        }
+
         return strtolower($subdomain).'.'.static::centralDomain();
     }
 
@@ -40,9 +44,14 @@ class Tenancy
      * of the configured APP_URL so it works identically on lvh.me:8000 and
      * https://umahz.com.
      */
-    public static function urlFor(string $subdomain, string $path = ''): string
+    public static function urlFor(?string $subdomain, string $path = ''): ?string
     {
-        return static::urlForHost(static::hostFor($subdomain), $path);
+        $host = static::hostFor($subdomain);
+        if (empty($host)) {
+            return null;
+        }
+
+        return static::urlForHost($host, $path);
     }
 
     /**

@@ -1136,6 +1136,7 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
                                             estimated_practitioner_count: (prev.full_time_practitioners_count || 1) + count,
                                         }))}
                                         error={errors.plan_tier}
+                                        tiers={tiers}
                                     />
                                 </section>
                             )}
@@ -1143,7 +1144,7 @@ export default function ClinicRegister({ disciplines = [], subdomainSuffix = '.u
                             {currentStep === 6 && (
                                 <section className="space-y-4">
                                     <StepHeading stepId="payment" title="Secure your spot" subtitle="Add a card to verify your clinic. You're only charged once we approve you." />
-                                    <PaymentStep data={data} />
+                                    <PaymentStep data={data} tiers={tiers} />
                                 </section>
                             )}
                         </div>

@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Admin\ClinicReviewController;
+use App\Http\Controllers\Admin\PlatformSettingsController;
+use App\Http\Controllers\Admin\PlatformStaffController;
 use App\Http\Controllers\Admin\PractitionerReviewController;
 use App\Http\Controllers\Admin\SubscriptionPlanController;
 use App\Http\Controllers\AppointmentController;
@@ -181,6 +183,19 @@ Route::domain($central)->group(function () {
             Route::get('/', [SubscriptionPlanController::class, 'index'])->name('index');
             Route::put('/{tier}', [SubscriptionPlanController::class, 'update'])->name('update');
             Route::delete('/{tier}', [SubscriptionPlanController::class, 'destroy'])->name('destroy');
+        });
+
+        Route::prefix('staff')->name('staff.')->group(function () {
+            Route::get('/', [PlatformStaffController::class, 'index'])->name('index');
+            Route::post('/', [PlatformStaffController::class, 'store'])->name('store');
+            Route::patch('/{user}', [PlatformStaffController::class, 'update'])->name('update');
+            Route::delete('/{user}', [PlatformStaffController::class, 'destroy'])->name('destroy');
+        });
+
+        Route::prefix('settings')->name('settings.')->group(function () {
+            Route::get('/', [PlatformSettingsController::class, 'index'])->name('index');
+            Route::post('/', [PlatformSettingsController::class, 'update'])->name('update');
+            Route::post('/clear-cache', [PlatformSettingsController::class, 'clearCache'])->name('clear-cache');
         });
     });
 });

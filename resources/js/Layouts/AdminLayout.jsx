@@ -8,15 +8,16 @@ export default function AdminLayout({ children, title }) {
 
     const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
+    const { url } = usePage();
+
     const navigation = [
         { name: 'Overview', href: '/admin/dashboard', icon: LayoutDashboard },
-        { name: 'Tenants', href: '/admin/dashboard', icon: Building2 },
         { name: 'Clinic Applications', href: '/admin/clinics', icon: ClipboardCheck },
         { name: 'Practitioner Verification', href: '/admin/practitioners', icon: IdCard },
         { name: 'Pricing & Plans', href: '/admin/plans', icon: CreditCard },
-        { name: 'Platform Staff', href: '#', icon: Users },
+        { name: 'Platform Staff', href: '/admin/staff', icon: Users },
         { name: 'Support', href: '#', icon: LifeBuoy },
-        { name: 'Platform Settings', href: '#', icon: Settings },
+        { name: 'Platform Settings', href: '/admin/settings', icon: Settings },
     ];
 
     return (
@@ -38,16 +39,30 @@ export default function AdminLayout({ children, title }) {
                 </div>
 
                 <nav className="flex-1 px-3 py-2 space-y-1">
-                    {navigation.map((item) => (
-                        <Link
-                            key={item.name}
-                            href={item.href}
-                            className="group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:bg-slate-900 hover:text-white transition-colors"
-                        >
-                            <item.icon className="mr-3 h-4 w-4 text-slate-500 group-hover:text-violet-400 transition-colors" />
-                            {item.name}
-                        </Link>
-                    ))}
+                    {navigation.map((item) => {
+                        const isCurrent =
+                            item.href !== '#' &&
+                            (url === item.href || (item.href !== '/admin/dashboard' && url.startsWith(item.href)));
+
+                        return (
+                            <Link
+                                key={item.name}
+                                href={item.href}
+                                className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                                    isCurrent
+                                        ? 'bg-violet-600/20 text-white border border-violet-500/30'
+                                        : 'text-slate-300 hover:bg-slate-900 hover:text-white'
+                                }`}
+                            >
+                                <item.icon
+                                    className={`mr-3 h-4 w-4 transition-colors ${
+                                        isCurrent ? 'text-violet-400' : 'text-slate-500 group-hover:text-violet-400'
+                                    }`}
+                                />
+                                {item.name}
+                            </Link>
+                        );
+                    })}
                 </nav>
 
                 <div className="p-4 border-t border-slate-800 bg-black/60">

@@ -296,18 +296,22 @@ class Tenant extends Model
     /**
      * The clinic's staff subdomain host, e.g. "lotus.umahz.com".
      */
-    public function subdomainHost(): string
+    public function subdomainHost(): ?string
     {
-        return Tenancy::hostFor($this->subdomain);
+        $sub = $this->subdomain ?: $this->slug;
+
+        return $sub ? Tenancy::hostFor($sub) : null;
     }
 
     /**
      * An absolute URL into this clinic's staff workspace, e.g.
      * "https://lotus.umahz.com/app/dashboard".
      */
-    public function appUrl(string $path = ''): string
+    public function appUrl(string $path = ''): ?string
     {
-        return Tenancy::urlFor($this->subdomain, $path);
+        $sub = $this->subdomain ?: $this->slug;
+
+        return $sub ? Tenancy::urlFor($sub, $path) : null;
     }
 
     public function reviewedBy(): BelongsTo
