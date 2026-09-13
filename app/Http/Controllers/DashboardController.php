@@ -8,6 +8,7 @@ use App\Models\ClientForm;
 use App\Models\ClinicalNote;
 use App\Models\Invoice;
 use App\Models\Location;
+use App\Models\Payment;
 use App\Models\StaffMembership;
 use App\Models\Tenant;
 use App\Scopes\TenantScope;
@@ -22,18 +23,64 @@ class DashboardController extends Controller
      */
     public function admin(Request $request): Response
     {
+        $tenants = Tenant::query()
+            ->withCount(['staffMemberships', 'clients'])
+            ->latest('created_at')
+            ->get();
+
+        // Single fast query for patient payments grouped by clinic
+        $paymentsByTenant = Payment::withoutGlobalScopes()
+            ->where('status', Payment::STATUS_SUCCEEDED)
+            ->groupBy('tenant_id')
+            ->selectRaw('tenant_id, sum(amount) as total_amount')
+            ->pluck('total_amount', 'tenant_id');
+
+        $totalMrr = 0.0;
+        $totalPatientGrossVolume = 0.0;
+
+        $tenantList = $tenants->map(function (Tenant $tenant) use ($paymentsByTenant, &$totalMrr, &$totalPatientGrossVolume) {
+            $monthlyBillable = $tenant->monthlyBillableTotal();
+            if ($tenant->status === Tenant::STATUS_APPROVED) {
+                $totalMrr += $monthlyBillable;
+            }
+
+            $patientEarningsMinor = $paymentsByTenant->get($tenant->id, 0);
+            $patientEarnings = ((float) $patientEarningsMinor) / 100;
+            $totalPatientGrossVolume += $patientEarnings;
+
+            return [
+                'id' => $tenant->id,
+                'name' => $tenant->name,
+                'slug' => $tenant->slug,
+                'subdomain' => $tenant->subdomain,
+                'status' => $tenant->status ?? Tenant::STATUS_APPROVED,
+                'currency' => $tenant->currency ?: 'USD',
+                'plan_tier' => $tenant->plan_tier,
+                'plan_name' => $tenant->planName(),
+                'monthly_billable' => round($monthlyBillable, 2),
+                'patient_earnings' => round($patientEarnings, 2),
+                'primary_contact_name' => $tenant->primary_contact_name,
+                'primary_contact_email' => $tenant->primary_contact_email,
+                'staff_memberships_count' => $tenant->staff_memberships_count,
+                'clients_count' => $tenant->clients_count,
+                'app_url' => $tenant->appUrl('/app/dashboard'),
+                'created_at' => $tenant->created_at?->format('M j, Y'),
+            ];
+        });
+
         return Inertia::render('Admin/Dashboard', [
             'stats' => [
-                'totalTenants' => Tenant::count(),
-                'activeTenants' => Tenant::whereNull('deleted_at')->count(),
+                'totalTenants' => $tenants->count(),
+                'activeTenants' => $tenants->where('status', Tenant::STATUS_APPROVED)->count(),
+                'pendingTenants' => $tenants->where('status', Tenant::STATUS_PENDING_REVIEW)->count(),
+                'suspendedTenants' => $tenants->where('status', Tenant::STATUS_SUSPENDED)->count(),
                 'totalStaff' => StaffMembership::where('status', StaffMembership::STATUS_ACTIVE)->count(),
                 'totalClients' => Client::count(),
+                'totalMrr' => round($totalMrr, 2),
+                'totalArr' => round($totalMrr * 12, 2),
+                'totalPatientGrossVolume' => round($totalPatientGrossVolume, 2),
             ],
-            'tenants' => Tenant::query()
-                ->withCount(['staffMemberships', 'clients'])
-                ->latest('created_at')
-                ->limit(10)
-                ->get(['id', 'name', 'slug', 'currency', 'created_at']),
+            'tenants' => $tenantList,
         ]);
     }
 

@@ -380,6 +380,10 @@ class ClinicReviewController extends Controller
             });
         });
 
+        if ($request->header('referer') && str_contains($request->header('referer'), '/admin/dashboard')) {
+            return redirect()->route('admin.dashboard')->with('success', "{$tenantName} was permanently deleted.");
+        }
+
         return redirect()->route('admin.clinics.index', ['status' => $previousStatus])
             ->with('success', "{$tenantName} was permanently deleted.");
     }

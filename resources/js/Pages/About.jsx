@@ -1,6 +1,6 @@
 import React from 'react';
 import { Head } from '@inertiajs/react';
-import { Target, Eye, HeartHandshake, ShieldCheck, Layers, Users2 } from 'lucide-react';
+import { Target, Eye, HeartHandshake, ShieldCheck, Layers, Users2, LayoutDashboard, ClipboardCheck, Stethoscope, Mountain } from 'lucide-react';
 import PublicLayout from '@/Layouts/PublicLayout';
 import CTABanner from '@/Components/Home/CTABanner';
 
@@ -12,11 +12,11 @@ const VALUES = [
 ];
 
 const NAME_MEANING = [
-    { letter: 'U', name: 'Umrah', color: '#5B2EFF' },
-    { letter: 'M', name: 'Mohamed', color: '#db2777' },
-    { letter: 'A', name: 'Alpha', color: '#d97706' },
-    { letter: 'H', name: 'Hassantu', color: '#0f766e' },
-    { letter: 'Z', name: 'Zainab', color: '#dc2626' },
+    { letter: 'U', word: 'Unified', icon: Layers, color: '#5B2EFF', image: '/imags/about/unified.jpg' },
+    { letter: 'M', word: 'Management', icon: LayoutDashboard, color: '#db2777', image: '/imags/about/management.jpg' },
+    { letter: 'A', word: 'Assessment', icon: ClipboardCheck, color: '#d97706', image: '/imags/about/assessment.jpg' },
+    { letter: 'H', word: 'Healthcare', icon: Stethoscope, color: '#0f766e', image: '/imags/about/healthcare.jpg' },
+    { letter: 'Z', word: 'Zenith', icon: Mountain, color: '#dc2626', image: '/imags/about/zenith.jpg' },
 ];
 
 const TEAM = [
@@ -95,28 +95,57 @@ export default function About() {
                 </div>
             </section>
 
-            {/* About the Name */}
+            {/* The Meaning Behind UMAHZ */}
             <section className="pb-16 md:pb-24 px-6 md:px-12 lg:px-24">
                 <div className="max-w-3xl mx-auto text-center">
                     <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] leading-tight">
-                        About The <em className="not-italic font-light font-serif text-[#5B2EFF]">Name</em>
+                        The Meaning Behind <em className="not-italic font-light font-serif text-[#5B2EFF]">UMAHZ</em>
                     </h2>
                     <p className="text-slate-500 text-base md:text-lg leading-relaxed mt-6">
-                        UMAHZ is inspired by family. Each letter represents someone who inspired the vision behind the company — U: Umrah, M: Mohamed, A: Alpha, H: Hassantu, Z: Zainab.
+                        UMAHZ stands for our mission — bringing wellness practice management together in one place.
                     </p>
                 </div>
-                <div className="max-w-4xl mx-auto mt-10 grid grid-cols-2 sm:grid-cols-5 gap-4">
+
+                <ul className="max-w-5xl mx-auto mt-12 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-5 list-none">
                     {NAME_MEANING.map((n) => (
-                        <div key={n.letter} className="bg-[#F9F5FB] border border-purple-100 rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col items-center text-center">
-                            <div
-                                className="w-14 h-14 rounded-2xl flex items-center justify-center mb-3 flex-shrink-0 text-2xl font-bold text-white"
-                                style={{ background: n.color }}
-                            >
-                                {n.letter}
+                        <li
+                            key={n.letter}
+                            className="bg-[#F9F5FB] border border-purple-100 rounded-3xl p-5 sm:p-6 shadow-sm hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col items-center text-center group"
+                        >
+                            <div className="relative mb-4">
+                                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden p-1.5 bg-white border border-purple-100 shadow-sm transition-transform duration-300 group-hover:scale-105">
+                                    <img
+                                        src={n.image}
+                                        alt={`${n.letter} - ${n.word}`}
+                                        className="w-full h-full object-cover rounded-xl"
+                                        loading="lazy"
+                                    />
+                                </div>
+                                <span
+                                    className="absolute -bottom-2 -right-2 w-7 h-7 rounded-full text-white text-xs font-black shadow-md flex items-center justify-center ring-2 ring-white"
+                                    style={{ background: n.color }}
+                                >
+                                    {n.letter}
+                                </span>
                             </div>
-                            <p className="text-[#1E0B3C] font-bold text-sm">{n.name}</p>
-                        </div>
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-black px-1.5 py-0.5 rounded bg-white border border-purple-100 shadow-xs" style={{ color: n.color }}>
+                                    {n.letter}
+                                </span>
+                                <h3 className="text-[#1E0B3C] font-bold text-sm md:text-base">{n.word}</h3>
+                            </div>
+                        </li>
                     ))}
+                </ul>
+
+                <div className="max-w-2xl mx-auto mt-12">
+                    <div className="rounded-2xl border border-purple-100 bg-white px-6 py-5 shadow-sm text-center">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#5B2EFF] mb-2">In Full</p>
+                        <p className="text-lg md:text-xl font-bold text-[#1E0B3C] leading-snug">
+                            Unified Management, Assessment &amp; Healthcare at its{' '}
+                            <em className="not-italic font-light font-serif text-[#5B2EFF]">Zenith</em>.
+                        </p>
+                    </div>
                 </div>
             </section>
 

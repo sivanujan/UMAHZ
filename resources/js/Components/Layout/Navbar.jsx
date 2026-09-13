@@ -3,6 +3,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { ChevronDown, ArrowRight } from 'lucide-react';
 import { PROFESSIONS } from '@/Data/professions';
 import Logo from '@/Components/Common/Logo';
+import ComingSoonModal from '@/Components/Common/ComingSoonModal';
 
 const INK = '#0D1B2A';
 const ROYAL = '#2563EB';
@@ -275,6 +276,9 @@ export default function Navbar() {
                     </div>
                 )}
             </div>
+
+            {/* Global Coming Soon announcement modal */}
+            <ComingSoonModal />
         </header>
     );
 }

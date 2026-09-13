@@ -53,9 +53,9 @@ function loadStripeJs() {
     });
 }
 
-import { TIERS, calculateMonthlyTotal } from '@/Components/Onboarding/PlanStep';
+import { TIERS, normalizeTiers, calculateMonthlyTotal } from '@/Components/Onboarding/PlanStep';
 
-export default function PaymentStep({ data }) {
+export default function PaymentStep({ data, tiers }) {
     // 'preparing' | 'ready' | 'confirming' | 'submitting' | 'error'
     const [stage, setStage] = useState('preparing');
     const [error, setError] = useState(null);
@@ -65,9 +65,10 @@ export default function PaymentStep({ data }) {
     const clientSecretRef = useRef(null);
     const pendingIdRef = useRef(null);
 
+    const activeTiers = normalizeTiers(tiers);
     const planTier = data.plan_tier || 'practice';
-    const tierInfo = TIERS[planTier] || TIERS.practice;
-    const pricing = calculateMonthlyTotal(planTier, data.full_time_practitioners_count, data.part_time_practitioners_count);
+    const tierInfo = activeTiers[planTier] || activeTiers.practice;
+    const pricing = calculateMonthlyTotal(planTier, data.full_time_practitioners_count, data.part_time_practitioners_count, activeTiers);
 
     useEffect(() => {
         let cancelled = false;

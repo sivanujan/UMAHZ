@@ -108,11 +108,12 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * Whether this user holds an active platform_admin staff membership at any tenant.
+     * Whether this user holds an active platform_admin staff membership at any tenant
+     * or holds the Platform Admin role directly.
      */
     public function isPlatformAdmin(): bool
     {
-        return $this->activeStaffMemberships()
+        return $this->hasRole('Platform Admin') || $this->activeStaffMemberships()
             ->where('role', StaffMembership::ROLE_PLATFORM_ADMIN)
             ->exists();
     }

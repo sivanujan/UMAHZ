@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from '@inertiajs/react';
 import { PROFESSIONS } from '@/Data/professions';
 import Logo from '@/Components/Common/Logo';
+import { openComingSoonModal } from '@/Components/Common/ComingSoonModal';
 
 const LINKS = {
     'Quick Links': [
@@ -10,6 +11,7 @@ const LINKS = {
         { label: 'Pricing', href: '/pricing' },
         { label: 'About Us', href: '/about' },
         { label: 'Contact', href: '/contact' },
+        { label: "What's Coming", action: 'coming-soon' },
     ],
     'Modalities': PROFESSIONS.map((p) => ({ label: p.name, href: `/professions/${p.slug}` })),
     'Help Center': [
@@ -75,7 +77,19 @@ export default function FooterSection() {
                             <ul className="space-y-2.5">
                                 {items.map(item => (
                                     <li key={item.label}>
-                                        {item.href === '#' ? (
+                                        {item.action === 'coming-soon' ? (
+                                            <button
+                                                type="button"
+                                                onClick={openComingSoonModal}
+                                                className="hover:text-white transition-colors cursor-pointer text-left"
+                                                style={{fontSize:12,color:'#a78bfa'}}
+                                            >
+                                                {item.label}
+                                                <span className="ml-1.5 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-900/80 text-purple-300 border border-purple-700/60">
+                                                    New
+                                                </span>
+                                            </button>
+                                        ) : item.href === '#' ? (
                                             <a href="#" className="hover:text-white transition-colors" style={{fontSize:12,color:'#a78bfa'}}>{item.label}</a>
                                         ) : (
                                             <Link href={item.href} className="hover:text-white transition-colors" style={{fontSize:12,color:'#a78bfa'}}>{item.label}</Link>
