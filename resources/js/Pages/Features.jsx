@@ -13,9 +13,12 @@ import {
     Lock,
     Zap,
     Clock,
+    Activity,
+    ArrowRight,
 } from 'lucide-react';
 import PublicLayout from '@/Layouts/PublicLayout';
 import CTABanner from '@/Components/Home/CTABanner';
+import { openComingSoonModal } from '@/Components/Common/ComingSoonModal';
 
 const FEATURES = [
     {
@@ -258,6 +261,86 @@ export default function Features() {
                                 </article>
                             );
                         })}
+                    </div>
+
+                    {/* Coming Soon to UMAHZ Showcase */}
+                    <div className="mt-16 lg:mt-20">
+                        <div className="text-center max-w-2xl mx-auto mb-10">
+                            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200/70 shadow-xs mb-3">
+                                <Sparkles className="w-3.5 h-3.5 text-indigo-500" aria-hidden="true" />
+                                <span>Roadmap Preview</span>
+                            </div>
+                            <h2 className="text-2xl sm:text-3xl font-bold text-[#1E0B3C] tracking-tight">
+                                Coming Soon to UMAHZ
+                            </h2>
+                            <p className="text-slate-600 text-sm sm:text-base mt-2">
+                                We're continually advancing practice technology. Here is what our engineering team is actively building.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+                            {/* Motion Card */}
+                            <div className="relative rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-white via-cyan-50/30 to-blue-50/20 border border-cyan-100/80 shadow-md hover:shadow-xl transition-all duration-300 flex flex-col justify-between group">
+                                <div>
+                                    <div className="flex items-center justify-between gap-3 mb-5">
+                                        <div className="w-12 h-12 rounded-2xl bg-cyan-100 text-cyan-700 border border-cyan-200 flex items-center justify-center shadow-xs">
+                                            <Activity className="w-6 h-6" />
+                                        </div>
+                                        <span className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-cyan-100/90 text-cyan-800 border border-cyan-200">
+                                            Coming Soon
+                                        </span>
+                                    </div>
+                                    <h3 className="text-xl font-bold text-[#1E0B3C] tracking-tight mb-2">
+                                        UMAHZ Motion
+                                    </h3>
+                                    <p className="text-slate-600 text-sm leading-relaxed mb-6">
+                                        Camera-based movement assessment & progress tracking. Empowering practitioners with objective, visual motion evaluations directly inside client records.
+                                    </p>
+                                </div>
+                                <div className="pt-4 border-t border-cyan-100/60 flex items-center justify-between">
+                                    <span className="text-xs font-medium text-slate-500">Computer Vision Assessment</span>
+                                    <button
+                                        type="button"
+                                        onClick={openComingSoonModal}
+                                        className="inline-flex items-center gap-1.5 text-xs font-bold text-cyan-700 hover:text-cyan-900 group-hover:translate-x-0.5 transition-transform cursor-pointer"
+                                    >
+                                        <span>View Details</span>
+                                        <ArrowRight className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Scribe Card */}
+                            <div className="relative rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-white via-indigo-50/30 to-purple-50/20 border border-indigo-100/80 shadow-md hover:shadow-xl transition-all duration-300 flex flex-col justify-between group">
+                                <div>
+                                    <div className="flex items-center justify-between gap-3 mb-5">
+                                        <div className="w-12 h-12 rounded-2xl bg-purple-100 text-[#5B2EFF] border border-purple-200 flex items-center justify-center shadow-xs">
+                                            <FileText className="w-6 h-6" />
+                                        </div>
+                                        <span className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-purple-100/90 text-purple-800 border border-purple-200">
+                                            Coming Soon
+                                        </span>
+                                    </div>
+                                    <h3 className="text-xl font-bold text-[#1E0B3C] tracking-tight mb-2">
+                                        UMAHZ Scribe
+                                    </h3>
+                                    <p className="text-slate-600 text-sm leading-relaxed mb-6">
+                                        AI-assisted clinical documentation. Converts consultation observations into accurate, structured SOAP notes ready for practitioner review and signature.
+                                    </p>
+                                </div>
+                                <div className="pt-4 border-t border-indigo-100/60 flex items-center justify-between">
+                                    <span className="text-xs font-medium text-slate-500">Clinical AI Assistant</span>
+                                    <button
+                                        type="button"
+                                        onClick={openComingSoonModal}
+                                        className="inline-flex items-center gap-1.5 text-xs font-bold text-[#5B2EFF] hover:text-purple-900 group-hover:translate-x-0.5 transition-transform cursor-pointer"
+                                    >
+                                        <span>View Details</span>
+                                        <ArrowRight className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Trust Signals Strip */}

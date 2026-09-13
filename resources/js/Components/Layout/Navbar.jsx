@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { ChevronDown, ArrowRight } from 'lucide-react';
+import { ChevronDown, ArrowRight, Sparkles } from 'lucide-react';
 import { PROFESSIONS } from '@/Data/professions';
 import Logo from '@/Components/Common/Logo';
+import ComingSoonModal, { openComingSoonModal } from '@/Components/Common/ComingSoonModal';
 
 const INK = '#0D1B2A';
 const ROYAL = '#2563EB';
@@ -161,6 +162,15 @@ export default function Navbar() {
                     </div>
 
                     <div className="hidden shrink-0 items-center gap-2 lg:flex">
+                        <button
+                            type="button"
+                            onClick={openComingSoonModal}
+                            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200 border border-indigo-200/80 bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100 hover:scale-105 active:scale-95 shadow-xs"
+                            title="Preview upcoming features"
+                        >
+                            <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+                            <span>Coming Soon</span>
+                        </button>
                         <Link
                             href="/login"
                             className="rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-200 hover:bg-[#F1F5F9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/40"
@@ -246,6 +256,14 @@ export default function Navbar() {
                         ))}
 
                         <div className="mt-2 border-t pt-3" style={{ borderColor: '#E6EBF1' }}>
+                            <button
+                                type="button"
+                                onClick={() => { setMobileOpen(false); openComingSoonModal(); }}
+                                className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-indigo-700 bg-indigo-50/70 border border-indigo-100 mb-2"
+                            >
+                                <Sparkles className="h-4 w-4 text-indigo-600" />
+                                <span>Coming Soon to UMAHZ</span>
+                            </button>
                             <Link
                                 href="/login"
                                 onClick={() => setMobileOpen(false)}
@@ -275,6 +293,9 @@ export default function Navbar() {
                     </div>
                 )}
             </div>
+
+            {/* Global Coming Soon announcement modal */}
+            <ComingSoonModal />
         </header>
     );
 }
