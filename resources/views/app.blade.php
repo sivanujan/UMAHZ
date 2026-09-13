@@ -1,10 +1,25 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full bg-stone-50">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full bg-stone-50 dark:bg-[#0B0F19]">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         {{-- Read by raw fetch() calls (e.g. clinical-note autosave/create) to pass Laravel's CSRF check. --}}
         <meta name="csrf-token" content="{{ csrf_token() }}">
+
+        <!-- Theme Initialization: Prevents flash of incorrect theme before paint -->
+        <script>
+            (function() {
+                try {
+                    var stored = localStorage.getItem('umahz-theme');
+                    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    if (stored === 'dark' || (!stored && prefersDark) || (stored === 'system' && prefersDark)) {
+                        document.documentElement.classList.add('dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                    }
+                } catch (e) {}
+            })();
+        </script>
 
         <title inertia>{{ config('app.name', 'UMAHZ Wellness') }}</title>
 
@@ -29,7 +44,7 @@
         @vite(['resources/js/app.jsx', "resources/js/Pages/{$page['component']}.jsx"])
         @inertiaHead
     </head>
-    <body class="font-sans antialiased h-full text-slate-800 bg-[#F9F5FB] selection:bg-[#5B2EFF] selection:text-white">
+    <body class="font-sans antialiased h-full text-slate-800 dark:text-slate-100 bg-[#F9F5FB] dark:bg-[#0B0F19] selection:bg-[#5B2EFF] selection:text-white">
         @inertia
     </body>
 </html>

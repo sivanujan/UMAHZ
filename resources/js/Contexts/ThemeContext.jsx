@@ -37,14 +37,26 @@ export function ThemeProvider({
     const [resolved, setResolved] = useState(() => resolve(preference));
 
     useEffect(() => {
-        setResolved(resolve(preference));
+        const nextResolved = resolve(preference);
+        setResolved(nextResolved);
+
+        if (typeof document !== 'undefined' && storageKey === DEFAULT_STORAGE_KEY) {
+            document.documentElement.classList.toggle('dark', nextResolved === 'dark');
+        }
+
         if (preference !== 'system') return undefined;
 
         const mq = window.matchMedia('(prefers-color-scheme: dark)');
-        const onChange = () => setResolved(resolve('system'));
+        const onChange = () => {
+            const sysResolved = resolve('system');
+            setResolved(sysResolved);
+            if (typeof document !== 'undefined' && storageKey === DEFAULT_STORAGE_KEY) {
+                document.documentElement.classList.toggle('dark', sysResolved === 'dark');
+            }
+        };
         mq.addEventListener('change', onChange);
         return () => mq.removeEventListener('change', onChange);
-    }, [preference]);
+    }, [preference, storageKey]);
 
     const setPreference = useCallback((next) => {
         setPreferenceState(next);
