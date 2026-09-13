@@ -139,42 +139,42 @@ export default function PaymentStep({ data, tiers }) {
     return (
         <div className="space-y-5" style={{ fontFamily: "'Manrope', sans-serif" }}>
             {/* Selected Plan Summary Banner */}
-            <div className="rounded-2xl border border-slate-200/80 bg-[#F8FAFC] p-4.5 shadow-xs">
-                <div className="flex items-center justify-between border-b border-slate-200/60 pb-3 mb-3">
+            <div className="rounded-2xl border border-slate-200/80 dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800/60 p-4.5 shadow-xs">
+                <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-700/60 pb-3 mb-3">
                     <div>
-                        <span className="text-[14px] font-bold text-[#0D1B2A] block">{tierInfo.name} Plan</span>
-                        <span className="text-[12px] text-slate-500 font-medium">
+                        <span className="text-[14px] font-bold text-[#0D1B2A] dark:text-white block">{tierInfo.name} Plan</span>
+                        <span className="text-[12px] text-slate-500 dark:text-slate-400 font-medium">
                             {pricing.totalPractitioners} Practitioner{pricing.totalPractitioners > 1 ? 's' : ''} ({data.full_time_practitioners_count || 1} FT{data.part_time_practitioners_count > 0 ? `, ${data.part_time_practitioners_count} PT` : ''})
                         </span>
                     </div>
                     <div className="text-right">
-                        <span className="text-[16px] font-extrabold text-[#2563EB] block">${pricing.total.toFixed(2)} CAD</span>
-                        <span className="text-[11px] text-slate-400 font-medium">monthly on approval</span>
+                        <span className="text-[16px] font-extrabold text-[#2563EB] dark:text-indigo-400 block">${pricing.total.toFixed(2)} CAD</span>
+                        <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">monthly on approval</span>
                     </div>
                 </div>
-                <div className="text-[12px] text-slate-500 font-medium flex justify-between">
+                <div className="text-[12px] text-slate-500 dark:text-slate-400 font-medium flex justify-between">
                     <span>Base plan (${tierInfo.basePrice}/mo)</span>
                     {pricing.extraFtCost > 0 && <span>+${pricing.extraFtCost.toFixed(2)} extra FT</span>}
                     {pricing.extraPtCost > 0 && <span>+${pricing.extraPtCost.toFixed(2)} PT</span>}
                 </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200/80 p-4.5 flex items-start gap-3 bg-white shadow-xs">
-                <ShieldCheck className="w-5 h-5 mt-0.5 text-[#06B6D4] flex-shrink-0" />
-                <div className="text-[13px] leading-relaxed text-slate-600">
-                    <span className="font-bold text-[#0D1B2A]">You won't be charged today.</span> We securely save your card to
+            <div className="rounded-2xl border border-slate-200/80 dark:border-slate-700 p-4.5 flex items-start gap-3 bg-white dark:bg-slate-800/80 shadow-xs">
+                <ShieldCheck className="w-5 h-5 mt-0.5 text-[#06B6D4] dark:text-teal-400 flex-shrink-0" />
+                <div className="text-[13px] leading-relaxed text-slate-600 dark:text-slate-300">
+                    <span className="font-bold text-[#0D1B2A] dark:text-white">You won't be charged today.</span> We securely save your card to
                     verify your clinic. Your monthly subscription starts only after our team approves your application — if it's
                     declined, you're never charged.
                 </div>
             </div>
 
             <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-slate-500">
+                <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-slate-500 dark:text-slate-400">
                     Card details
                 </label>
 
                 {stage === 'preparing' && (
-                    <div className="flex items-center gap-2 rounded-xl border px-4 py-4 text-sm text-slate-500" style={{ borderColor: '#E6EBF1' }}>
+                    <div className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-4 text-sm text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60">
                         <Loader2 className="w-4 h-4 animate-spin" /> Preparing secure payment…
                     </div>
                 )}
@@ -182,10 +182,9 @@ export default function PaymentStep({ data, tiers }) {
                 <div hidden={stage === 'preparing' || stage === 'error'}>
                     <div
                         ref={cardRef}
-                        className="rounded-xl border px-4 py-3.5 bg-white"
-                        style={{ borderColor: '#E6EBF1' }}
+                        className="rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3.5 bg-white dark:bg-slate-800"
                     />
-                    <p className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-400">
+                    <p className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
                         <Lock className="w-3 h-3" /> Encrypted and processed by Stripe. We never see your full card number.
                     </p>
                 </div>

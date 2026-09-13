@@ -145,6 +145,7 @@ Route::domain($central)->group(function () {
         // Live subdomain availability check for the wizard.
         Route::get('clinics/register/subdomain', [ClinicRegistrationController::class, 'checkSubdomain'])
             ->name('clinics.register.subdomain');
+        Route::get('clinics/register/check-subdomain', [ClinicRegistrationController::class, 'checkSubdomain']);
         // Email verification codes for step 1 (rate-limited against abuse).
         Route::post('clinics/register/send-code', [ClinicRegistrationController::class, 'sendCode'])
             ->middleware('throttle:5,1')->name('clinics.register.send-code');

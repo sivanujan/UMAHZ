@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Search, MapPin, Loader2, X } from 'lucide-react';
+import { useTheme } from '@/Contexts/ThemeContext';
 
 const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 const CANADA_CENTER = { lat: 56.130366, lng: -106.346771 };
@@ -73,6 +74,12 @@ function parseComponents(components = [], lat, lng, provinces = []) {
 
 // ========== Component ==========
 export default function AddressPicker({ lat, lng, onPick, provinces = [], dark = false }) {
+    let themeCtx = null;
+    try {
+        themeCtx = useTheme();
+    } catch (e) {}
+    const isDark = (themeCtx ? themeCtx.resolved === 'dark' : false) || dark;
+    dark = isDark;
     const mapEl       = useRef(null);
     const mapRef      = useRef(null);
     const markerRef   = useRef(null);

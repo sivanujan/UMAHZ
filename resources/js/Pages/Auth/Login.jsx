@@ -1,27 +1,16 @@
 import React, { useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Mail, Lock, Check, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
 import Logo from '@/Components/Common/Logo';
+import ThemeToggle from '@/Components/Common/ThemeToggle';
+import AuthVisualPanel from '@/Components/Auth/AuthVisualPanel';
+import { ThemeProvider } from '@/Contexts/ThemeContext';
 
-const ROYAL_BLUE = '#5B2EFF';
-const DEEP_NAVY = '#1E0B3C';
-const UI_FONT = "'Satoshi', system-ui, -apple-system, sans-serif";
-
-const labelStyle = { display: 'block', fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#64748b', marginBottom: 9 };
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function iconColorClass(showError) {
-    return showError ? 'text-rose-400' : 'text-[#5B2EFF]/45 group-focus-within:text-[#5B2EFF]';
-}
-
-function inputBorderClass(showError) {
-    return showError
-        ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-400/15'
-        : 'border-slate-200/80 focus:border-[#5B2EFF] focus:ring-[#5B2EFF]/20';
-}
-
 const GoogleIcon = () => (
-    <svg viewBox="0 0 48 48" className="w-4 h-4 flex-shrink-0">
+    <svg viewBox="0 0 48 48" className="w-5 h-5 flex-shrink-0" aria-hidden="true">
         <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z" />
         <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z" />
         <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z" />
@@ -29,7 +18,8 @@ const GoogleIcon = () => (
     </svg>
 );
 
-export default function Login({ status, canRegisterClient = false, canRegisterClinic = true }) {
+function LoginForm({ status, canRegisterClient = false, canRegisterClinic = true }) {
+    const shouldReduceMotion = useReducedMotion();
     const { data, setData, post, processing, errors } = useForm({
         email: '',
         password: '',
@@ -37,11 +27,18 @@ export default function Login({ status, canRegisterClient = false, canRegisterCl
     });
 
     const [touchedEmail, setTouchedEmail] = useState(false);
+    const [touchedPassword, setTouchedPassword] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [oauthNotice, setOauthNotice] = useState('');
 
-    const emailFormatError = touchedEmail && data.email && !EMAIL_RE.test(data.email) ? 'Enter a valid email address' : null;
+    const emailFormatValid = touchedEmail && data.email && EMAIL_RE.test(data.email);
+    const emailFormatError =
+        touchedEmail && data.email && !EMAIL_RE.test(data.email)
+            ? 'Enter a valid email address'
+            : null;
     const emailError = errors.email || emailFormatError;
+
+    const passwordValid = touchedPassword && data.password && data.password.length >= 8;
 
     const submit = (e) => {
         e.preventDefault();
@@ -49,165 +46,267 @@ export default function Login({ status, canRegisterClient = false, canRegisterCl
     };
 
     return (
-        <div
-            className="min-h-screen antialiased text-slate-800 flex items-center justify-center px-6 py-16 relative overflow-hidden"
-            style={{ fontFamily: UI_FONT, background: '#F8FAFC' }}
-        >
-            <Head title="Sign In" />
+        <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-slate-50 dark:bg-[#0B0F19] text-slate-800 dark:text-slate-100 transition-colors duration-300 relative overflow-x-hidden">
+            <Head title="Sign In — UMAHZ" />
 
-            {/* Gradient mesh background */}
-            <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #F8FAFC 45%, #ECFDF5 100%)' }} />
-                <div className="absolute top-[-120px] right-[-100px] w-[480px] h-[480px] rounded-full" style={{ background: 'rgba(91,46,255,0.22)', filter: 'blur(110px)' }} />
-                <div className="absolute bottom-[-100px] left-[-80px] w-[420px] h-[420px] rounded-full" style={{ background: 'rgba(34,197,94,0.16)', filter: 'blur(110px)' }} />
-                <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[380px] h-[380px] rounded-full" style={{ background: 'rgba(13,27,42,0.05)', filter: 'blur(130px)' }} />
-            </div>
+            {/* Left Column: Form Surface */}
+            <div className="flex flex-col justify-between p-6 sm:p-10 lg:pl-12 lg:pr-14 xl:pl-16 xl:pr-20 min-h-screen relative z-10">
+                {/* Top Navigation Bar */}
+                <div className="flex items-center justify-between gap-4">
+                    <Link
+                        href="/"
+                        className="inline-flex items-center gap-2 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                    >
+                        <Logo size="md" tagline />
+                    </Link>
 
-            <div className="max-w-md w-full relative z-10">
-                <Link href="/" className="flex items-center justify-center mb-10">
-                    <Logo size="lg" tagline />
-                </Link>
-
-                <div
-                    className="rounded-[20px] p-8 sm:p-9 space-y-7 border border-white/60 backdrop-blur-xl"
-                    style={{
-                        background: 'rgba(255,255,255,0.78)',
-                        boxShadow: '0 25px 70px -25px rgba(13,27,42,0.25), 0 8px 24px -12px rgba(91,46,255,0.15)',
-                    }}
-                >
-                    <div className="text-center">
-                        <h1 className="text-[26px] font-bold tracking-tight" style={{ color: DEEP_NAVY }}>Welcome Back</h1>
-                        <p className="mt-2 text-sm text-slate-400">Sign in to your UMAHZ workspace.</p>
-                    </div>
-
-                    {status && (
-                        <div className="p-3 text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl">
-                            {status}
-                        </div>
-                    )}
-
-                    <div className="space-y-3">
-                        <button
-                            type="button"
-                            onClick={() => setOauthNotice("Google sign-in isn't connected yet — use the form below for now.")}
-                            className="w-full inline-flex items-center justify-center gap-2.5 py-3.5 px-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-[#1E0B3C] transition-all duration-200 hover:border-slate-300 hover:shadow-sm active:scale-[0.98]"
-                        >
-                            <GoogleIcon /> Continue with Google
-                        </button>
-                        {oauthNotice && (
-                            <p className="text-[11px] text-center text-amber-700 bg-amber-50 border border-amber-200 rounded-lg py-2 px-3">
-                                {oauthNotice}
-                            </p>
+                    <div className="flex items-center gap-3">
+                        {canRegisterClinic && (
+                            <Link
+                                href="/clinics/register"
+                                className="hidden sm:inline-flex text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
+                            >
+                                Set up your clinic →
+                            </Link>
                         )}
-                        <div className="flex items-center gap-3 pt-1">
-                            <div className="flex-1 h-px bg-slate-200" />
-                            <span className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.12em] whitespace-nowrap">or sign in with email</span>
-                            <div className="flex-1 h-px bg-slate-200" />
+                        <ThemeToggle size="sm" />
+                    </div>
+                </div>
+
+                {/* Form Center Wrapper */}
+                <motion.div
+                    className="w-full max-w-[420px] mx-auto my-auto py-8"
+                    initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35, ease: 'easeOut' }}
+                >
+                    <div className="space-y-6">
+                        <div className="space-y-1.5">
+                            <h1 className="text-2xl sm:text-3xl font-bold tracking-normal text-slate-900 dark:text-white [word-spacing:0.04em]">
+                                Welcome Back
+                            </h1>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 [word-spacing:0.02em]">
+                                Sign in to your UMAHZ workspace
+                            </p>
+                        </div>
+
+                        {status && (
+                            <div className="p-3.5 text-xs font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 rounded-xl flex items-center gap-2">
+                                <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                                <span>{status}</span>
+                            </div>
+                        )}
+
+                        <form onSubmit={submit} className="space-y-4">
+                            {/* Email Field */}
+                            <div>
+                                <label
+                                    htmlFor="email"
+                                    className="block text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5"
+                                >
+                                    Email address
+                                </label>
+                                <div className="relative group">
+                                    <Mail
+                                        className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors duration-200 pointer-events-none ${
+                                            emailError
+                                                ? 'text-rose-500'
+                                                : 'text-slate-400 dark:text-slate-500 group-focus-within:text-indigo-600 dark:group-focus-within:text-indigo-400'
+                                        }`}
+                                    />
+                                    <input
+                                        id="email"
+                                        type="email"
+                                        value={data.email}
+                                        onChange={(e) => setData('email', e.target.value)}
+                                        onBlur={() => setTouchedEmail(true)}
+                                        required
+                                        autoComplete="email"
+                                        placeholder="name@clinic.com"
+                                        className={`w-full pl-10 pr-10 py-3 rounded-xl text-sm outline-none transition-all duration-200 bg-white dark:bg-slate-800/70 border ${
+                                            emailError
+                                                ? 'border-rose-300 dark:border-rose-500/50 text-rose-900 dark:text-rose-100 focus:ring-4 focus:ring-rose-500/15'
+                                                : 'border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-600 dark:focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15'
+                                        }`}
+                                    />
+                                    {emailFormatValid && !emailError && (
+                                        <Check
+                                            className="w-4 h-4 text-emerald-500 absolute right-3.5 top-1/2 -translate-y-1/2"
+                                            strokeWidth={2.5}
+                                        />
+                                    )}
+                                    {emailError && (
+                                        <AlertCircle
+                                            className="w-4 h-4 text-rose-500 absolute right-3.5 top-1/2 -translate-y-1/2"
+                                            strokeWidth={2}
+                                        />
+                                    )}
+                                </div>
+                                {emailError && (
+                                    <p className="text-[13px] text-rose-500 dark:text-rose-400 font-medium mt-1.5 flex items-center gap-1">
+                                        {emailError}
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Password Field */}
+                            <div>
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <label
+                                        htmlFor="password"
+                                        className="block text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300"
+                                    >
+                                        Password
+                                    </label>
+                                    <Link
+                                        href="/forgot-password"
+                                        className="text-[12px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors"
+                                    >
+                                        Forgot password?
+                                    </Link>
+                                </div>
+                                <div className="relative group">
+                                    <Lock
+                                        className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors duration-200 pointer-events-none ${
+                                            errors.password
+                                                ? 'text-rose-500'
+                                                : 'text-slate-400 dark:text-slate-500 group-focus-within:text-indigo-600 dark:group-focus-within:text-indigo-400'
+                                        }`}
+                                    />
+                                    <input
+                                        id="password"
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={data.password}
+                                        onChange={(e) => setData('password', e.target.value)}
+                                        onBlur={() => setTouchedPassword(true)}
+                                        required
+                                        autoComplete="current-password"
+                                        placeholder="••••••••"
+                                        className={`w-full pl-10 pr-11 py-3 rounded-xl text-sm outline-none transition-all duration-200 bg-white dark:bg-slate-800/70 border ${
+                                            errors.password
+                                                ? 'border-rose-300 dark:border-rose-500/50 text-rose-900 dark:text-rose-100 focus:ring-4 focus:ring-rose-500/15'
+                                                : 'border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-600 dark:focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15'
+                                        }`}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword((s) => !s)}
+                                        tabIndex={-1}
+                                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors p-1"
+                                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                    >
+                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                    </button>
+                                </div>
+                                {errors.password && (
+                                    <p className="text-[13px] text-rose-500 dark:text-rose-400 font-medium mt-1.5 flex items-center gap-1">
+                                        {errors.password}
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Remember Me */}
+                            <div className="flex items-center justify-between pt-1">
+                                <label className="flex items-center gap-2.5 cursor-pointer select-none group">
+                                    <input
+                                        type="checkbox"
+                                        checked={data.remember}
+                                        onChange={(e) => setData('remember', e.target.checked)}
+                                        className="sr-only"
+                                    />
+                                    <span
+                                        className={`w-[18px] h-[18px] rounded-md border flex items-center justify-center transition-all duration-200 ${
+                                            data.remember
+                                                ? 'bg-gradient-to-r from-violet-600 to-indigo-600 border-indigo-600 text-white shadow-xs'
+                                                : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 group-hover:border-indigo-400'
+                                        }`}
+                                    >
+                                        {data.remember && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                                    </span>
+                                    <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                                        Remember me
+                                    </span>
+                                </label>
+                            </div>
+
+                            {/* Sign In Primary Button */}
+                            <button
+                                type="submit"
+                                disabled={processing}
+                                className="w-full py-3.5 px-4 font-semibold text-sm rounded-full text-white bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 hover:from-violet-500 hover:via-indigo-500 hover:to-blue-500 shadow-lg shadow-indigo-600/25 hover:shadow-indigo-600/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-60 disabled:hover:translate-y-0 disabled:cursor-not-allowed cursor-pointer"
+                            >
+                                {processing && <Loader2 className="w-4 h-4 animate-spin" />}
+                                <span>{processing ? 'Signing in…' : 'Sign In'}</span>
+                            </button>
+                        </form>
+
+                        {/* Social Sign-In (Reference Style Row) */}
+                        <div className="space-y-3 pt-2">
+                            <div className="flex items-center gap-3">
+                                <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
+                                <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                                    or continue with
+                                </span>
+                                <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setOauthNotice("Google sign-in isn't connected yet — please use your email above.")
+                                }
+                                className="w-full py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium text-sm flex items-center justify-center gap-2.5 transition-all duration-200 hover:border-slate-300 dark:hover:border-slate-600 shadow-2xs active:scale-[0.99] cursor-pointer"
+                            >
+                                <GoogleIcon />
+                                <span>Continue with Google</span>
+                            </button>
+
+                            {oauthNotice && (
+                                <p className="text-[12px] text-center text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 rounded-xl py-2 px-3">
+                                    {oauthNotice}
+                                </p>
+                            )}
                         </div>
                     </div>
+                </motion.div>
 
-                    <form onSubmit={submit} className="space-y-5">
-                        <div>
-                            <label style={labelStyle}>Email</label>
-                            <div className="relative group">
-                                <Mail className={`w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-200 ${iconColorClass(!!emailError)}`} />
-                                <input
-                                    type="email"
-                                    value={data.email}
-                                    onChange={(e) => setData('email', e.target.value)}
-                                    onBlur={() => setTouchedEmail(true)}
-                                    required
-                                    autoComplete="email"
-                                    className={`w-full pl-11 pr-10 py-3.5 bg-white/70 border rounded-xl text-sm outline-none transition-all duration-200 text-[#1E0B3C] focus:bg-white focus:ring-4 ${inputBorderClass(!!emailError)}`}
-                                />
-                                {emailError && <AlertCircle className="w-4 h-4 text-rose-500 absolute right-3.5 top-1/2 -translate-y-1/2" strokeWidth={2} />}
-                            </div>
-                            {emailError && <div className="text-xs text-rose-600 font-medium mt-1.5">{emailError}</div>}
-                        </div>
-
-                        <div>
-                            <div className="flex items-center justify-between" style={{ marginBottom: 9 }}>
-                                <label style={{ ...labelStyle, marginBottom: 0 }}>Password</label>
-                                <Link
-                                    href="/forgot-password"
-                                    className="text-[11px] font-semibold transition-opacity duration-200 hover:opacity-75"
-                                    style={{ color: ROYAL_BLUE }}
-                                >
-                                    Forgot password?
-                                </Link>
-                            </div>
-                            <div className="relative group">
-                                <Lock className={`w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-200 ${iconColorClass(!!errors.password)}`} />
-                                <input
-                                    type={showPassword ? 'text' : 'password'}
-                                    value={data.password}
-                                    onChange={(e) => setData('password', e.target.value)}
-                                    required
-                                    autoComplete="current-password"
-                                    className={`w-full pl-11 pr-11 py-3.5 bg-white/70 border rounded-xl text-sm outline-none transition-all duration-200 text-[#1E0B3C] focus:bg-white focus:ring-4 ${inputBorderClass(!!errors.password)}`}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword((s) => !s)}
-                                    tabIndex={-1}
-                                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#5B2EFF] transition-colors duration-200"
-                                >
-                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                </button>
-                            </div>
-                            {errors.password && <div className="text-xs text-rose-600 font-medium mt-1.5">{errors.password}</div>}
-                        </div>
-
-                        <div className="flex items-center justify-between pt-1">
-                            <label className="flex items-center cursor-pointer select-none">
-                                <input
-                                    type="checkbox"
-                                    checked={data.remember}
-                                    onChange={(e) => setData('remember', e.target.checked)}
-                                    className="sr-only"
-                                />
-                                <span
-                                    className="w-[18px] h-[18px] rounded-[6px] border-[1.5px] flex items-center justify-center transition-all duration-200"
-                                    style={{
-                                        borderColor: data.remember ? 'transparent' : '#cbd5e1',
-                                        background: data.remember ? `linear-gradient(135deg, ${ROYAL_BLUE}, #2E9BE6)` : 'transparent',
-                                    }}
-                                >
-                                    <Check className="w-3 h-3 text-white transition-opacity duration-150" style={{ opacity: data.remember ? 1 : 0 }} strokeWidth={3} />
-                                </span>
-                                <span className="ml-2.5 text-xs text-slate-500">Remember me</span>
-                            </label>
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={processing}
-                            className="w-full py-3.5 px-4 text-white font-medium text-sm rounded-full transition-all duration-300 ease-out flex items-center justify-center gap-2 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] disabled:opacity-70 disabled:hover:scale-100"
-                            style={{
-                                background: `linear-gradient(135deg, ${ROYAL_BLUE} 0%, #2E9BE6 100%)`,
-                                boxShadow: '0 10px 30px -8px rgba(91,46,255,0.45)',
-                            }}
-                        >
-                            {processing && <Loader2 className="w-4 h-4 animate-spin" />}
-                            {processing ? 'Signing In…' : 'Sign In'}
-                        </button>
-                    </form>
-
-                    {canRegisterClient && (
-                        <p className="text-center text-sm text-slate-400">
-                            Don't have an account?{' '}
-                            <Link href="/register" className="font-semibold transition-opacity duration-200 hover:opacity-75" style={{ color: ROYAL_BLUE }}>Create one</Link>
+                {/* Bottom Footer Links */}
+                <div className="border-t border-slate-200/80 dark:border-slate-800 pt-4 text-center space-y-1">
+                    {canRegisterClinic && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                            Own a wellness clinic?{' '}
+                            <Link
+                                href="/clinics/register"
+                                className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                            >
+                                Set up your clinic
+                            </Link>
                         </p>
                     )}
-
-                    {canRegisterClinic && (
-                        <p className="text-center text-xs text-slate-400">
-                            Own a wellness clinic?{' '}
-                            <Link href="/clinics/register" className="font-semibold transition-opacity duration-200 hover:opacity-75" style={{ color: ROYAL_BLUE }}>Set up your clinic</Link>
+                    {canRegisterClient && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                            Looking to book an appointment?{' '}
+                            <Link
+                                href="/register"
+                                className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                            >
+                                Create client account
+                            </Link>
                         </p>
                     )}
                 </div>
             </div>
+
+            {/* Right Column: Branded Visual Panel (Hidden on Mobile) */}
+            <AuthVisualPanel />
         </div>
+    );
+}
+
+export default function Login(props) {
+    return (
+        <ThemeProvider>
+            <LoginForm {...props} />
+        </ThemeProvider>
     );
 }

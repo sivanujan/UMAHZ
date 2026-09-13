@@ -1,9 +1,14 @@
 import React from 'react';
 
-const SEGMENT_COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e'];
+const STRENGTH_CONFIG = [
+    { label: 'Weak', barColor: 'bg-rose-500', textColor: 'text-rose-600 dark:text-rose-400' },
+    { label: 'Fair', barColor: 'bg-amber-500', textColor: 'text-amber-600 dark:text-amber-400' },
+    { label: 'Good', barColor: 'bg-blue-500', textColor: 'text-blue-600 dark:text-blue-400' },
+    { label: 'Strong', barColor: 'bg-emerald-500', textColor: 'text-emerald-600 dark:text-emerald-400' },
+];
 
 function getPasswordStrength(password) {
-    if (!password) return { score: 0, label: '' };
+    if (!password) return { score: 0, label: '', config: null };
 
     let score = 0;
     if (password.length >= 8) score++;
@@ -12,38 +17,46 @@ function getPasswordStrength(password) {
     if (/\d/.test(password)) score++;
     if (/[^A-Za-z0-9]/.test(password)) score++;
 
-    if (score <= 1) return { score: 1, label: 'Weak' };
-    if (score === 2) return { score: 2, label: 'Fair' };
-    if (score <= 3) return { score: 3, label: 'Good' };
-    return { score: 4, label: 'Strong' };
+    const clampedScore = Math.min(Math.max(score, 1), 4);
+    const config = STRENGTH_CONFIG[clampedScore - 1];
+
+    return {
+        score: clampedScore,
+        label: config.label,
+        config,
+    };
 }
 
 export default function PasswordStrengthMeter({ password }) {
-    const { score, label } = getPasswordStrength(password);
-    const activeColor = SEGMENT_COLORS[Math.max(score - 1, 0)];
+    if (!password) return null;
+
+    const { score, label, config } = getPasswordStrength(password);
 
     return (
-        <div className="mt-2.5">
-            <div className="grid grid-cols-4 gap-1.5">
-                {SEGMENT_COLORS.map((color, i) => {
-                    const filled = i < score;
+        <div className="mt-2.5 space-y-1.5" aria-live="polite">
+            <div className="grid grid-cols-4 gap-1.5 h-1.5">
+                {[0, 1, 2, 3].map((index) => {
+                    const isFilled = index < score;
                     return (
                         <span
-                            key={color}
-                            className="h-1.5 rounded-full transition-all duration-300 ease-out"
-                            style={{
-                                background: filled ? color : '#e2e8f0',
-                                boxShadow: filled ? `0 0 8px -1px ${color}99` : 'none',
-                            }}
+                            key={index}
+                            className={`h-full rounded-full transition-all duration-300 ease-out ${
+                                isFilled
+                                    ? config.barColor
+                                    : 'bg-slate-200 dark:bg-slate-700/60'
+                            }`}
                         />
                     );
                 })}
             </div>
-            {label && (
-                <p className="text-[11px] font-semibold mt-1.5 transition-colors duration-300" style={{ color: activeColor }}>
-                    {label}
-                </p>
-            )}
+            <div className="flex items-center justify-between text-[11px] font-medium">
+                <span className={config.textColor}>
+                    Strength: <strong className="font-semibold">{label}</strong>
+                </span>
+                <span className="text-slate-400 dark:text-slate-500">
+                    Use 8+ chars, numbers & symbols
+                </span>
+            </div>
         </div>
     );
 }

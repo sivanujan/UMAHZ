@@ -13,8 +13,19 @@ const SIZES = {
  */
 export default function Logo({ size = 'md', theme = 'auto', tagline = false, className = '' }) {
     const { image, wordmark, tagline: taglineSize } = SIZES[size];
-    const wordmarkColor = theme === 'dark' ? 'text-white' : theme === 'light' ? 'text-[#1E0B3C]' : 'text-[#1E0B3C] dark:text-white';
-    const taglineColor = theme === 'dark' ? 'text-purple-200' : theme === 'light' ? 'text-slate-500' : 'text-slate-500 dark:text-purple-200';
+    const wordmarkColor =
+        theme === 'dark'
+            ? 'text-white'
+            : theme === 'light'
+                ? 'text-slate-900'
+                : 'text-slate-900 dark:text-white';
+
+    const taglineColor =
+        theme === 'dark'
+            ? 'text-slate-300'
+            : theme === 'light'
+                ? 'text-slate-600'
+                : 'text-slate-600 dark:text-slate-300';
 
     return (
         <span className={`inline-flex items-center gap-2.5 ${className}`}>
@@ -22,16 +33,16 @@ export default function Logo({ size = 'md', theme = 'auto', tagline = false, cla
                 src="/imags/logo.png"
                 alt="UMAHZ"
                 style={{ width: image, height: image, flexShrink: 0 }}
-                className="object-contain"
+                className="object-contain drop-shadow-xs"
             />
             <span className="flex flex-col leading-tight">
-                <span className={`font-bold tracking-tight ${wordmark} ${wordmarkColor}`}>
-                    UMAHZ<span className="text-[#2563EB]">.</span>
+                <span className={`font-extrabold tracking-tight ${wordmark} ${wordmarkColor}`}>
+                    UMAHZ<span className="text-indigo-600 dark:text-indigo-400">.</span>
                 </span>
                 {tagline && (
                     <span className={`font-medium ${taglineSize} ${taglineColor}`}>
                         One Platform.{' '}
-                        <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[#2E9BE6] to-[#22c55e]">
+                        <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-emerald-600 dark:from-cyan-400 dark:to-emerald-400">
                             Every Wellness Practice.
                         </span>
                     </span>
