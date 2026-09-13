@@ -1,17 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { ChevronDown, ArrowRight } from 'lucide-react';
+import { ChevronDown, ArrowRight, Sun, Moon } from 'lucide-react';
 import { PROFESSIONS } from '@/Data/professions';
 import Logo from '@/Components/Common/Logo';
 import ComingSoonModal from '@/Components/Common/ComingSoonModal';
+import { useTheme } from '@/Contexts/ThemeContext';
 
-const INK = '#0D1B2A';
-const ROYAL = '#2563EB';
-const SLATE = '#475569'; // darker slate — legible on the frosted bar (≈7:1)
 const BRAND_GRADIENT = 'linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)';
 
-// Logo is home, so it isn't repeated here. "Security & Privacy" shortens to
-// "Security" in the bar; the page keeps its full title.
 const NAV_LINKS = [
     { label: 'Features', href: '/features' },
     { label: 'Professions', href: '/professions', mega: true },
@@ -33,16 +29,43 @@ function useScrolled(threshold = 8) {
     return scrolled;
 }
 
-/** Desktop link with a quiet brand-gradient underline for the active/hover
- *  state — the one moving part, kept subtle and reduced-motion friendly. */
+function ThemeToggle({ className = '' }) {
+    let theme = null;
+    try {
+        theme = useTheme();
+    } catch (e) {
+        // Safe fallback if rendered without provider
+    }
+    if (!theme) return null;
+    const { resolved, toggle } = theme;
+
+    return (
+        <button
+            type="button"
+            onClick={toggle}
+            className={`flex items-center justify-center w-9 h-9 rounded-full border border-slate-200/90 dark:border-slate-700/80 bg-white/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] cursor-pointer shadow-2xs ${className}`}
+            aria-label={`Switch to ${resolved === 'dark' ? 'light' : 'dark'} mode`}
+            title={`Switch to ${resolved === 'dark' ? 'light' : 'dark'} mode`}
+        >
+            {resolved === 'dark' ? (
+                <Sun className="h-4 w-4 text-amber-400 transition-transform duration-200 hover:rotate-45" />
+            ) : (
+                <Moon className="h-4 w-4 text-slate-700 transition-transform duration-200 hover:-rotate-12" />
+            )}
+        </button>
+    );
+}
+
+/** Desktop link with a quiet brand-gradient underline for the active/hover state */
 function NavLink({ item, active }) {
     return (
         <Link
             href={item.href}
-            className="group relative py-1.5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-4 focus-visible:ring-[#2563EB]/40 rounded"
-            style={{ color: active ? INK : SLATE, fontWeight: active ? 600 : 500 }}
-            onMouseEnter={(e) => { if (!active) e.currentTarget.style.color = INK; }}
-            onMouseLeave={(e) => { if (!active) e.currentTarget.style.color = SLATE; }}
+            className={`group relative py-1.5 text-sm transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-4 focus-visible:ring-[#2563EB]/40 rounded ${
+                active
+                    ? 'text-[#2563EB] dark:text-[#5B9BFF] font-semibold'
+                    : 'text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white font-medium'
+            }`}
         >
             {item.label}
             <span
@@ -53,23 +76,18 @@ function NavLink({ item, active }) {
             {!active && (
                 <span
                     aria-hidden="true"
-                    className="absolute -bottom-0.5 left-0 h-[2px] w-0 rounded-full bg-slate-300 transition-all duration-300 ease-out group-hover:w-full motion-reduce:transition-none"
+                    className="absolute -bottom-0.5 left-0 h-[2px] w-0 rounded-full bg-slate-300 dark:bg-slate-600 transition-all duration-300 ease-out group-hover:w-full motion-reduce:transition-none"
                 />
             )}
         </Link>
     );
 }
 
-/** The signature: professions shown as the distinct clinical worlds UMAHZ
- *  serves, each with its real tagline — not a generic link list. */
 function ProfessionsMega({ onNavigate }) {
     return (
-        <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 w-[380px]">
-            <div
-                className="rounded-2xl border bg-white p-2 shadow-[0_24px_48px_-16px_rgba(13,27,42,0.22)]"
-                style={{ borderColor: '#E6EBF1' }}
-            >
-                <p className="px-3 pt-2 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: '#94A3B8' }}>
+        <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 w-[380px] z-50">
+            <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111827] p-2 shadow-[0_24px_48px_-16px_rgba(13,27,42,0.25)] dark:shadow-[0_24px_48px_-16px_rgba(0,0,0,0.7)]">
+                <p className="px-3 pt-2 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
                     By profession
                 </p>
                 {PROFESSIONS.map((p) => (
@@ -77,27 +95,23 @@ function ProfessionsMega({ onNavigate }) {
                         key={p.slug}
                         href={`/professions/${p.slug}`}
                         onClick={onNavigate}
-                        className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors duration-150 hover:bg-[#F1F5F9] focus-visible:outline-none focus-visible:bg-[#F1F5F9]"
+                        className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors duration-150 hover:bg-slate-100 dark:hover:bg-slate-800/80 focus-visible:outline-none focus-visible:bg-slate-100 dark:focus-visible:bg-slate-800"
                     >
-                        <span
-                            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg transition-colors duration-150"
-                            style={{ background: 'rgba(37,99,235,0.09)', color: ROYAL }}
-                        >
+                        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950/60 text-[#2563EB] dark:text-[#5B9BFF] transition-colors duration-150">
                             <p.icon className="h-[18px] w-[18px]" />
                         </span>
                         <span className="min-w-0">
-                            <span className="block text-sm font-semibold leading-tight" style={{ color: INK }}>{p.name}</span>
-                            <span className="block truncate text-xs leading-tight mt-0.5" style={{ color: SLATE }}>{p.tagline}</span>
+                            <span className="block text-sm font-semibold leading-tight text-slate-900 dark:text-slate-100">{p.name}</span>
+                            <span className="block truncate text-xs leading-tight mt-0.5 text-slate-500 dark:text-slate-400">{p.tagline}</span>
                         </span>
                     </Link>
                 ))}
                 <Link
                     href="/professions"
                     onClick={onNavigate}
-                    className="mt-1 flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors duration-150 hover:bg-[#F1F5F9]"
-                    style={{ color: ROYAL }}
+                    className="mt-1 flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-semibold text-[#2563EB] dark:text-[#5B9BFF] transition-colors duration-150 hover:bg-slate-100 dark:hover:bg-slate-800/80"
                 >
-                    See all professions
+                    <span>See all professions</span>
                     <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </Link>
             </div>
@@ -116,21 +130,22 @@ export default function Navbar() {
 
     return (
         <header
-            className="sticky top-0 z-50 transition-all duration-300"
-            style={{
-                background: scrolled ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.75)',
-                backdropFilter: 'saturate(180%) blur(12px)',
-                WebkitBackdropFilter: 'saturate(180%) blur(12px)',
-                borderBottom: `1px solid ${scrolled ? '#E6EBF1' : 'transparent'}`,
-                boxShadow: scrolled ? '0 8px 24px -18px rgba(13,27,42,0.5)' : 'none',
-            }}
+            className={`sticky top-0 z-50 transition-all duration-300 backdrop-blur-md ${
+                scrolled
+                    ? 'bg-white/92 dark:bg-[#0B0F19]/92 border-b border-slate-200/80 dark:border-slate-800/80 shadow-[0_8px_24px_-18px_rgba(13,27,42,0.12)] dark:shadow-[0_8px_24px_-18px_rgba(0,0,0,0.6)]'
+                    : 'bg-white/75 dark:bg-[#0B0F19]/75 border-b border-transparent'
+            }`}
         >
-            <div className="mx-auto max-w-7xl px-6 md:px-10 lg:px-8 xl:px-12">
+            <div className="mx-auto max-w-7xl px-6 md:px-12 lg:px-24">
                 <nav className="flex items-center justify-between gap-6 py-4">
-                    <Link href="/" className="flex shrink-0 items-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/40 focus-visible:ring-offset-4">
+                    <Link
+                        href="/"
+                        className="flex shrink-0 items-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/40 focus-visible:ring-offset-4"
+                    >
                         <Logo size="md" />
                     </Link>
 
+                    {/* Desktop Navigation Links */}
                     <div className="hidden items-center gap-5 text-[15px] lg:flex">
                         {NAV_LINKS.map((item) => item.mega ? (
                             <div
@@ -141,10 +156,11 @@ export default function Navbar() {
                             >
                                 <Link
                                     href={item.href}
-                                    className="group relative flex items-center gap-1 py-1.5 transition-colors duration-200"
-                                    style={{ color: isActive(item.href) ? INK : SLATE, fontWeight: isActive(item.href) ? 600 : 500 }}
-                                    onMouseEnter={(e) => { e.currentTarget.style.color = INK; }}
-                                    onMouseLeave={(e) => { if (!isActive(item.href)) e.currentTarget.style.color = SLATE; }}
+                                    className={`group relative flex items-center gap-1 py-1.5 text-sm transition-colors duration-200 ${
+                                        isActive(item.href) || professionsOpen
+                                            ? 'text-[#2563EB] dark:text-[#5B9BFF] font-semibold'
+                                            : 'text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white font-medium'
+                                    }`}
                                 >
                                     {item.label}
                                     <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${professionsOpen ? 'rotate-180' : ''}`} />
@@ -161,24 +177,25 @@ export default function Navbar() {
                         ))}
                     </div>
 
-                    <div className="hidden shrink-0 items-center gap-2 lg:flex">
+                    {/* Desktop Action Group */}
+                    <div className="hidden shrink-0 items-center gap-2.5 lg:flex">
+                        <ThemeToggle />
+
                         <Link
                             href="/login"
-                            className="rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-200 hover:bg-[#F1F5F9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/40"
-                            style={{ color: INK }}
+                            className="rounded-full px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 transition-colors duration-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/40"
                         >
                             Sign in
                         </Link>
                         <Link
                             href="/clinics/register"
-                            className="rounded-full border px-4 py-2 text-sm font-semibold transition-colors duration-200 hover:bg-[#F1F5F9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/40"
-                            style={{ color: ROYAL, borderColor: 'rgba(37,99,235,0.35)' }}
+                            className="rounded-full border border-blue-600/35 dark:border-blue-400/40 text-blue-600 dark:text-blue-400 px-4 py-2 text-sm font-semibold transition-colors duration-200 hover:bg-blue-50/50 dark:hover:bg-blue-950/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/40"
                         >
                             Register as clinic
                         </Link>
                         <Link
                             href="/contact"
-                            className="inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2563EB]"
+                            className="inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2563EB] cursor-pointer"
                             style={{ background: BRAND_GRADIENT, boxShadow: '0 10px 22px -12px rgba(37,99,235,0.6)' }}
                         >
                             Book a demo
@@ -186,35 +203,35 @@ export default function Navbar() {
                         </Link>
                     </div>
 
-                    <button
-                        onClick={() => setMobileOpen(!mobileOpen)}
-                        aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
-                        aria-expanded={mobileOpen}
-                        className="rounded-lg p-2 lg:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/40"
-                        style={{ color: INK }}
-                    >
-                        <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            {mobileOpen
-                                ? <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                : <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />}
-                        </svg>
-                    </button>
+                    {/* Mobile Controls */}
+                    <div className="flex items-center gap-2 lg:hidden">
+                        <ThemeToggle />
+                        <button
+                            onClick={() => setMobileOpen(!mobileOpen)}
+                            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+                            aria-expanded={mobileOpen}
+                            className="rounded-lg p-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/40 cursor-pointer"
+                        >
+                            <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                {mobileOpen
+                                    ? <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    : <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />}
+                            </svg>
+                        </button>
+                    </div>
                 </nav>
 
+                {/* Mobile Dropdown Drawer */}
                 {mobileOpen && (
-                    <div
-                        className="mb-4 rounded-2xl border bg-white p-4 shadow-xl lg:hidden"
-                        style={{ borderColor: '#E6EBF1' }}
-                    >
+                    <div className="mb-4 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111827] p-4 shadow-xl lg:hidden">
                         {NAV_LINKS.map((item) => item.mega ? (
                             <div key={item.href}>
                                 <button
                                     onClick={() => setMobileProfessionsOpen(!mobileProfessionsOpen)}
-                                    className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-semibold"
-                                    style={{ color: INK }}
+                                    className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-200"
                                 >
                                     {item.label}
-                                    <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${mobileProfessionsOpen ? 'rotate-180' : ''}`} style={{ color: SLATE }} />
+                                    <ChevronDown className={`h-4 w-4 transition-transform duration-200 text-slate-500 ${mobileProfessionsOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 {mobileProfessionsOpen && (
                                     <div className="space-y-1 pb-1 pl-2">
@@ -223,12 +240,12 @@ export default function Navbar() {
                                                 key={p.slug}
                                                 href={`/professions/${p.slug}`}
                                                 onClick={() => setMobileOpen(false)}
-                                                className="flex items-center gap-3 rounded-lg px-3 py-2"
+                                                className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800/80"
                                             >
-                                                <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg" style={{ background: 'rgba(37,99,235,0.09)', color: ROYAL }}>
+                                                <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950/60 text-[#2563EB] dark:text-[#5B9BFF]">
                                                     <p.icon className="h-4 w-4" />
                                                 </span>
-                                                <span className="text-sm font-medium" style={{ color: INK }}>{p.name}</span>
+                                                <span className="text-sm font-medium text-slate-800 dark:text-slate-200">{p.name}</span>
                                             </Link>
                                         ))}
                                     </div>
@@ -239,34 +256,35 @@ export default function Navbar() {
                                 key={item.href}
                                 href={item.href}
                                 onClick={() => setMobileOpen(false)}
-                                className="block rounded-lg px-3 py-2.5 text-sm font-semibold"
-                                style={{ color: isActive(item.href) ? ROYAL : INK }}
+                                className={`block rounded-lg px-3 py-2.5 text-sm font-semibold ${
+                                    isActive(item.href)
+                                        ? 'text-[#2563EB] dark:text-[#5B9BFF]'
+                                        : 'text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80'
+                                }`}
                             >
                                 {item.label}
                             </Link>
                         ))}
 
-                        <div className="mt-2 border-t pt-3" style={{ borderColor: '#E6EBF1' }}>
+                        <div className="mt-2 border-t border-slate-200/90 dark:border-slate-800 pt-3 space-y-2">
                             <Link
                                 href="/login"
                                 onClick={() => setMobileOpen(false)}
-                                className="block rounded-lg px-3 py-2.5 text-sm font-semibold"
-                                style={{ color: INK }}
+                                className="block rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80"
                             >
                                 Sign in
                             </Link>
                             <Link
                                 href="/clinics/register"
                                 onClick={() => setMobileOpen(false)}
-                                className="mt-1 block rounded-lg border px-3 py-2.5 text-center text-sm font-semibold"
-                                style={{ color: ROYAL, borderColor: 'rgba(37,99,235,0.35)' }}
+                                className="block rounded-lg border border-blue-600/35 dark:border-blue-400/40 px-3 py-2.5 text-center text-sm font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/40"
                             >
                                 Register as clinic
                             </Link>
                             <Link
                                 href="/contact"
                                 onClick={() => setMobileOpen(false)}
-                                className="mt-1 flex items-center justify-center gap-1.5 rounded-full px-5 py-3 text-sm font-semibold text-white"
+                                className="flex items-center justify-center gap-1.5 rounded-full px-5 py-3 text-sm font-semibold text-white shadow-md cursor-pointer"
                                 style={{ background: BRAND_GRADIENT }}
                             >
                                 Book a demo

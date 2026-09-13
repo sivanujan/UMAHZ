@@ -1,4 +1,5 @@
 export default {
+  darkMode: 'class',
   content: [
     './vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php',
     './storage/framework/views/*.php',
@@ -8,6 +9,27 @@ export default {
   theme: {
     extend: {
       colors: {
+        canvas: 'var(--color-canvas)',
+        surface: {
+          DEFAULT: 'var(--color-surface)',
+          elevated: 'var(--color-surface-elevated)',
+          muted: 'var(--color-surface-muted)',
+        },
+        ink: {
+          primary: 'var(--color-text-primary)',
+          secondary: 'var(--color-text-secondary)',
+          muted: 'var(--color-text-muted)',
+        },
+        border: {
+          subtle: 'var(--color-border-subtle)',
+          strong: 'var(--color-border-strong)',
+        },
+        accent: {
+          violet: 'var(--color-accent-violet)',
+          'violet-hover': 'var(--color-accent-violet-hover)',
+          pink: 'var(--color-accent-pink)',
+          teal: 'var(--color-accent-teal)',
+        },
         brand: {
           50: '#f0fdfa',
           100: '#ccfbf1',
@@ -23,7 +45,7 @@ export default {
           100: '#f5f3ef',
           200: '#e8e4dc',
           800: '#292524',
-        }
+        },
       },
     },
   },

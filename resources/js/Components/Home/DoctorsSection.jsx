@@ -1,9 +1,19 @@
 import React from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
+import PillBadge from '@/Components/Common/PillBadge';
+import {
+    EASING,
+    VIEWPORT_ONCE,
+    createStaggerContainer,
+    createFadeInUp,
+    createCardHover,
+    createButtonHover,
+} from '@/Utils/motion';
 
 const MODULES = [
-    { initials:'MT', name:'Massage Therapy Module', specialty:'Body mapping · Room scheduling · SOAP charting', bg:'linear-gradient(135deg,#a78bfa,#6366f1)' },
-    { initials:'AC', name:'Acupuncture & TCM Module', specialty:'Meridian charts · Herbal inventory · Pulse assessment', bg:'linear-gradient(135deg,#f472b6,#f43f5e)' },
-    { initials:'PT', name:'Personal Training Module', specialty:'Workout plans · Progress tracking · Commissions', bg:'linear-gradient(135deg,#fbbf24,#f97316)' },
+    { initials: 'MT', name: 'Massage Therapy Module', specialty: 'Body mapping · Room scheduling · SOAP charting', bg: 'linear-gradient(135deg, #a78bfa, #6366f1)' },
+    { initials: 'AC', name: 'Acupuncture & TCM Module', specialty: 'Meridian charts · Herbal inventory · Pulse assessment', bg: 'linear-gradient(135deg, #f472b6, #f43f5e)' },
+    { initials: 'PT', name: 'Personal Training Module', specialty: 'Workout plans · Progress tracking · Commissions', bg: 'linear-gradient(135deg, #fbbf24, #f97316)' },
 ];
 
 const SOCIAL_PATHS = [
@@ -13,56 +23,94 @@ const SOCIAL_PATHS = [
 ];
 
 export default function DoctorsSection() {
+    const shouldReduceMotion = useReducedMotion();
+
+    const containerVariants = createStaggerContainer(0.09, 0.05, shouldReduceMotion);
+    const cardEntrance = createFadeInUp(16, 0.45, shouldReduceMotion);
+    const cardHover = createCardHover(shouldReduceMotion);
+    const buttonHover = createButtonHover(1.02, shouldReduceMotion);
+
     return (
-        <section id="team" className="py-16 md:py-24 bg-white">
+        <section id="team" className="py-16 md:py-24 bg-white dark:bg-[#0E1422] transition-colors duration-300">
             <div className="max-w-7xl mx-auto px-6 md:px-12 lg:px-24">
 
-                <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
+                <motion.div
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={VIEWPORT_ONCE}
+                    variants={createFadeInUp(16, 0.45, shouldReduceMotion)}
+                    className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6"
+                >
                     <div className="space-y-3 max-w-2xl">
-                        <div className="inline-flex items-center gap-2 bg-pink-100 border border-pink-200 px-4 py-1.5 rounded-full">
-                            <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-pink-600">Platform Modules</span>
-                        </div>
-                        <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] leading-tight">
+                        <PillBadge text="Platform Modules" />
+                        <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-tight">
                             Explore Our{' '}
-                            <em className="not-italic font-light font-serif text-[#5B2EFF]">Specialty</em>{' '}
+                            <em className="not-italic font-light font-serif text-[#5B2EFF] dark:text-[#8B6BFF]">Specialty</em>{' '}
                             Practice Modules
                         </h2>
                     </div>
-                    <a href="#services" className="inline-flex items-center bg-[#F9F5FB] hover:bg-purple-50 text-[#5B2EFF] border border-purple-200 font-medium px-6 py-3 rounded-full transition-colors text-sm" style={{flexShrink:0}}>
+                    <motion.a
+                        href="#services"
+                        initial="rest"
+                        whileHover="hover"
+                        whileTap="tap"
+                        variants={buttonHover}
+                        className="inline-flex items-center bg-[#F9F5FB] dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-slate-700 text-[#5B2EFF] dark:text-purple-300 border border-purple-200 dark:border-slate-700 font-medium px-6 py-3 rounded-full transition-colors text-sm flex-shrink-0 cursor-pointer shadow-xs"
+                    >
                         View All Modules
-                    </a>
-                </div>
+                    </motion.a>
+                </motion.div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <motion.div
+                    variants={containerVariants}
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={VIEWPORT_ONCE}
+                    className="grid grid-cols-1 md:grid-cols-3 gap-8"
+                >
                     {MODULES.map((m) => (
-                        <div key={m.name} className="bg-[#F9F5FB] rounded-3xl p-4 border border-purple-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group overflow-hidden">
-
-                            {/* Card image area — gradient with initials, NO SVG */}
-                            <div style={{borderRadius:16,height:256,background:m.bg,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',position:'relative',overflow:'hidden',marginBottom:20}}>
-                                <div className="absolute inset-0 opacity-10" style={{backgroundImage:'radial-gradient(circle,#fff 1px,transparent 1px)',backgroundSize:'20px 20px'}} />
-                                <div style={{width:72,height:72,borderRadius:16,background:'rgba(255,255,255,0.2)',border:'1px solid rgba(255,255,255,0.3)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:12,zIndex:1,flexShrink:0}}>
-                                    <span style={{color:'#fff',fontSize:28,fontWeight:800}}>{m.initials}</span>
+                        <motion.div
+                            key={m.name}
+                            variants={cardEntrance}
+                            initial="rest"
+                            whileHover="hover"
+                            {...cardHover}
+                            className="bg-[#F9F5FB] dark:bg-[#131B2B] rounded-2xl p-4 border border-purple-100/90 dark:border-slate-800 shadow-sm hover:shadow-xl dark:hover:border-purple-500/40 transition-all duration-300 group overflow-hidden"
+                        >
+                            {/* Card image area */}
+                            <div
+                                className="relative rounded-xl h-64 flex flex-col items-center justify-center overflow-hidden mb-5"
+                                style={{ background: m.bg }}
+                            >
+                                <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+                                <div className="w-18 h-18 rounded-2xl bg-white/20 border border-white/30 flex items-center justify-center mb-3 z-10 flex-shrink-0 shadow-md transition-transform duration-200 group-hover:scale-105">
+                                    <span className="text-white text-3xl font-extrabold">{m.initials}</span>
                                 </div>
-                                <span style={{color:'rgba(255,255,255,0.75)',fontSize:12,fontWeight:600,zIndex:1}}>Module</span>
+                                <span className="text-white/80 text-xs font-semibold z-10 tracking-wide uppercase">Module</span>
                             </div>
 
                             <div className="px-2 pb-2 space-y-2">
-                                <h3 className="text-[#1E0B3C] text-lg font-bold">{m.name}</h3>
-                                <p className="text-slate-500 text-xs leading-relaxed">{m.specialty}</p>
+                                <h3 className="text-[#1E0B3C] dark:text-white text-lg font-bold tracking-tight">{m.name}</h3>
+                                <p className="text-slate-600 dark:text-slate-300 text-xs leading-relaxed font-normal">{m.specialty}</p>
 
                                 <div className="flex items-center gap-3 pt-3">
                                     {SOCIAL_PATHS.map((path, idx) => (
-                                        <button key={idx} className="w-8 h-8 rounded-full border border-purple-200 flex items-center justify-center bg-transparent cursor-pointer flex-shrink-0">
-                                            <svg className="w-3.5 h-3.5" fill="#64748b" viewBox="0 0 24 24">
+                                        <button
+                                            key={idx}
+                                            type="button"
+                                            aria-label="Social link"
+                                            className="w-8 h-8 rounded-full border border-purple-200/80 dark:border-slate-700 flex items-center justify-center bg-white/50 dark:bg-slate-800 hover:border-[#5B2EFF] dark:hover:border-purple-400 cursor-pointer flex-shrink-0 transition-colors"
+                                        >
+                                            <svg className="w-3.5 h-3.5 fill-slate-500 dark:fill-slate-400" viewBox="0 0 24 24">
                                                 <path d={path} />
                                             </svg>
                                         </button>
                                     ))}
                                 </div>
                             </div>
-                        </div>
+                        </motion.div>
                     ))}
-                </div>
+                </motion.div>
             </div>
         </section>
     );

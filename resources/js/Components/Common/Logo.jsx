@@ -11,10 +11,10 @@ const SIZES = {
  * Wellness Practice." tagline. Centralised here so the brand asset only
  * needs to be swapped in one place.
  */
-export default function Logo({ size = 'md', theme = 'light', tagline = false, className = '' }) {
+export default function Logo({ size = 'md', theme = 'auto', tagline = false, className = '' }) {
     const { image, wordmark, tagline: taglineSize } = SIZES[size];
-    const wordmarkColor = theme === 'dark' ? 'text-white' : 'text-[#1E0B3C]';
-    const taglineColor = theme === 'dark' ? 'text-purple-200' : 'text-slate-500';
+    const wordmarkColor = theme === 'dark' ? 'text-white' : theme === 'light' ? 'text-[#1E0B3C]' : 'text-[#1E0B3C] dark:text-white';
+    const taglineColor = theme === 'dark' ? 'text-purple-200' : theme === 'light' ? 'text-slate-500' : 'text-slate-500 dark:text-purple-200';
 
     return (
         <span className={`inline-flex items-center gap-2.5 ${className}`}>

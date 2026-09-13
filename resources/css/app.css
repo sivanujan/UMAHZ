@@ -12,6 +12,39 @@
   --font-display: 'Clash Display', 'Satoshi', system-ui, sans-serif;
 }
 
+/* Global Semantic Design Tokens for Marketing Site & Shared Components */
+:root {
+  --color-canvas: #F9F5FB;
+  --color-surface: #FFFFFF;
+  --color-surface-elevated: #FFFFFF;
+  --color-surface-muted: #F3ECF8;
+  --color-text-primary: #1E0B3C;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748B;
+  --color-border-subtle: #F3E8FF;
+  --color-border-strong: #E9D5FF;
+  --color-accent-violet: #5B2EFF;
+  --color-accent-violet-hover: #481EDD;
+  --color-accent-pink: #DB2777;
+  --color-accent-teal: #0D9488;
+}
+
+.dark {
+  --color-canvas: #0B0F19;
+  --color-surface: #111827;
+  --color-surface-elevated: #1F293D;
+  --color-surface-muted: #162032;
+  --color-text-primary: #F8FAFC;
+  --color-text-secondary: #CBD5E1;
+  --color-text-muted: #94A3B8;
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(147, 51, 234, 0.35);
+  --color-accent-violet: #7C4DFF;
+  --color-accent-violet-hover: #936BFF;
+  --color-accent-pink: #F472B6;
+  --color-accent-teal: #2DD4BF;
+}
+
 /* UMAHZ client portal theme tokens (light + dark) */
 .umahz-portal {
   --umahz-bg: #F1F5F9;
