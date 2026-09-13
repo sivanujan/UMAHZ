@@ -29,6 +29,7 @@ use App\Http\Controllers\Portal\SettingsController;
 use App\Http\Controllers\PractitionerAppointmentController;
 use App\Http\Controllers\ClinicHomeController;
 use App\Http\Controllers\PublicIntakeController;
+use App\Http\Controllers\ReportController;
 
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\Settings\StaffInvitationController;
@@ -335,6 +336,23 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
             Route::get('/appointments', [PractitionerAppointmentController::class, 'index'])->name('appointments');
             Route::patch('/appointments/{appointment}/status', [PractitionerAppointmentController::class, 'updateStatus'])->name('appointments.status');
             Route::patch('/appointments/{appointment}/notes', [PractitionerAppointmentController::class, 'updateNotes'])->name('appointments.notes');
+        });
+
+        // Practice Analytics & Reporting (Spec §18)
+        Route::prefix('reports')->name('reports.')->group(function () {
+            Route::get('/', [ReportController::class, 'index'])->name('index');
+            Route::get('/appointments', [ReportController::class, 'appointments'])->name('appointments');
+            Route::get('/appointments/export', [ReportController::class, 'exportAppointments'])->name('appointments.export');
+            Route::get('/retention', [ReportController::class, 'retention'])->name('retention');
+            Route::get('/retention/export', [ReportController::class, 'exportRetention'])->name('retention.export');
+            Route::get('/utilization', [ReportController::class, 'utilization'])->name('utilization');
+            Route::get('/utilization/export', [ReportController::class, 'exportUtilization'])->name('utilization.export');
+
+            // Financial & Revenue reporting — strictly owner-only (enforced via middleware & policy)
+            Route::middleware('staff.role:clinic_owner')->group(function () {
+                Route::get('/revenue', [ReportController::class, 'revenue'])->name('revenue');
+                Route::get('/revenue/export', [ReportController::class, 'exportRevenue'])->name('revenue.export');
+            });
         });
 
         // Staff invitations are owner-only.

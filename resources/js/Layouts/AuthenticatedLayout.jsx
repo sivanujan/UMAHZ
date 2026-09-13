@@ -14,11 +14,13 @@ import {
     Moon,
     CreditCard,
     Wallet,
+    BarChart3,
 } from 'lucide-react';
 import { ThemeProvider, useTheme } from '@/Contexts/ThemeContext';
 
 function isActive(currentUrl, href) {
     if (!href || href === '#') return false;
+    if (href === '/app/reports/appointments' && currentUrl.startsWith('/app/reports')) return true;
     return currentUrl === href || currentUrl.startsWith(`${href}/`);
 }
 
@@ -100,6 +102,7 @@ function AppShell({ children, title }) {
         { name: 'Dashboard', href: '/app/dashboard', icon: LayoutDashboard, show: true },
         { name: 'Clients', href: '/app/clients', icon: Users, show: true },
         { name: 'Appointments', href: appointmentsHref, icon: Calendar, show: true },
+        { name: 'Reports', href: '/app/reports/appointments', icon: BarChart3, show: true },
     ].filter((i) => i.show);
 
     const management = [
