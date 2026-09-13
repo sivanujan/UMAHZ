@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Sparkles, Activity, FileText, X, ArrowRight, CheckCircle2 } from 'lucide-react';
 
-const STORAGE_KEY = 'umahz_coming_soon_seen_v1';
+const SESSION_KEY = 'umahz_coming_soon_dismissed_session';
 
 /** Helper to programmatically reopen the modal from any link or button */
 export function openComingSoonModal() {
@@ -13,25 +14,49 @@ export function openComingSoonModal() {
 export default function ComingSoonModal() {
     const [isOpen, setIsOpen] = useState(false);
     const [isRendered, setIsRendered] = useState(false);
+    const [mounted, setMounted] = useState(false);
     const modalRef = useRef(null);
 
     useEffect(() => {
-        // Check if user has already seen this announcement
-        const hasSeen = localStorage.getItem(STORAGE_KEY);
-        let timer = null;
+        setMounted(true);
 
-        if (!hasSeen) {
-            // Elegant entrance delay of 1000ms after site loads
-            timer = setTimeout(() => {
-                setIsOpen(true);
-                setIsRendered(true);
-            }, 1000);
+        // Clear legacy permanent localStorage flag so users who previously dismissed it can see it again
+        try {
+            localStorage.removeItem('umahz_coming_soon_seen_v1');
+        } catch (e) {
+            // Ignore storage errors in restricted environments
         }
 
-        // Listener to allow reopening via "What's coming" buttons/links
+        // Check if dismissed in this browser session
+        let isDismissed = false;
+        try {
+            isDismissed = sessionStorage.getItem(SESSION_KEY) === 'true';
+        } catch (e) {
+            // Ignore
+        }
+
+        // Allow force-showing via query params (e.g. ?popup=1 or ?coming_soon=1)
+        const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+        const forceShow = searchParams?.has('popup') || searchParams?.has('coming_soon') || searchParams?.has('preview');
+
+        let timer = null;
+        // When opening the site: show popup after ~800ms unless dismissed in this session
+        if (!isDismissed || forceShow) {
+            timer = setTimeout(() => {
+                setIsRendered(true);
+                // Small raf to ensure DOM is ready for CSS transition
+                requestAnimationFrame(() => {
+                    setIsOpen(true);
+                });
+            }, 800);
+        }
+
+        // Listener to allow reopening via "Coming soon" buttons, feature cards, or footer links
         const handleOpen = () => {
-            setIsOpen(true);
             setIsRendered(true);
+            requestAnimationFrame(() => {
+                setIsOpen(true);
+            });
         };
 
         window.addEventListener('open-coming-soon-modal', handleOpen);
@@ -52,7 +77,6 @@ export default function ComingSoonModal() {
 
         if (isOpen) {
             window.addEventListener('keydown', handleKeyDown);
-            // Trap focus or focus the modal
             modalRef.current?.focus();
         }
 
@@ -61,16 +85,20 @@ export default function ComingSoonModal() {
 
     const handleDismiss = () => {
         setIsOpen(false);
-        // Persist seen state so users are not repeatedly interrupted
-        localStorage.setItem(STORAGE_KEY, 'true');
+        // Persist session-level dismissal so internal page navigation does not repeatedly trigger it
+        try {
+            sessionStorage.setItem(SESSION_KEY, 'true');
+        } catch (e) {
+            // Ignore
+        }
         setTimeout(() => setIsRendered(false), 300);
     };
 
-    if (!isRendered) return null;
+    if (!isRendered || !mounted || typeof document === 'undefined') return null;
 
-    return (
+    const modalContent = (
         <div
-            className={`fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 transition-all duration-300 ${
+            className={`fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 transition-all duration-300 ${
                 isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
             }`}
             role="dialog"
@@ -106,7 +134,7 @@ export default function ComingSoonModal() {
                     type="button"
                     onClick={handleDismiss}
                     aria-label="Close modal"
-                    className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                 >
                     <X className="w-5 h-5" />
                 </button>
@@ -182,7 +210,7 @@ export default function ComingSoonModal() {
                         <button
                             type="button"
                             onClick={handleDismiss}
-                            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 cursor-pointer"
                             style={{
                                 background: 'linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)',
                             }}
@@ -195,4 +223,6 @@ export default function ComingSoonModal() {
             </div>
         </div>
     );
+
+    return createPortal(modalContent, document.body);
 }

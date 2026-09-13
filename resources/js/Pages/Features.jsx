@@ -129,6 +129,42 @@ const FEATURES = [
         highlights: ['Room & Staff Utilization', 'Retention Cohorts', 'Multi-Location Rollup'],
         isFeatured: false,
     },
+    {
+        id: 'motion',
+        number: '07',
+        title: 'UMAHZ Motion',
+        tag: 'Computer Vision AI',
+        isComingSoon: true,
+        description:
+            'Camera-based movement assessment & progress tracking. Empowers practitioners with objective, visual motion evaluations and range-of-motion tracking directly inside client records.',
+        icon: Activity,
+        accent: {
+            iconBg: 'bg-gradient-to-br from-cyan-50 to-cyan-100/80 text-cyan-600 ring-1 ring-cyan-200/70',
+            tag: 'text-cyan-800 bg-cyan-100/80 border-cyan-200/80',
+            pill: 'bg-cyan-50/60 text-cyan-800 border-cyan-100',
+            borderHover: 'hover:border-cyan-400 hover:shadow-cyan-500/15',
+        },
+        highlights: ['Movement Tracking', 'Range-of-Motion AI', 'Visual Progress'],
+        isFeatured: false,
+    },
+    {
+        id: 'scribe',
+        number: '08',
+        title: 'UMAHZ Scribe',
+        tag: 'Clinical AI Assistant',
+        isComingSoon: true,
+        description:
+            'AI-assisted clinical documentation. Converts consultation dialogue and practitioner observations into structured SOAP notes ready for rapid review and one-tap sign-off.',
+        icon: FileText,
+        accent: {
+            iconBg: 'bg-gradient-to-br from-purple-50 to-purple-100/80 text-[#5B2EFF] ring-1 ring-purple-200/70',
+            tag: 'text-purple-800 bg-purple-100/80 border-purple-200/80',
+            pill: 'bg-purple-50/60 text-purple-800 border-purple-100',
+            borderHover: 'hover:border-purple-400 hover:shadow-purple-500/15',
+        },
+        highlights: ['Automated SOAP Notes', 'Voice Consultation', 'Practitioner Sign-off'],
+        isFeatured: false,
+    },
 ];
 
 const TRUST_METRICS = [
@@ -198,9 +234,12 @@ export default function Features() {
                             return (
                                 <article
                                     key={f.id}
+                                    onClick={f.isComingSoon ? openComingSoonModal : undefined}
                                     className={`group relative bg-white/95 rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-[0_2px_12px_-2px_rgba(30,11,60,0.06),0_1px_3px_0_rgba(30,11,60,0.04)] hover:shadow-[0_20px_35px_-10px_rgba(91,46,255,0.12),0_6px_16px_-4px_rgba(30,11,60,0.06)] transition-all duration-300 ease-out motion-safe:hover:-translate-y-1.5 motion-reduce:transform-none motion-reduce:transition-none flex flex-col justify-between overflow-hidden focus-within:ring-2 focus-within:ring-[#5B2EFF] focus-within:ring-offset-2 ${
                                         f.accent.borderHover
-                                    } ${f.isFeatured ? 'lg:col-span-2' : 'col-span-1'}`}
+                                    } ${f.isFeatured ? 'lg:col-span-2' : 'col-span-1'} ${
+                                        f.isComingSoon ? 'cursor-pointer ring-1 ring-purple-200/60' : ''
+                                    }`}
                                 >
                                     {/* Subtle large watermark number */}
                                     <span
@@ -220,6 +259,12 @@ export default function Features() {
                                             </div>
 
                                             <div className="flex items-center gap-2">
+                                                {f.isComingSoon && (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gradient-to-r from-purple-100 to-indigo-100 text-[#5B2EFF] border border-purple-200/80 shadow-xs">
+                                                        <Sparkles className="w-2.5 h-2.5 text-[#5B2EFF]" />
+                                                        Coming Soon
+                                                    </span>
+                                                )}
                                                 <span
                                                     className={`inline-flex items-center text-[10px] sm:text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border shadow-xs ${f.accent.tag}`}
                                                 >
@@ -235,7 +280,7 @@ export default function Features() {
                                         </div>
 
                                         {/* Title & Description with high-contrast text */}
-                                        <h2 className="text-xl font-bold text-[#1E0B3C] tracking-tight mb-2.5">
+                                        <h2 className="text-xl font-bold text-[#1E0B3C] tracking-tight mb-2.5 flex items-center gap-2">
                                             {f.title}
                                         </h2>
 
@@ -244,18 +289,34 @@ export default function Features() {
                                         </p>
                                     </div>
 
-                                    {/* Highlights Pills */}
+                                    {/* Highlights Pills or Coming Soon Action */}
                                     <div className="pt-4 border-t border-slate-100/90 mt-auto">
-                                        <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                                            {f.highlights.map((item) => (
-                                                <span
-                                                    key={item}
-                                                    className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg border ${f.accent.pill}`}
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                                                {f.highlights.map((item) => (
+                                                    <span
+                                                        key={item}
+                                                        className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg border ${f.accent.pill}`}
+                                                    >
+                                                        <Check className="w-3 h-3 opacity-75" strokeWidth={2.5} aria-hidden="true" />
+                                                        <span>{item}</span>
+                                                    </span>
+                                                ))}
+                                            </div>
+
+                                            {f.isComingSoon && (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        openComingSoonModal();
+                                                    }}
+                                                    className="inline-flex items-center gap-1 text-xs font-bold text-[#5B2EFF] hover:text-purple-900 group-hover:translate-x-0.5 transition-all cursor-pointer mt-1"
                                                 >
-                                                    <Check className="w-3 h-3 opacity-75" strokeWidth={2.5} aria-hidden="true" />
-                                                    <span>{item}</span>
-                                                </span>
-                                            ))}
+                                                    <span>View Details</span>
+                                                    <ArrowRight className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 </article>
