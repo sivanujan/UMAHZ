@@ -83,7 +83,7 @@ class ReportingService
 
         $appointments = (clone $query)->with([
             'client:id,first_name,last_name,email',
-            'staffMembership.user:id,first_name,last_name',
+            'staffMembership.user:id,name,email',
             'location:id,name',
             'room:id,name',
         ])->get();
@@ -101,6 +101,46 @@ class ReportingService
         $completionRate = $totalCount > 0 ? round(($completedCount / $totalCount) * 100, 1) : 0;
         $cancellationRate = $totalCount > 0 ? round(($cancelledCount / $totalCount) * 100, 1) : 0;
         $noShowRate = $totalCount > 0 ? round(($noShowCount / $totalCount) * 100, 1) : 0;
+
+        // Calculate previous period for comparison (same duration immediately preceding)
+        $durationDays = max(1, $range['start']->diffInDays($range['end']));
+        $prevEndUtc = $startUtc->subSecond();
+        $prevStartUtc = $prevEndUtc->subDays($durationDays)->startOfDay();
+
+        $prevQuery = Appointment::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->whereBetween('starts_at', [$prevStartUtc, $prevEndUtc]);
+
+        if (! empty($filters['practitioner_id'])) {
+            $prevQuery->where('staff_membership_id', $filters['practitioner_id']);
+        }
+        if (! empty($filters['location_id'])) {
+            $prevQuery->where('location_id', $filters['location_id']);
+        }
+        if (! empty($filters['service_name'])) {
+            $prevQuery->where('service_name', $filters['service_name']);
+        }
+
+        $prevAppointments = $prevQuery->get(['id', 'status']);
+        $prevTotal = $prevAppointments->count();
+        $prevCompleted = $prevAppointments->where('status', Appointment::STATUS_COMPLETED)->count();
+        $prevCancelled = $prevAppointments->where('status', Appointment::STATUS_CANCELLED)->count();
+        $prevNoShow = $prevAppointments->where('status', Appointment::STATUS_NO_SHOW)->count();
+
+        $calcGrowth = function ($current, $previous) {
+            if ($previous == 0) {
+                return $current > 0 ? 100 : 0;
+            }
+            return round((($current - $previous) / $previous) * 100, 1);
+        };
+
+        $comparison = [
+            'total_growth' => $calcGrowth($totalCount, $prevTotal),
+            'completed_growth' => $calcGrowth($completedCount, $prevCompleted),
+            'cancelled_growth' => $calcGrowth($cancelledCount, $prevCancelled),
+            'no_show_growth' => $calcGrowth($noShowCount, $prevNoShow),
+            'prev_total' => $prevTotal,
+        ];
 
         // Daily trend data across the range
         $period = CarbonPeriod::create($range['start']->toDateString(), $range['end']->toDateString());
@@ -195,6 +235,7 @@ class ReportingService
                 'cancellation_rate' => $cancellationRate,
                 'no_show_rate' => $noShowRate,
             ],
+            'comparison' => $comparison,
             'trend' => array_values($trend),
             'by_practitioner' => $byPractitioner,
             'by_service' => $byService,
@@ -238,7 +279,7 @@ class ReportingService
         }
 
         $invoices = $invoiceQuery->with([
-            'appointment.staffMembership.user:id,first_name,last_name',
+            'appointment.staffMembership.user:id,name,email',
             'appointment.location:id,name',
             'payments',
         ])->get();
@@ -279,6 +320,69 @@ class ReportingService
 
         // Calculate outstanding balance on invoices in range
         $outstandingTotal = (int) $invoices->sum(fn ($inv) => $inv->amountDue());
+
+        // Previous period comparisons (same duration immediately preceding)
+        $durationDays = max(1, $range['start']->diffInDays($range['end']));
+        $prevEndUtc = $startUtc->subSecond();
+        $prevStartUtc = $prevEndUtc->subDays($durationDays)->startOfDay();
+
+        $prevInvoiceQuery = Invoice::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where('status', '!=', Invoice::STATUS_VOID)
+            ->where(function ($q) use ($prevStartUtc, $prevEndUtc) {
+                $q->whereBetween('issued_at', [$prevStartUtc, $prevEndUtc])
+                    ->orWhere(function ($q2) use ($prevStartUtc, $prevEndUtc) {
+                        $q2->whereNull('issued_at')
+                            ->whereBetween('created_at', [$prevStartUtc, $prevEndUtc]);
+                    });
+            });
+
+        if (! empty($filters['location_id'])) {
+            $prevInvoiceQuery->whereHas('appointment', fn ($q) => $q->where('location_id', $filters['location_id']));
+        }
+        if (! empty($filters['practitioner_id'])) {
+            $prevInvoiceQuery->whereHas('appointment', fn ($q) => $q->where('staff_membership_id', $filters['practitioner_id']));
+        }
+
+        $prevInvoices = $prevInvoiceQuery->get(['subtotal_amount', 'discount_amount', 'total_amount']);
+        $prevGrossBilled = (int) $prevInvoices->sum('subtotal_amount');
+
+        $prevPaymentQuery = Payment::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->whereBetween('processed_at', [$prevStartUtc, $prevEndUtc]);
+
+        if (! empty($filters['method'])) {
+            $prevPaymentQuery->where('method', $filters['method']);
+        }
+        if (! empty($filters['location_id']) || ! empty($filters['practitioner_id'])) {
+            $prevPaymentQuery->whereHas('invoice.appointment', function ($q) use ($filters) {
+                if (! empty($filters['location_id'])) {
+                    $q->where('location_id', $filters['location_id']);
+                }
+                if (! empty($filters['practitioner_id'])) {
+                    $q->where('staff_membership_id', $filters['practitioner_id']);
+                }
+            });
+        }
+
+        $prevPayments = $prevPaymentQuery->get(['status', 'amount']);
+        $prevGrossCollected = (int) $prevPayments->where('status', Payment::STATUS_SUCCEEDED)->sum('amount');
+        $prevRefundsTotal = (int) $prevPayments->where('status', Payment::STATUS_REFUNDED)->sum('amount');
+        $prevNetCollected = max(0, $prevGrossCollected - $prevRefundsTotal);
+
+        $calcGrowth = function ($current, $previous) {
+            if ($previous == 0) {
+                return $current > 0 ? 100 : 0;
+            }
+            return round((($current - $previous) / $previous) * 100, 1);
+        };
+
+        $comparison = [
+            'gross_billed_growth' => $calcGrowth($grossBilled, $prevGrossBilled),
+            'net_collected_growth' => $calcGrowth($netCollected, $prevNetCollected),
+            'prev_net_collected_cents' => $prevNetCollected,
+            'prev_gross_billed_cents' => $prevGrossBilled,
+        ];
 
         // Trend breakdown by day
         $period = CarbonPeriod::create($range['start']->toDateString(), $range['end']->toDateString());
@@ -379,6 +483,7 @@ class ReportingService
                 'invoice_count' => $invoices->count(),
                 'payment_count' => $succeededPayments->count(),
             ],
+            'comparison' => $comparison,
             'trend' => array_values($trend),
             'by_method' => $byMethod,
             'by_practitioner' => $byPractitioner,
@@ -493,6 +598,103 @@ class ReportingService
             }
         }
 
+        // Previous period comparisons (same duration immediately preceding)
+        $durationDays = max(1, $range['start']->diffInDays($range['end']));
+        $prevEndUtc = $startUtc->subSecond();
+        $prevStartUtc = $prevEndUtc->subDays($durationDays)->startOfDay();
+
+        $prevPeriodAppts = Appointment::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where('status', '!=', Appointment::STATUS_CANCELLED)
+            ->whereBetween('starts_at', [$prevStartUtc, $prevEndUtc])
+            ->when(! empty($filters['practitioner_id']), fn ($q) => $q->where('staff_membership_id', $filters['practitioner_id']))
+            ->when(! empty($filters['location_id']), fn ($q) => $q->where('location_id', $filters['location_id']))
+            ->get();
+
+        $prevActiveClientIds = $prevPeriodAppts->pluck('client_id')->unique()->filter()->values();
+        $prevTotalActiveClients = $prevActiveClientIds->count();
+
+        $prevFirstApptPerClient = Appointment::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->whereIn('client_id', $prevActiveClientIds)
+            ->where('status', '!=', Appointment::STATUS_CANCELLED)
+            ->select('client_id', DB::raw('MIN(starts_at) as first_visit'))
+            ->groupBy('client_id')
+            ->pluck('first_visit', 'client_id');
+
+        $prevNewClients = 0;
+        $prevReturningClients = 0;
+        foreach ($prevActiveClientIds as $clientId) {
+            $fv = isset($prevFirstApptPerClient[$clientId]) ? Carbon::parse($prevFirstApptPerClient[$clientId]) : null;
+            if ($fv && $fv->gte($prevStartUtc) && $fv->lte($prevEndUtc)) {
+                $prevNewClients++;
+            } else {
+                $prevReturningClients++;
+            }
+        }
+
+        $prevLatestAppt = $prevPeriodAppts->groupBy('client_id')->map(fn ($g) => $g->max('starts_at'));
+        $prevRebookedCount = 0;
+        foreach ($prevLatestAppt as $clientId => $latestTime) {
+            $hasFuture = Appointment::withoutGlobalScopes()
+                ->where('tenant_id', $tenant->id)
+                ->where('client_id', $clientId)
+                ->where('status', '!=', Appointment::STATUS_CANCELLED)
+                ->where('starts_at', '>', $latestTime)
+                ->exists();
+            if ($hasFuture) {
+                $prevRebookedCount++;
+            }
+        }
+
+        $prevRebookingRate = $prevTotalActiveClients > 0
+            ? round(($prevRebookedCount / $prevTotalActiveClients) * 100, 1)
+            : 0;
+
+        $calcGrowth = function ($current, $previous) {
+            if ($previous == 0) {
+                return $current > 0 ? 100 : 0;
+            }
+            return round((($current - $previous) / $previous) * 100, 1);
+        };
+
+        $comparison = [
+            'active_clients_growth' => $calcGrowth($totalActiveClients, $prevTotalActiveClients),
+            'rebooking_rate_diff' => round($rebookingRate - $prevRebookingRate, 1),
+            'new_clients_growth' => $calcGrowth($newClientCount, $prevNewClients),
+            'returning_clients_growth' => $calcGrowth($returningClientCount, $prevReturningClients),
+            'prev_active_clients' => $prevTotalActiveClients,
+            'prev_rebooking_rate' => $prevRebookingRate,
+            'prev_new_clients' => $prevNewClients,
+            'prev_returning_clients' => $prevReturningClients,
+        ];
+
+        $activeClients = Client::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->whereIn('id', $activeClientIds)
+            ->get(['id', 'first_name', 'last_name', 'email']);
+
+        $clientBreakdown = $activeClients->map(function ($c) use ($periodAppts, $firstApptPerClient, $startUtc, $endUtc, $tenant) {
+            $visits = $periodAppts->where('client_id', $c->id)->count();
+            $fv = isset($firstApptPerClient[$c->id]) ? Carbon::parse($firstApptPerClient[$c->id]) : null;
+            $isNew = $fv && $fv->gte($startUtc) && $fv->lte($endUtc);
+            $hasFuture = Appointment::withoutGlobalScopes()
+                ->where('tenant_id', $tenant->id)
+                ->where('client_id', $c->id)
+                ->where('status', '!=', Appointment::STATUS_CANCELLED)
+                ->where('starts_at', '>', $endUtc)
+                ->exists();
+
+            return [
+                'id' => $c->id,
+                'name' => $c->full_name,
+                'email' => $c->email,
+                'is_new' => $isNew,
+                'visits' => $visits,
+                'has_future' => $hasFuture,
+            ];
+        })->sortByDesc('visits')->values()->take(25)->all();
+
         return [
             'summary' => [
                 'total_active_clients' => $totalActiveClients,
@@ -505,7 +707,9 @@ class ReportingService
                 'avg_visits_per_client' => $avgVisits,
                 'total_visits' => $totalVisits,
             ],
+            'comparison' => $comparison,
             'trend' => array_values($trend),
+            'clients' => $clientBreakdown,
             'range' => [
                 'start' => $range['start_str'],
                 'end' => $range['end_str'],
@@ -539,7 +743,7 @@ class ReportingService
             ->whereBetween('starts_at', [$startUtc, $endUtc])
             ->when(! empty($filters['practitioner_id']), fn ($q) => $q->where('staff_membership_id', $filters['practitioner_id']))
             ->when(! empty($filters['location_id']), fn ($q) => $q->where('location_id', $filters['location_id']))
-            ->with(['room:id,name', 'staffMembership.user:id,first_name,last_name'])
+            ->with(['room.location', 'staffMembership.user:id,name,email', 'location:id,name'])
             ->get();
 
         $bookedMinutesTotal = 0;
@@ -550,13 +754,13 @@ class ReportingService
 
         $availableMinutesTotal = 0;
         $dayOfWeekStats = [
-            'monday' => ['name' => 'Mon', 'available_mins' => 0, 'booked_mins' => 0],
-            'tuesday' => ['name' => 'Tue', 'available_mins' => 0, 'booked_mins' => 0],
-            'wednesday' => ['name' => 'Wed', 'available_mins' => 0, 'booked_mins' => 0],
-            'thursday' => ['name' => 'Thu', 'available_mins' => 0, 'booked_mins' => 0],
-            'friday' => ['name' => 'Fri', 'available_mins' => 0, 'booked_mins' => 0],
-            'saturday' => ['name' => 'Sat', 'available_mins' => 0, 'booked_mins' => 0],
-            'sunday' => ['name' => 'Sun', 'available_mins' => 0, 'booked_mins' => 0],
+            'monday' => ['name' => 'Mon', 'day_name' => 'Monday', 'available_mins' => 0, 'booked_mins' => 0, 'appointment_count' => 0],
+            'tuesday' => ['name' => 'Tue', 'day_name' => 'Tuesday', 'available_mins' => 0, 'booked_mins' => 0, 'appointment_count' => 0],
+            'wednesday' => ['name' => 'Wed', 'day_name' => 'Wednesday', 'available_mins' => 0, 'booked_mins' => 0, 'appointment_count' => 0],
+            'thursday' => ['name' => 'Thu', 'day_name' => 'Thursday', 'available_mins' => 0, 'booked_mins' => 0, 'appointment_count' => 0],
+            'friday' => ['name' => 'Fri', 'day_name' => 'Friday', 'available_mins' => 0, 'booked_mins' => 0, 'appointment_count' => 0],
+            'saturday' => ['name' => 'Sat', 'day_name' => 'Saturday', 'available_mins' => 0, 'booked_mins' => 0, 'appointment_count' => 0],
+            'sunday' => ['name' => 'Sun', 'day_name' => 'Sunday', 'available_mins' => 0, 'booked_mins' => 0, 'appointment_count' => 0],
         ];
 
         if ($isConfigured) {
@@ -583,7 +787,19 @@ class ReportingService
             $dur = max(0, $appt->starts_at->diffInMinutes($appt->ends_at));
             if (isset($dayOfWeekStats[$dayKey])) {
                 $dayOfWeekStats[$dayKey]['booked_mins'] += $dur;
+                $dayOfWeekStats[$dayKey]['appointment_count']++;
             }
+        }
+
+        // Calculate utilization % and hours per day
+        foreach ($dayOfWeekStats as $k => $day) {
+            $avail = round($day['available_mins'] / 60, 1);
+            $booked = round($day['booked_mins'] / 60, 1);
+            $dayOfWeekStats[$k]['available_hours'] = $avail;
+            $dayOfWeekStats[$k]['booked_hours'] = $booked;
+            $dayOfWeekStats[$k]['utilization_rate'] = $day['available_mins'] > 0
+                ? round(($day['booked_mins'] / $day['available_mins']) * 100, 1)
+                : 0;
         }
 
         $bookedHours = round($bookedMinutesTotal / 60, 1);
@@ -592,16 +808,103 @@ class ReportingService
             ? round(($bookedMinutesTotal / $availableMinutesTotal) * 100, 1)
             : 0;
 
+        $countedAppts = $appts->whereIn('status', [Appointment::STATUS_COMPLETED, Appointment::STATUS_CHECKED_IN, Appointment::STATUS_CONFIRMED, Appointment::STATUS_SCHEDULED]);
+        $avgDurationMinutes = $countedAppts->count() > 0
+            ? (int) round($countedAppts->sum(fn ($a) => max(0, $a->starts_at->diffInMinutes($a->ends_at))) / $countedAppts->count())
+            : null;
+
+        // Previous period comparisons (same duration immediately preceding)
+        $durationDays = max(1, $range['start']->diffInDays($range['end']));
+        $prevEndUtc = $startUtc->subSecond();
+        $prevStartUtc = $prevEndUtc->subDays($durationDays)->startOfDay();
+
+        $prevAppts = Appointment::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->whereIn('status', [
+                Appointment::STATUS_SCHEDULED,
+                Appointment::STATUS_CONFIRMED,
+                Appointment::STATUS_CHECKED_IN,
+                Appointment::STATUS_COMPLETED,
+            ])
+            ->whereBetween('starts_at', [$prevStartUtc, $prevEndUtc])
+            ->when(! empty($filters['practitioner_id']), fn ($q) => $q->where('staff_membership_id', $filters['practitioner_id']))
+            ->when(! empty($filters['location_id']), fn ($q) => $q->where('location_id', $filters['location_id']))
+            ->get();
+
+        $prevBookedMinutesTotal = 0;
+        foreach ($prevAppts as $pa) {
+            $prevBookedMinutesTotal += max(0, $pa->starts_at->diffInMinutes($pa->ends_at));
+        }
+
+        $prevAvailableMinutesTotal = 0;
+        if ($isConfigured) {
+            $prevPeriod = CarbonPeriod::create($prevStartUtc->toDateString(), $prevEndUtc->toDateString());
+            foreach ($prevPeriod as $pday) {
+                $pdayKey = strtolower($pday->format('l'));
+                $pdayConfig = $businessHours[$pdayKey] ?? null;
+                if (! empty($pdayConfig) && ! empty($pdayConfig['open']) && ! empty($pdayConfig['close']) && empty($pdayConfig['closed'])) {
+                    $popen = Carbon::createFromFormat('H:i', $pdayConfig['open']);
+                    $pclose = Carbon::createFromFormat('H:i', $pdayConfig['close']);
+                    $prevAvailableMinutesTotal += max(0, $popen->diffInMinutes($pclose));
+                }
+            }
+        }
+
+        $prevBookedHours = round($prevBookedMinutesTotal / 60, 1);
+        $prevAvailableHours = round($prevAvailableMinutesTotal / 60, 1);
+        $prevUtilizationRate = $prevAvailableMinutesTotal > 0
+            ? round(($prevBookedMinutesTotal / $prevAvailableMinutesTotal) * 100, 1)
+            : 0;
+
+        $calcGrowth = function ($current, $previous) {
+            if ($previous == 0) {
+                return $current > 0 ? 100 : 0;
+            }
+            return round((($current - $previous) / $previous) * 100, 1);
+        };
+
+        $comparison = [
+            'utilization_rate_diff' => round($utilizationRate - $prevUtilizationRate, 1),
+            'booked_hours_growth' => $calcGrowth($bookedHours, $prevBookedHours),
+            'appointments_growth' => $calcGrowth($appts->count(), $prevAppts->count()),
+            'prev_utilization_rate' => $prevUtilizationRate,
+            'prev_booked_hours' => $prevBookedHours,
+            'prev_available_hours' => $prevAvailableHours,
+        ];
+
         // Breakdown by Room
-        $byRoom = $appts->groupBy('room_id')->map(function ($group) {
+        $byRoom = $appts->groupBy(function ($a) {
+            return $a->room_id ?: 'unassigned';
+        })->map(function ($group, $key) {
             $first = $group->first();
             $roomName = $first?->room?->name ?? 'Unassigned Room';
+            $locationName = $first?->room?->location?->name ?? ($first?->location?->name ?? 'Main Clinic');
             $mins = $group->sum(fn ($a) => max(0, $a->starts_at->diffInMinutes($a->ends_at)));
 
             return [
+                'id' => $key,
                 'room_name' => $roomName,
+                'location_name' => $locationName,
                 'appointment_count' => $group->count(),
                 'booked_hours' => round($mins / 60, 1),
+                'booked_minutes' => $mins,
+            ];
+        })->values()->sortByDesc('booked_hours')->values()->all();
+
+        // Breakdown by Practitioner
+        $byPractitioner = $appts->groupBy(function ($a) {
+            return $a->staff_membership_id ?: 'unassigned';
+        })->map(function ($group, $key) {
+            $first = $group->first();
+            $name = $first?->staffMembership?->user?->name ?? 'Unassigned Practitioner';
+            $mins = $group->sum(fn ($a) => max(0, $a->starts_at->diffInMinutes($a->ends_at)));
+
+            return [
+                'id' => $key,
+                'name' => $name,
+                'appointment_count' => $group->count(),
+                'booked_hours' => round($mins / 60, 1),
+                'booked_minutes' => $mins,
             ];
         })->values()->sortByDesc('booked_hours')->values()->all();
 
@@ -609,12 +912,17 @@ class ReportingService
             'is_configured' => $isConfigured,
             'summary' => [
                 'booked_hours' => $bookedHours,
+                'booked_minutes' => $bookedMinutesTotal,
                 'available_hours' => $availableHours,
+                'available_minutes' => $availableMinutesTotal,
                 'utilization_rate' => $utilizationRate,
                 'total_appointments' => $appts->count(),
+                'average_duration_minutes' => $avgDurationMinutes,
             ],
+            'comparison' => $comparison,
             'by_day_of_week' => array_values($dayOfWeekStats),
             'by_room' => $byRoom,
+            'by_practitioner' => $byPractitioner,
             'range' => [
                 'start' => $range['start_str'],
                 'end' => $range['end_str'],
@@ -781,19 +1089,58 @@ class ReportingService
 
         return response()->streamDownload(function () use ($report) {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['Day of Week', 'Available Hours', 'Booked Hours', 'Estimated Utilization %']);
 
+            // 1. Executive Summary
+            fputcsv($handle, ['CAPACITY UTILIZATION REPORT SUMMARY']);
+            fputcsv($handle, ['Metric', 'Value']);
+            fputcsv($handle, ['Operating Hours Configured', $report['is_configured'] ? 'Yes' : 'No (Schedule unconfigured)']);
+            fputcsv($handle, ['Capacity Utilization Rate', $report['is_configured'] ? $report['summary']['utilization_rate'].'%' : 'N/A']);
+            fputcsv($handle, ['Booked Consultation Hours', $report['summary']['booked_hours'].' hrs']);
+            fputcsv($handle, ['Available Capacity Hours', $report['is_configured'] ? $report['summary']['available_hours'].' hrs' : 'N/A']);
+            fputcsv($handle, ['Total Appointments', $report['summary']['total_appointments']]);
+            fputcsv($handle, ['Average Session Duration', $report['summary']['average_duration_minutes'] ? $report['summary']['average_duration_minutes'].' mins' : 'N/A']);
+            fputcsv($handle, []);
+
+            // 2. Daily Breakdown
+            fputcsv($handle, ['DAY OF WEEK BREAKDOWN']);
+            fputcsv($handle, ['Day of Week', 'Appointments', 'Available Hours', 'Booked Hours', 'Utilization Rate %']);
             foreach ($report['by_day_of_week'] as $day) {
-                $avail = round($day['available_mins'] / 60, 1);
-                $booked = round($day['booked_mins'] / 60, 1);
-                $rate = $avail > 0 ? round(($booked / $avail) * 100, 1) : 0;
-
                 fputcsv($handle, [
-                    $day['name'],
-                    $avail,
-                    $booked,
-                    $rate.'%',
+                    $day['day_name'] ?? $day['name'],
+                    $day['appointment_count'] ?? 0,
+                    $day['available_hours'] ?? 0,
+                    $day['booked_hours'] ?? 0,
+                    ($day['utilization_rate'] ?? 0).'%',
                 ]);
+            }
+            fputcsv($handle, []);
+
+            // 3. Room Breakdown
+            if (! empty($report['by_room'])) {
+                fputcsv($handle, ['ROOM & SPACE UTILIZATION']);
+                fputcsv($handle, ['Room Name', 'Location', 'Sessions', 'Booked Hours']);
+                foreach ($report['by_room'] as $r) {
+                    fputcsv($handle, [
+                        $r['room_name'],
+                        $r['location_name'],
+                        $r['appointment_count'],
+                        $r['booked_hours'],
+                    ]);
+                }
+                fputcsv($handle, []);
+            }
+
+            // 4. Practitioner Breakdown
+            if (! empty($report['by_practitioner'])) {
+                fputcsv($handle, ['PRACTITIONER SCHEDULING & WORKLOAD']);
+                fputcsv($handle, ['Practitioner Name', 'Appointments', 'Booked Hours']);
+                foreach ($report['by_practitioner'] as $p) {
+                    fputcsv($handle, [
+                        $p['name'],
+                        $p['appointment_count'],
+                        $p['booked_hours'],
+                    ]);
+                }
             }
 
             fclose($handle);

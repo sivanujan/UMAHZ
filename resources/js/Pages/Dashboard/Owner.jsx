@@ -1,218 +1,236 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Head, Link, usePage } from '@inertiajs/react';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { useTheme } from '@/Contexts/ThemeContext';
-import { Calendar, Users, Building, DollarSign, Sparkles, ReceiptText, UserCog, TrendingUp, CreditCard, ArrowRight, ShieldCheck } from 'lucide-react';
+import TopNavLayout from '@/Layouts/TopNavLayout';
+import KpiCard from '@/Components/Dashboard/KpiCard';
+import RevenueChartCard from '@/Components/Dashboard/RevenueChartCard';
+import DonutProgressCard from '@/Components/Dashboard/DonutProgressCard';
+import ActivityListCard from '@/Components/Dashboard/ActivityListCard';
+import SetupProgressCard from '@/Components/Dashboard/SetupProgressCard';
+import OutstandingInvoicesCard from '@/Components/Dashboard/OutstandingInvoicesCard';
+import StaffAvailabilityCard from '@/Components/Dashboard/StaffAvailabilityCard';
+import {
+    DollarSign,
+    Calendar,
+    Users,
+    Building2,
+    ReceiptText,
+    Plus,
+    Search,
+    Bell,
+    Sparkles,
+    CreditCard,
+    ArrowUpRight,
+    CheckCircle2,
+} from 'lucide-react';
 
-/* Staff availability → semantic color + dot. Colors are given as rgba tints so
-   the same pill reads correctly on both light and dark surfaces. */
-const AVAILABILITY_STYLES = {
-    'Available':  { dot: '#22C55E', text: '#15803D', darkText: '#4ADE80', bg: 'rgba(34,197,94,0.12)' },
-    'In Session': { dot: '#2563EB', text: '#1D4ED8', darkText: '#7DA8FF', bg: 'rgba(37,99,235,0.12)' },
-    'Off Today':  { dot: '#94A3B8', text: '#64748B', darkText: '#94A3B8', bg: 'rgba(148,163,184,0.14)' },
-};
-
-/* Escalating urgency for overdue invoices, parsed from the label the backend
-   already sends ("Overdue by N days", "Due today", "Due in N days"). Older
-   overdue items get heavier weight + a stronger warning token. */
-function dueSeverity(due) {
-    const overdue = /^Overdue by (\d+)/.exec(due || '');
-    if (overdue) {
-        const days = parseInt(overdue[1], 10);
-        if (days >= 8) return { varName: '--umahz-danger', weight: 700 };
-        if (days >= 4) return { varName: '--umahz-warn-mid', weight: 600 };
-        return { varName: '--umahz-warn', weight: 600 };
+function getGreeting(name) {
+    const hour = new Date().getHours();
+    let timeGreeting = 'Good morning';
+    if (hour >= 12 && hour < 17) {
+        timeGreeting = 'Good afternoon';
+    } else if (hour >= 17) {
+        timeGreeting = 'Good evening';
     }
-    if (due === 'Due today') return { varName: '--umahz-warn', weight: 600 };
-    return { varName: '--umahz-text-tertiary', weight: 500 };
+    return `${timeGreeting}, ${name?.split(' ')[0] || 'Doctor'}`;
 }
 
-function StatCard({ label, value, icon: Icon, tint }) {
-    return (
-        <div
-            className="p-5 rounded-xl border shadow-sm flex items-center justify-between transition-colors duration-300"
-            style={{ background: 'var(--umahz-surface)', borderColor: 'var(--umahz-border)' }}
-        >
-            <div>
-                <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--umahz-text-secondary)' }}>{label}</p>
-                <h3 className="text-2xl font-bold mt-1" style={{ color: 'var(--umahz-text-primary)' }}>{value}</h3>
-            </div>
-            <div
-                className="h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ background: `color-mix(in srgb, ${tint} 14%, transparent)`, color: tint }}
-            >
-                <Icon className="w-5 h-5" />
-            </div>
-        </div>
-    );
-}
-
-function RevenueCard({ value }) {
-    return (
-        <div
-            className="relative overflow-hidden p-5 rounded-xl shadow-md flex flex-col justify-between transition-colors duration-300"
-            style={{
-                background: 'linear-gradient(135deg, #0D9488 0%, #059669 55%, #22C55E 120%)',
-                boxShadow: '0 12px 28px -12px rgba(16,185,129,0.55)',
-            }}
-        >
-            <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full" style={{ background: 'rgba(255,255,255,0.10)' }} aria-hidden="true" />
-            <div className="relative z-10 flex items-start justify-between">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-50/90">Revenue (MTD)</p>
-                <div className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.18)', color: '#FFFFFF' }}>
-                    <DollarSign className="w-5 h-5" />
-                </div>
-            </div>
-            <div className="relative z-10 mt-3">
-                <h3 className="text-4xl font-bold tracking-tight text-white leading-none">{value}</h3>
-                <p className="flex items-center gap-1 text-xs font-medium text-emerald-50/90 mt-2">
-                    <TrendingUp className="w-3.5 h-3.5" />
-                    Month to date
-                </p>
-            </div>
-        </div>
-    );
-}
-
-function StaffAvailability({ staff }) {
-    const { resolved } = useTheme();
-    const isDark = resolved === 'dark';
-    return (
-        <div
-            className="rounded-xl border shadow-sm overflow-hidden transition-colors duration-300"
-            style={{ background: 'var(--umahz-surface)', borderColor: 'var(--umahz-border)' }}
-        >
-            <div
-                className="px-6 py-4 border-b flex items-center space-x-2"
-                style={{ background: 'var(--umahz-surface-2)', borderColor: 'var(--umahz-border)' }}
-            >
-                <UserCog className="w-4 h-4" style={{ color: 'var(--umahz-accent)' }} />
-                <h2 className="font-semibold text-base" style={{ color: 'var(--umahz-text-primary)' }}>Staff Availability</h2>
-            </div>
-            <div>
-                {staff && staff.length > 0 ? staff.map((s, i) => {
-                    const style = AVAILABILITY_STYLES[s.availability] || AVAILABILITY_STYLES['Off Today'];
-                    return (
-                        <div key={i} className="p-5 flex items-center justify-between border-b last:border-b-0" style={{ borderColor: 'var(--umahz-border)' }}>
-                            <div>
-                                <p className="text-sm font-medium" style={{ color: 'var(--umahz-text-primary)' }}>{s.name}</p>
-                                <p className="text-xs capitalize mt-0.5" style={{ color: 'var(--umahz-text-secondary)' }}>{s.role.replace('_', ' ')}</p>
-                            </div>
-                            <span
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold"
-                                style={{ background: style.bg, color: isDark ? style.darkText : style.text }}
-                            >
-                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: style.dot }} />
-                                {s.availability}
-                            </span>
-                        </div>
-                    );
-                }) : (
-                    <div className="p-8 text-center text-sm" style={{ color: 'var(--umahz-text-secondary)' }}>No staff yet.</div>
-                )}
-            </div>
-        </div>
-    );
-}
-
-export default function OwnerDashboard({ stats, outstandingInvoices, staff, subscription }) {
+export default function OwnerDashboard({
+    stats = {},
+    revenueChart = [],
+    recentAppointments = [],
+    setupProgress = null,
+    subscription = null,
+    outstandingInvoices = [],
+    staff = [],
+}) {
     const { auth } = usePage().props;
     const user = auth.user;
     const tenant = auth.tenant;
 
-    return (
-        <AuthenticatedLayout title="Owner Dashboard">
-            <Head title="Dashboard" />
+    const todayFormatted = new Intl.DateTimeFormat('en-US', {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+    }).format(new Date());
 
-            {/* Welcome banner — Deep Navy base flowing into the Royal Blue → Teal
-                brand gradient. Text sits on the dark end for AA contrast. */}
-            <div
-                className="rounded-2xl p-6 text-white shadow-md mb-8 relative overflow-hidden"
-                style={{ background: 'linear-gradient(115deg, #0D1B2A 0%, #14395F 38%, #2563EB 80%, #06B6D4 118%)' }}
-            >
-                <div
-                    className="absolute -right-10 -top-16 w-64 h-64 rounded-full"
-                    style={{ background: 'radial-gradient(circle, rgba(6,182,212,0.35) 0%, transparent 70%)' }}
-                    aria-hidden="true"
-                />
-                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+    return (
+        <TopNavLayout title="Clinic Dashboard">
+            <Head title="Owner Dashboard — UMAHZ" />
+
+            <div className="space-y-6 pb-12">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 mb-2">
                     <div>
-                        <div className="flex items-center space-x-2 text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#7DD3FC' }}>
-                            <Sparkles className="w-4 h-4" />
-                            <span>Multi-Tenant Practice Workspace</span>
+                        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#8B7CF6' }}>
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>{tenant?.name || 'Clinic'} &bull; Overview</span>
                         </div>
-                        <h1 className="text-2xl font-bold tracking-tight">Welcome back, {user?.name}</h1>
-                        <p className="text-sm mt-1" style={{ color: 'rgba(226,232,240,0.85)' }}>
-                            Here is today's business overview for <span className="font-semibold text-white">{tenant?.name || 'Your Clinic'}</span>.
+                        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+                            {getGreeting(user?.name)}
+                        </h1>
+                        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1">
+                            {todayFormatted} &bull; Practice operating in{' '}
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                {tenant?.timezone || 'America/Toronto'} ({tenant?.currency || 'CAD'})
+                            </span>
                         </p>
                     </div>
 
-                    {subscription && (
-                        <div className="p-3.5 px-4 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-between gap-4 shrink-0">
-                            <div>
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-sky-200 block">
-                                    Current Plan
-                                </span>
-                                <p className="text-sm font-bold text-white mt-0.5">
-                                    {subscription.plan_name} ({subscription.monthly_total}/mo)
-                                </p>
-                            </div>
-                            <Link
-                                href="/app/billing"
-                                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-900 hover:bg-slate-100 transition-colors flex items-center gap-1 shrink-0"
-                            >
-                                <CreditCard className="w-3.5 h-3.5 text-blue-600" />
-                                <span>Billing</span>
-                                <ArrowRight className="w-3 h-3" />
-                            </Link>
-                        </div>
-                    )}
-                </div>
-            </div>
+                    {/* Quick Actions Buttons */}
+                    <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+                        <Link
+                            href="/app/clients"
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all active:scale-[0.98] bg-white/70 dark:bg-white/10 text-indigo-700 dark:text-indigo-200 border border-violet-500/20 dark:border-white/10 hover:bg-white/90 dark:hover:bg-white/15 shadow-2xs"
+                            style={{
+                                backdropFilter: 'blur(12px)',
+                            }}
+                        >
+                            <Users className="w-3.5 h-3.5 text-violet-500 dark:text-violet-300" />
+                            <span>New Client</span>
+                        </Link>
 
-            {/* Stat cards — Revenue leads with heavier visual weight; the three
-                operational metrics stay uniform and quieter. */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-                <RevenueCard value={stats?.monthlyRevenue || '$0'} />
-                <StatCard label="Today's Appointments" value={stats?.todayAppointments || 0} icon={Calendar} tint="#2563EB" />
-                <StatCard label="Total Active Clients" value={stats?.totalClients || 0} icon={Users} tint="#06B6D4" />
-                <StatCard label="Clinic Locations" value={stats?.activeLocations || 0} icon={Building} tint="var(--umahz-text-tertiary)" />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Outstanding invoices */}
-                <div
-                    className="rounded-xl border shadow-sm overflow-hidden transition-colors duration-300"
-                    style={{ background: 'var(--umahz-surface)', borderColor: 'var(--umahz-border)' }}
-                >
-                    <div
-                        className="px-6 py-4 border-b flex items-center space-x-2"
-                        style={{ background: 'var(--umahz-surface-2)', borderColor: 'var(--umahz-border)' }}
-                    >
-                        <ReceiptText className="w-4 h-4" style={{ color: 'var(--umahz-danger)' }} />
-                        <h2 className="font-semibold text-base" style={{ color: 'var(--umahz-text-primary)' }}>Outstanding Invoices</h2>
-                    </div>
-                    <div className="divide-y" style={{ borderColor: 'var(--umahz-border)' }}>
-                        {outstandingInvoices && outstandingInvoices.length > 0 ? outstandingInvoices.map((inv, i) => {
-                            const sev = dueSeverity(inv.due);
-                            return (
-                                <div key={i} className="p-5 flex items-center justify-between border-b last:border-b-0" style={{ borderColor: 'var(--umahz-border)' }}>
-                                    <p className="text-sm font-medium" style={{ color: 'var(--umahz-text-primary)' }}>{inv.client}</p>
-                                    <div className="text-right">
-                                        <p className="text-sm font-bold" style={{ color: 'var(--umahz-text-primary)' }}>{inv.amount}</p>
-                                        <p className="text-xs mt-0.5" style={{ color: `var(${sev.varName})`, fontWeight: sev.weight }}>{inv.due}</p>
-                                    </div>
-                                </div>
-                            );
-                        }) : (
-                            <div className="p-8 text-center text-sm" style={{ color: 'var(--umahz-text-secondary)' }}>No outstanding invoices.</div>
-                        )}
+                        <Link
+                            href="/app/calendar"
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
+                            style={{
+                                background: 'linear-gradient(135deg, #8B7CF6 0%, #6366F1 100%)',
+                                boxShadow: '0 4px 16px rgba(139,124,246,0.35)',
+                            }}
+                        >
+                            <Plus className="w-4 h-4" />
+                            <span>Book Appointment</span>
+                        </Link>
                     </div>
                 </div>
 
-                {/* Staff availability */}
-                <StaffAvailability staff={staff} />
+                {/* KPI ROW: 5 Compact Metric Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    {/* 1. Revenue MTD */}
+                    <KpiCard
+                        label="Revenue (MTD)"
+                        value={stats.monthlyRevenue || '$0.00'}
+                        rawValue={stats.monthlyRevenueRaw}
+                        prefix="$"
+                        icon={DollarSign}
+                        iconTint="#10B981"
+                        iconBg="rgba(16,185,129,0.12)"
+                        trend={
+                            typeof stats.revenueGrowth === 'number' && stats.revenueGrowth !== 0
+                                ? {
+                                      value: stats.revenueGrowth,
+                                      isPositive: stats.revenueGrowth >= 0,
+                                      text: 'vs last month',
+                                      hasComparison: true,
+                                  }
+                                : { text: 'Month to date', hasComparison: false }
+                        }
+                        delay={0}
+                    />
+
+                    {/* 2. Today's Appointments */}
+                    <KpiCard
+                        label="Today's Sessions"
+                        value={stats.todayAppointments || 0}
+                        rawValue={stats.todayAppointments || 0}
+                        icon={Calendar}
+                        iconTint="#7C3AED"
+                        iconBg="rgba(124,58,237,0.12)"
+                        trend={{
+                            text: stats.todayAppointments === 1 ? '1 session scheduled' : `${stats.todayAppointments || 0} scheduled today`,
+                            hasComparison: false,
+                        }}
+                        delay={1}
+                    />
+
+                    {/* 3. Total Active Clients */}
+                    <KpiCard
+                        label="Active Clients"
+                        value={stats.totalClients || 0}
+                        rawValue={stats.totalClients || 0}
+                        icon={Users}
+                        iconTint="#06B6D4"
+                        iconBg="rgba(6,182,212,0.12)"
+                        trend={{
+                            text: `${stats.totalClients || 0} registered patients`,
+                            hasComparison: false,
+                        }}
+                        delay={2}
+                    />
+
+                    {/* 4. Clinic Locations */}
+                    <KpiCard
+                        label="Practice Locations"
+                        value={stats.activeLocations || 0}
+                        rawValue={stats.activeLocations || 0}
+                        icon={Building2}
+                        iconTint="#8B5CF6"
+                        iconBg="rgba(139,92,246,0.12)"
+                        trend={{
+                            text: stats.activeLocations > 0 ? `${stats.activeLocations} active facilities` : 'Needs location setup',
+                            hasComparison: false,
+                        }}
+                        delay={3}
+                    />
+
+                    {/* 5. Outstanding Balance */}
+                    <KpiCard
+                        label="Open Invoices"
+                        value={stats.outstandingBalance || '$0.00'}
+                        rawValue={stats.outstandingBalanceRaw}
+                        prefix="$"
+                        icon={ReceiptText}
+                        iconTint="#F59E0B"
+                        iconBg="rgba(245,158,11,0.12)"
+                        trend={{
+                            text: stats.outstandingBalanceRaw > 0 ? 'Pending payment' : 'All accounts settled',
+                            hasComparison: false,
+                        }}
+                        delay={4}
+                    />
+                </div>
+
+                {/* MAIN ANALYTICS ROW: 2 Columns (65% Chart / 35% Donut + Setup) */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                    {/* Left: Wide Revenue Chart Card */}
+                    <div className="lg:col-span-8">
+                        <RevenueChartCard
+                            revenueChart={revenueChart}
+                            monthlyRevenue={stats.monthlyRevenue}
+                            currency={tenant?.currency || 'CAD'}
+                        />
+                    </div>
+
+                    {/* Right: Radial Donut Progress + Setup / Plan Card */}
+                    <div className="lg:col-span-4 space-y-6">
+                        <DonutProgressCard
+                            title="Collection Efficiency"
+                            percentage={stats.collectionRate || 100}
+                            paidCount={revenueChart?.filter((r) => r.revenue > 0)?.length || 1}
+                            openCount={outstandingInvoices?.length || 0}
+                            subtitle="Total billed payments collected"
+                        />
+
+                        <SetupProgressCard
+                            setupProgress={setupProgress}
+                            subscription={subscription}
+                        />
+                    </div>
+                </div>
+
+                {/* LOWER SECTION: Activity & Operational Feeds */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                    {/* Left (7 Cols): Upcoming Appointments & Recent Activity */}
+                    <div className="lg:col-span-7">
+                        <ActivityListCard appointments={recentAppointments} />
+                    </div>
+
+                    {/* Right (5 Cols): Outstanding Invoices & Staff Availability */}
+                    <div className="lg:col-span-5 space-y-6">
+                        <OutstandingInvoicesCard invoices={outstandingInvoices} />
+                        <StaffAvailabilityCard staff={staff} />
+                    </div>
+                </div>
             </div>
-        </AuthenticatedLayout>
+        </TopNavLayout>
     );
 }

@@ -33,6 +33,23 @@ class ClientController extends Controller
         $search = trim((string) $request->query('search', ''));
         $status = (string) $request->query('status', 'all');
 
+        // Calculate overview stats for the clinic before filters
+        $totalClients = Client::count();
+        $activeClients = Client::where('is_active', true)->count();
+        $inactiveClients = Client::where('is_active', false)->count();
+        $newThisMonth = Client::where('created_at', '>=', now()->startOfMonth())->count();
+        $upcomingAppointments = Appointment::where('starts_at', '>=', now())
+            ->whereNotIn('status', [Appointment::STATUS_CANCELLED, Appointment::STATUS_NO_SHOW])
+            ->count();
+
+        $stats = [
+            'total' => $totalClients,
+            'active' => $activeClients,
+            'inactive' => $inactiveClients,
+            'new_this_month' => $newThisMonth,
+            'upcoming_appointments' => $upcomingAppointments,
+        ];
+
         $query = Client::query()
             ->withCount('appointments');
 
@@ -60,6 +77,7 @@ class ClientController extends Controller
 
         return Inertia::render('Clients/Index', [
             'clients' => $clients,
+            'stats' => $stats,
             'filters' => [
                 'search' => $search ?: null,
                 'status' => $status,

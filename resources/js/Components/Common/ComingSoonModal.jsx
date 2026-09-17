@@ -116,12 +116,9 @@ export default function ComingSoonModal() {
             <div
                 ref={modalRef}
                 tabIndex={-1}
-                className={`relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden transform transition-all duration-300 outline-none ${
+                className={`relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl dark:shadow-black/70 border border-slate-100 dark:border-slate-800 overflow-hidden transform transition-all duration-300 outline-none ${
                     isOpen ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
                 }`}
-                style={{
-                    boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(226, 232, 240, 0.8)',
-                }}
             >
                 {/* Decorative Top Gradient Accent */}
                 <div
@@ -134,66 +131,66 @@ export default function ComingSoonModal() {
                     type="button"
                     onClick={handleDismiss}
                     aria-label="Close modal"
-                    className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                    className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                 >
                     <X className="w-5 h-5" />
                 </button>
 
                 <div className="p-6 sm:p-8">
                     {/* Header Tag */}
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100/80 mb-3.5">
-                        <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-100/80 dark:border-indigo-800/60 mb-3.5">
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
                         <span>Coming Soon to UMAHZ</span>
                     </div>
 
                     <h2
                         id="coming-soon-title"
-                        className="text-2xl font-bold text-slate-900 tracking-tight"
+                        className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight"
                     >
                         Powerful new capabilities are on the way.
                     </h2>
 
-                    <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
                         We're constantly expanding UMAHZ to streamline modern healthcare practices. Here's an early preview of two major modules currently in development.
                     </p>
 
                     {/* Features List */}
                     <div className="mt-6 space-y-3.5">
                         {/* Feature 1: UMAHZ Motion */}
-                        <div className="group p-4 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-blue-50/40 hover:border-blue-200/80 transition-all duration-200 flex items-start gap-4">
-                            <div className="h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-blue-100 text-blue-600 shadow-sm">
+                        <div className="group p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 hover:bg-blue-50/40 dark:hover:bg-blue-950/30 hover:border-blue-200/80 dark:hover:border-blue-800/60 transition-all duration-200 flex items-start gap-4">
+                            <div className="h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-blue-100 dark:bg-blue-950/70 text-blue-600 dark:text-blue-400 dark:border dark:border-blue-800/50 shadow-sm">
                                 <Activity className="w-5 h-5" />
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between gap-2">
-                                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                                    <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                                         UMAHZ Motion
                                     </h3>
-                                    <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200/60 flex-shrink-0">
+                                    <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-950/70 text-cyan-800 dark:text-cyan-300 border border-cyan-200/60 dark:border-cyan-800/60 flex-shrink-0">
                                         Coming Soon
                                     </span>
                                 </div>
-                                <p className="text-xs text-slate-600 mt-1 leading-normal font-medium">
+                                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-normal font-medium">
                                     Camera-based movement assessment & progress tracking
                                 </p>
                             </div>
                         </div>
 
                         {/* Feature 2: UMAHZ Scribe */}
-                        <div className="group p-4 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-purple-50/40 hover:border-purple-200/80 transition-all duration-200 flex items-start gap-4">
-                            <div className="h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-purple-100 text-purple-600 shadow-sm">
+                        <div className="group p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 hover:bg-purple-50/40 dark:hover:bg-purple-950/30 hover:border-purple-200/80 dark:hover:border-purple-800/60 transition-all duration-200 flex items-start gap-4">
+                            <div className="h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-purple-100 dark:bg-purple-950/70 text-purple-600 dark:text-purple-400 dark:border dark:border-purple-800/50 shadow-sm">
                                 <FileText className="w-5 h-5" />
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between gap-2">
-                                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                                    <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                                         UMAHZ Scribe
                                     </h3>
-                                    <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200/60 flex-shrink-0">
+                                    <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/70 text-purple-800 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60 flex-shrink-0">
                                         Coming Soon
                                     </span>
                                 </div>
-                                <p className="text-xs text-slate-600 mt-1 leading-normal font-medium">
+                                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-normal font-medium">
                                     AI-assisted clinical documentation
                                 </p>
                             </div>
@@ -201,8 +198,8 @@ export default function ComingSoonModal() {
                     </div>
 
                     {/* Modal Footer */}
-                    <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100">
-                        <span className="text-xs text-slate-400 flex items-center gap-1.5">
+                    <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                        <span className="text-xs text-slate-400 dark:text-slate-400 flex items-center gap-1.5">
                             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                             Planned for future updates
                         </span>
@@ -210,7 +207,7 @@ export default function ComingSoonModal() {
                         <button
                             type="button"
                             onClick={handleDismiss}
-                            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 cursor-pointer"
+                            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 cursor-pointer"
                             style={{
                                 background: 'linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)',
                             }}

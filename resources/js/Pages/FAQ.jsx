@@ -1,8 +1,11 @@
 import React from 'react';
 import { Head } from '@inertiajs/react';
+import { motion, useReducedMotion } from 'framer-motion';
 import PublicLayout from '@/Layouts/PublicLayout';
 import Accordion from '@/Components/UI/Accordion';
 import CTABanner from '@/Components/Home/CTABanner';
+import PillBadge from '@/Components/Common/PillBadge';
+import { VIEWPORT_ONCE, createFadeInUp } from '@/Utils/motion';
 
 const FAQS = [
     { question: 'What is UMAHZ?', answer: 'UMAHZ is an all-in-one practice management platform for multi-modality wellness studios — unifying online booking, client records, profession-specific charting, consent management, billing, and reporting in one system.' },
@@ -16,23 +19,31 @@ const FAQS = [
 ];
 
 export default function FAQ() {
+    const shouldReduceMotion = useReducedMotion();
+
     return (
         <PublicLayout>
-            <Head title="FAQ" />
+            <Head title="FAQ — Frequently Asked Questions" />
 
-            <section className="py-16 md:py-24 px-6 md:px-12 lg:px-24">
-                <div className="max-w-7xl mx-auto text-center max-w-3xl">
-                    <div className="inline-flex items-center gap-2 bg-pink-100 border border-pink-200 px-4 py-1.5 rounded-full mb-4">
-                        <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-pink-600">Frequently Asked Questions</span>
+            <section className="pt-16 pb-12 md:pt-24 md:pb-16 px-6 md:px-12 lg:px-24">
+                <motion.div
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={VIEWPORT_ONCE}
+                    variants={createFadeInUp(16, 0.45, shouldReduceMotion)}
+                    className="max-w-3xl mx-auto text-center"
+                >
+                    <div className="mb-4">
+                        <PillBadge text="Frequently Asked Questions" />
                     </div>
-                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] leading-tight">
+                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-tight">
                         Questions,{' '}
-                        <em className="not-italic font-light font-serif text-[#5B2EFF]">Answered</em>
+                        <em className="not-italic font-light font-serif text-[#5B2EFF] dark:text-[#8B6BFF]">Answered</em>
                     </h1>
-                    <p className="text-slate-500 text-base md:text-lg leading-relaxed mt-6 max-w-2xl mx-auto">
+                    <p className="text-slate-600 dark:text-slate-300 text-base md:text-lg leading-relaxed mt-6 max-w-2xl mx-auto font-normal">
                         Everything practitioners ask us before switching to UMAHZ. Can't find your answer? Reach out on our Contact page.
                     </p>
-                </div>
+                </motion.div>
             </section>
 
             <section className="pb-16 md:pb-24 px-6 md:px-12 lg:px-24">

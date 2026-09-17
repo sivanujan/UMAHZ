@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { ChevronDown, ArrowRight, Sun, Moon } from 'lucide-react';
+import { ChevronDown, ArrowRight } from 'lucide-react';
 import { PROFESSIONS } from '@/Data/professions';
 import Logo from '@/Components/Common/Logo';
+import ThemeToggle from '@/Components/Common/ThemeToggle';
 import ComingSoonModal from '@/Components/Common/ComingSoonModal';
 import { useTheme } from '@/Contexts/ThemeContext';
 
@@ -27,33 +28,6 @@ function useScrolled(threshold = 8) {
         return () => window.removeEventListener('scroll', onScroll);
     }, [threshold]);
     return scrolled;
-}
-
-function ThemeToggle({ className = '' }) {
-    let theme = null;
-    try {
-        theme = useTheme();
-    } catch (e) {
-        // Safe fallback if rendered without provider
-    }
-    if (!theme) return null;
-    const { resolved, toggle } = theme;
-
-    return (
-        <button
-            type="button"
-            onClick={toggle}
-            className={`flex items-center justify-center w-9 h-9 rounded-full border border-slate-200/90 dark:border-slate-700/80 bg-white/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] cursor-pointer shadow-2xs ${className}`}
-            aria-label={`Switch to ${resolved === 'dark' ? 'light' : 'dark'} mode`}
-            title={`Switch to ${resolved === 'dark' ? 'light' : 'dark'} mode`}
-        >
-            {resolved === 'dark' ? (
-                <Sun className="h-4 w-4 text-amber-400 transition-transform duration-200 hover:rotate-45" />
-            ) : (
-                <Moon className="h-4 w-4 text-slate-700 transition-transform duration-200 hover:-rotate-12" />
-            )}
-        </button>
-    );
 }
 
 /** Desktop link with a quiet brand-gradient underline for the active/hover state */

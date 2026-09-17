@@ -1,5 +1,21 @@
 <?php
 
+// Polyfill for finfo when fileinfo PHP extension is disabled in environment
+if (!defined('FILEINFO_MIME_TYPE')) {
+    define('FILEINFO_MIME_TYPE', 16);
+}
+if (!class_exists('finfo')) {
+    class finfo {
+        public function __construct(int $flags = 0, ?string $magicFile = null) {}
+        public function buffer(string $string, int $flags = 0, $context = null): string|false {
+            return false;
+        }
+        public function file(string $filename, int $flags = 0, $context = null): string|false {
+            return false;
+        }
+    }
+}
+
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 

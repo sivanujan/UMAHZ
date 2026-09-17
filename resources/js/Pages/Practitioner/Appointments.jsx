@@ -1,57 +1,60 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { GlassCard } from '@/Components/UI/GlassCard';
+import { PageHeader } from '@/Components/UI/PageHeader';
+import { GlassButton } from '@/Components/UI/GlassButton';
+import { GlassModal } from '@/Components/UI/GlassModal';
+import { StatusBadge } from '@/Components/UI/StatusBadge';
 import {
     Calendar as CalendarIcon, Clock, User, MapPin, DoorOpen,
     CheckCircle2, XCircle, AlertCircle, ChevronLeft, ChevronRight,
     Sparkles, FileText, Check, ArrowRight, UserCheck, Phone, Mail,
-    HelpCircle, CalendarDays, ListOrdered, Radio
+    CalendarDays, ListOrdered
 } from 'lucide-react';
-
-const BRAND_GRADIENT = 'linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)';
 
 const STATUS_STYLES = {
     scheduled: {
         label: 'Scheduled',
-        bg: 'rgba(37, 99, 235, 0.10)',
-        fg: '#1D4ED8',
-        border: '#93C5FD',
-        dot: '#2563EB',
+        bg: 'rgba(130, 0, 219, 0.12)',
+        fg: '#6b00b6',
+        border: '#8200db',
+        dot: '#8200db',
     },
     confirmed: {
         label: 'Confirmed',
-        bg: 'rgba(6, 182, 212, 0.12)',
-        fg: '#0E7490',
-        border: '#A5F3FC',
-        dot: '#0891B2',
+        bg: 'rgba(6, 182, 212, 0.14)',
+        fg: '#0e7490',
+        border: '#06b6d4',
+        dot: '#0891b2',
     },
     checked_in: {
         label: 'Checked in',
-        bg: 'rgba(139, 92, 246, 0.12)',
-        fg: '#6D28D9',
-        border: '#DDD6FE',
-        dot: '#7C3AED',
+        bg: 'rgba(168, 85, 247, 0.14)',
+        fg: '#7e22ce',
+        border: '#a855f7',
+        dot: '#9333ea',
     },
     completed: {
         label: 'Completed',
-        bg: 'rgba(34, 197, 94, 0.12)',
-        fg: '#15803D',
-        border: '#BBF7D0',
-        dot: '#16A34A',
+        bg: 'rgba(34, 197, 94, 0.14)',
+        fg: '#15803d',
+        border: '#22c55e',
+        dot: '#16a34a',
     },
     no_show: {
         label: 'No-show',
-        bg: 'rgba(245, 158, 11, 0.14)',
-        fg: '#B45309',
-        border: '#FDE68A',
-        dot: '#D97706',
+        bg: 'rgba(245, 158, 11, 0.16)',
+        fg: '#b45309',
+        border: '#f59e0b',
+        dot: '#d97706',
     },
     cancelled: {
         label: 'Cancelled',
-        bg: 'rgba(148, 163, 184, 0.16)',
-        fg: '#64748B',
-        border: '#CBD5E1',
-        dot: '#64748B',
+        bg: 'rgba(148, 163, 184, 0.20)',
+        fg: '#64748b',
+        border: '#94a3b8',
+        dot: '#64748b',
     },
 };
 
@@ -85,17 +88,12 @@ function zonedDateKey(iso, tz) {
 }
 
 export default function PractitionerAppointments({
-    view, anchorDate, weekStart, todayDate, timezone, appointments, stats, practitioner,
+    view, anchorDate, weekStart, todayDate, timezone, appointments = [], stats = {}, practitioner = {},
 }) {
     const [selectedAppt, setSelectedAppt] = useState(null);
     const [toastMessage, setToastMessage] = useState(null);
 
     const now = new Date();
-
-    // Determine current / next appointment for highlighting
-    const sortedActive = useMemo(() => {
-        return appointments.filter((a) => a.status !== 'cancelled' && a.status !== 'completed');
-    }, [appointments]);
 
     const currentApptId = useMemo(() => {
         const current = appointments.find((a) => {
@@ -146,7 +144,6 @@ export default function PractitionerAppointments({
         );
     };
 
-    // Group upcoming appointments by date
     const groupedUpcoming = useMemo(() => {
         if (view !== 'upcoming') return {};
         const groups = {};
@@ -158,7 +155,6 @@ export default function PractitionerAppointments({
         return groups;
     }, [appointments, view, timezone]);
 
-    // Week days calculation
     const weekDays = useMemo(() => {
         if (view !== 'week') return [];
         return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -175,25 +171,25 @@ export default function PractitionerAppointments({
     }, [appointments, view, weekDays, timezone]);
 
     return (
-        <AuthenticatedLayout>
+        <AuthenticatedLayout title="My Appointments">
             <Head title="My Appointments" />
 
-            <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-6 space-y-6">
+            <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
                 {/* Header Banner */}
-                <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
-                    <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <GlassCard className="p-6 sm:p-7">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
-                            <div className="flex items-center gap-2 text-cyan-300 text-xs font-bold uppercase tracking-wider mb-1.5">
+                            <div className="flex items-center gap-2 text-[#8200db] dark:text-purple-300 text-xs font-bold uppercase tracking-wider mb-1.5">
                                 <Sparkles className="w-4 h-4" />
                                 <span>Practitioner Schedule</span>
                             </div>
-                            <h1 className="text-2xl font-bold tracking-tight text-white">
+                            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
                                 {practitioner.name}’s Appointments
                             </h1>
-                            <p className="text-slate-300 text-xs sm:text-sm mt-1 flex items-center gap-2">
-                                <span>Showing only your assigned client sessions</span>
+                            <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm mt-1 flex items-center gap-2 font-medium">
+                                <span>Showing your assigned client sessions</span>
                                 <span>•</span>
-                                <span className="inline-flex items-center gap-1 font-semibold text-cyan-200">
+                                <span className="inline-flex items-center gap-1 font-semibold text-purple-700 dark:text-purple-300">
                                     <Clock className="w-3.5 h-3.5" />
                                     {timezone}
                                 </span>
@@ -201,112 +197,127 @@ export default function PractitionerAppointments({
                         </div>
 
                         {/* Quick Stats Pill */}
-                        <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-4 py-3 rounded-xl border border-white/10 self-start md:self-auto">
+                        <div className="flex items-center gap-3 bg-white/50 dark:bg-white/[0.04] px-4 py-3 rounded-2xl border border-white/40 dark:border-white/10 self-start md:self-auto shadow-xs">
                             <div className="text-center px-2">
-                                <span className="block text-xl font-extrabold text-white">{stats.todayCount}</span>
-                                <span className="text-[11px] text-slate-300 font-medium">Today</span>
+                                <span className="block text-xl font-extrabold text-slate-900 dark:text-white">{stats.todayCount ?? 0}</span>
+                                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">Today</span>
                             </div>
-                            <div className="h-8 w-px bg-white/20" />
+                            <div className="h-8 w-px bg-slate-200/60 dark:bg-white/10" />
                             <div className="text-center px-2">
-                                <span className="block text-xl font-extrabold text-emerald-400">{stats.completedToday}</span>
-                                <span className="text-[11px] text-slate-300 font-medium">Completed</span>
+                                <span className="block text-xl font-extrabold text-emerald-600 dark:text-emerald-400">{stats.completedToday ?? 0}</span>
+                                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">Completed</span>
                             </div>
-                            <div className="h-8 w-px bg-white/20" />
+                            <div className="h-8 w-px bg-slate-200/60 dark:bg-white/10" />
                             <div className="text-center px-2">
-                                <span className="block text-xl font-extrabold text-cyan-300">{stats.checkedInToday}</span>
-                                <span className="text-[11px] text-slate-300 font-medium">Waiting</span>
+                                <span className="block text-xl font-extrabold text-[#8200db] dark:text-purple-300">{stats.checkedInToday ?? 0}</span>
+                                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">Waiting</span>
                             </div>
                         </div>
                     </div>
-                </div>
+                </GlassCard>
 
                 {/* View Switcher & Date Controls */}
-                <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
-                    {/* View mode tabs */}
-                    <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/70">
-                        <button
-                            type="button"
-                            onClick={() => setViewMode('today')}
-                            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${view === 'today' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                        >
-                            <Clock className="w-3.5 h-3.5" />
-                            Today
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setViewMode('week')}
-                            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${view === 'week' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                        >
-                            <CalendarDays className="w-3.5 h-3.5" />
-                            Week
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setViewMode('upcoming')}
-                            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${view === 'upcoming' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                        >
-                            <ListOrdered className="w-3.5 h-3.5" />
-                            Upcoming
-                        </button>
+                <GlassCard className="p-3 sm:p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        {/* View mode tabs */}
+                        <div className="flex items-center bg-white/40 dark:bg-white/[0.04] p-1 rounded-xl border border-white/40 dark:border-white/10">
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('today')}
+                                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                                    view === 'today'
+                                        ? 'bg-white dark:bg-white/15 text-[#8200db] dark:text-white shadow-xs'
+                                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                                }`}
+                            >
+                                <Clock className="w-3.5 h-3.5" />
+                                Today
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('week')}
+                                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                                    view === 'week'
+                                        ? 'bg-white dark:bg-white/15 text-[#8200db] dark:text-white shadow-xs'
+                                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                                }`}
+                            >
+                                <CalendarDays className="w-3.5 h-3.5" />
+                                Week
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('upcoming')}
+                                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                                    view === 'upcoming'
+                                        ? 'bg-white dark:bg-white/15 text-[#8200db] dark:text-white shadow-xs'
+                                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                                }`}
+                            >
+                                <ListOrdered className="w-3.5 h-3.5" />
+                                Upcoming
+                            </button>
+                        </div>
+
+                        {/* Date Navigation (for week/day) */}
+                        {view === 'week' && (
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => shiftDate(-7)}
+                                    className="p-2 rounded-xl border border-slate-200/80 dark:border-white/10 hover:bg-white/60 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 transition"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 px-2">
+                                    Week of {humanDate(weekStart)}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => shiftDate(7)}
+                                    className="p-2 rounded-xl border border-slate-200/80 dark:border-white/10 hover:bg-white/60 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 transition"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => router.get('/app/practitioner/appointments', { view: 'week', date: todayDate })}
+                                    className="text-xs font-bold px-3 py-2 rounded-xl border border-slate-200/80 dark:border-white/10 hover:bg-white/60 dark:hover:bg-white/10 text-slate-800 dark:text-slate-200"
+                                >
+                                    Current Week
+                                </button>
+                            </div>
+                        )}
+
+                        {view === 'today' && (
+                            <div className="text-xs font-bold text-slate-700 dark:text-slate-300 bg-white/50 dark:bg-white/[0.04] px-3.5 py-2 rounded-xl border border-white/40 dark:border-white/10">
+                                {humanDate(todayDate)}
+                            </div>
+                        )}
                     </div>
-
-                    {/* Date Navigation (for week/day) */}
-                    {view === 'week' && (
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={() => shiftDate(-7)}
-                                className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition"
-                            >
-                                <ChevronLeft className="w-4 h-4" />
-                            </button>
-                            <span className="text-xs font-bold text-slate-700 px-2">
-                                Week of {humanDate(weekStart)}
-                            </span>
-                            <button
-                                type="button"
-                                onClick={() => shiftDate(7)}
-                                className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition"
-                            >
-                                <ChevronRight className="w-4 h-4" />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => router.get('/app/practitioner/appointments', { view: 'week', date: todayDate })}
-                                className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700"
-                            >
-                                Current Week
-                            </button>
-                        </div>
-                    )}
-
-                    {view === 'today' && (
-                        <div className="text-xs font-bold text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200/80">
-                            {humanDate(todayDate)}
-                        </div>
-                    )}
-                </div>
+                </GlassCard>
 
                 {/* ----------------- VIEW 1: TODAY ----------------- */}
                 {view === 'today' && (
                     <div className="space-y-4">
                         {appointments.length === 0 ? (
-                            <div className="bg-white p-12 rounded-2xl border border-slate-200/80 text-center shadow-sm flex flex-col items-center">
-                                <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+                            <GlassCard className="p-12 text-center flex flex-col items-center">
+                                <div className="w-14 h-14 rounded-2xl bg-purple-500/10 text-[#8200db] dark:text-purple-300 flex items-center justify-center mb-3">
                                     <CalendarIcon className="w-7 h-7" />
                                 </div>
-                                <h3 className="text-base font-bold text-slate-800">No appointments scheduled for today</h3>
-                                <p className="text-xs text-slate-500 max-w-sm mt-1">
+                                <h3 className="text-base font-bold text-slate-900 dark:text-white">No appointments scheduled for today</h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mt-1">
                                     You have a clear schedule today. Check the upcoming tab to see what’s booked for the rest of the week.
                                 </p>
-                                <button
-                                    type="button"
+                                <GlassButton
+                                    variant="secondary"
+                                    size="sm"
                                     onClick={() => setViewMode('upcoming')}
-                                    className="mt-4 text-xs font-bold px-4 py-2 rounded-lg text-blue-600 bg-blue-50 hover:bg-blue-100 transition"
+                                    className="mt-4"
                                 >
                                     View Upcoming Appointments
-                                </button>
-                            </div>
+                                </GlassButton>
+                            </GlassCard>
                         ) : (
                             <div className="grid grid-cols-1 gap-3.5">
                                 {appointments.map((appt) => {
@@ -316,53 +327,53 @@ export default function PractitionerAppointments({
                                     const isCancelled = appt.status === 'cancelled';
 
                                     return (
-                                        <div
+                                        <GlassCard
                                             key={appt.id}
                                             onClick={() => setSelectedAppt(appt)}
-                                            className={`group relative bg-white p-5 rounded-2xl border transition-all cursor-pointer hover:shadow-md ${isCurrent ? 'ring-2 ring-blue-500 border-blue-300 bg-blue-50/10' : 'border-slate-200/80'}`}
+                                            className={`p-5 transition-all cursor-pointer hover:shadow-md ${
+                                                isCurrent ? 'ring-2 ring-[#8200db] border-purple-500/50 bg-purple-500/[0.04]' : ''
+                                            }`}
                                         >
-                                            {/* Highlight badges */}
                                             {isCurrent && (
-                                                <div className="inline-flex items-center gap-1.5 bg-blue-600 text-white text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full mb-3 shadow-sm animate-pulse">
+                                                <div className="inline-flex items-center gap-1.5 bg-[#8200db] text-white text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full mb-3 shadow-xs animate-pulse">
                                                     <span className="w-1.5 h-1.5 rounded-full bg-white" />
                                                     Happening Now
                                                 </div>
                                             )}
                                             {isNext && (
-                                                <div className="inline-flex items-center gap-1.5 bg-amber-500 text-white text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full mb-3 shadow-sm">
+                                                <div className="inline-flex items-center gap-1.5 bg-amber-500 text-white text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full mb-3 shadow-xs">
                                                     Next Up
                                                 </div>
                                             )}
 
                                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                                {/* Client & Service Info */}
                                                 <div className="flex items-start gap-3.5">
-                                                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 text-slate-700 flex items-center justify-center font-bold text-sm shrink-0 border border-slate-300/60 shadow-sm group-hover:border-blue-300 transition-colors">
-                                                        {appt.client_name.charAt(0).toUpperCase()}
+                                                    <div className="w-11 h-11 rounded-2xl bg-purple-500/10 dark:bg-purple-400/15 text-[#8200db] dark:text-purple-300 flex items-center justify-center font-bold text-sm shrink-0 border border-purple-500/20 shadow-xs">
+                                                        {appt.client_name?.charAt(0).toUpperCase()}
                                                     </div>
                                                     <div>
-                                                        <h3 className={`text-base font-bold transition-colors ${isCancelled ? 'line-through text-slate-400' : 'text-slate-900 group-hover:text-blue-600'}`}>
+                                                        <h3 className={`text-base font-bold transition-colors ${isCancelled ? 'line-through text-slate-400' : 'text-slate-900 dark:text-white'}`}>
                                                             {appt.client_name}
                                                         </h3>
-                                                        <p className="text-xs font-semibold text-slate-600 mt-0.5">
+                                                        <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-0.5">
                                                             {appt.service_name}
                                                         </p>
-                                                        <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-1 flex-wrap">
+                                                        <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
                                                             {appt.room_name && (
-                                                                <span className="flex items-center gap-1 font-medium text-slate-500">
-                                                                    <DoorOpen className="w-3 h-3 text-slate-400" />
+                                                                <span className="flex items-center gap-1 font-medium">
+                                                                    <DoorOpen className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                                                                     {appt.room_name}
                                                                 </span>
                                                             )}
                                                             {appt.location_name && (
                                                                 <span className="flex items-center gap-1">
-                                                                    <MapPin className="w-3 h-3 text-slate-400" />
+                                                                    <MapPin className="w-3.5 h-3.5 text-slate-400" />
                                                                     {appt.location_name}
                                                                 </span>
                                                             )}
                                                             {appt.notes && (
-                                                                <span className="flex items-center gap-1 text-blue-600 font-medium">
-                                                                    <FileText className="w-3 h-3" />
+                                                                <span className="flex items-center gap-1 text-[#8200db] dark:text-purple-300 font-semibold">
+                                                                    <FileText className="w-3.5 h-3.5" />
                                                                     Has notes
                                                                 </span>
                                                             )}
@@ -370,10 +381,9 @@ export default function PractitionerAppointments({
                                                     </div>
                                                 </div>
 
-                                                {/* Time & Quick Actions */}
-                                                <div className="flex flex-col sm:items-end gap-2.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                                                <div className="flex flex-col sm:items-end gap-2.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/50 dark:border-white/10">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-lg">
+                                                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 bg-white/60 dark:bg-white/10 px-3 py-1 rounded-xl border border-slate-200/60 dark:border-white/10">
                                                             {humanTime(appt.starts_at, timezone)} - {humanTime(appt.ends_at, timezone)}
                                                         </span>
                                                         <span
@@ -388,7 +398,6 @@ export default function PractitionerAppointments({
                                                         </span>
                                                     </div>
 
-                                                    {/* Quick 1-Tap Status Action Buttons & Note Action */}
                                                     {!isCancelled && (
                                                         <div
                                                             className="flex items-center gap-1.5 flex-wrap"
@@ -397,15 +406,15 @@ export default function PractitionerAppointments({
                                                             {appt.clinical_note_id ? (
                                                                 <a
                                                                     href={appt.clinical_note_status === 'draft' ? `/app/notes/${appt.clinical_note_id}/edit` : `/app/notes/${appt.clinical_note_id}`}
-                                                                    className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 transition shadow-2xs"
+                                                                    className="inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 text-purple-700 dark:text-purple-300 border border-purple-500/30 transition shadow-2xs"
                                                                 >
-                                                                    <FileText className="w-3 h-3 text-violet-600" />
+                                                                    <FileText className="w-3 h-3 text-purple-600 dark:text-purple-400" />
                                                                     <span>{appt.clinical_note_status === 'draft' ? 'Continue Note' : 'View Note'}</span>
                                                                 </a>
                                                             ) : appt.client_id ? (
                                                                 <a
                                                                     href={`/app/clients/${appt.client_id}/notes/create?appointment_id=${appt.id}`}
-                                                                    className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-violet-600 hover:bg-violet-700 text-white transition shadow-2xs"
+                                                                    className="inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1.5 rounded-xl bg-[#8200db] hover:opacity-90 text-white transition shadow-2xs"
                                                                 >
                                                                     <FileText className="w-3 h-3" />
                                                                     <span>Write Note</span>
@@ -416,7 +425,7 @@ export default function PractitionerAppointments({
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => handleStatusUpdate(appt.id, 'checked_in')}
-                                                                    className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 transition shadow-2xs"
+                                                                    className="text-[11px] font-bold px-2.5 py-1.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/25 transition shadow-2xs"
                                                                 >
                                                                     Check In
                                                                 </button>
@@ -425,7 +434,7 @@ export default function PractitionerAppointments({
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => handleStatusUpdate(appt.id, 'completed')}
-                                                                    className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition shadow-2xs"
+                                                                    className="text-[11px] font-bold px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 transition shadow-2xs"
                                                                 >
                                                                     Complete
                                                                 </button>
@@ -434,7 +443,7 @@ export default function PractitionerAppointments({
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => handleStatusUpdate(appt.id, 'no_show')}
-                                                                    className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 transition shadow-2xs"
+                                                                    className="text-[11px] font-bold px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/25 transition shadow-2xs"
                                                                 >
                                                                     No-show
                                                                 </button>
@@ -443,7 +452,7 @@ export default function PractitionerAppointments({
                                                     )}
                                                 </div>
                                             </div>
-                                        </div>
+                                        </GlassCard>
                                     );
                                 })}
                             </div>
@@ -453,27 +462,27 @@ export default function PractitionerAppointments({
 
                 {/* ----------------- VIEW 2: WEEK ----------------- */}
                 {view === 'week' && (
-                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-                        <div className="grid grid-cols-1 md:grid-cols-7 divide-y md:divide-y-0 md:divide-x divide-slate-200">
+                    <GlassCard className="overflow-hidden">
+                        <div className="grid grid-cols-1 md:grid-cols-7 divide-y md:divide-y-0 md:divide-x divide-slate-200/50 dark:divide-white/10">
                             {weekDays.map((d) => {
                                 const isToday = d === todayDate;
                                 const dayAppts = weekAppointmentsByDay[d] || [];
                                 const parts = humanDate(d).split(' ');
 
                                 return (
-                                    <div key={d} className={`min-h-[220px] p-3.5 flex flex-col ${isToday ? 'bg-blue-50/30' : ''}`}>
-                                        <div className="text-center pb-3 border-b border-slate-100">
-                                            <div className={`text-[11px] font-bold uppercase tracking-wider ${isToday ? 'text-blue-600' : 'text-slate-400'}`}>
+                                    <div key={d} className={`min-h-[220px] p-3.5 flex flex-col ${isToday ? 'bg-purple-500/[0.05]' : ''}`}>
+                                        <div className="text-center pb-3 border-b border-slate-200/50 dark:border-white/10">
+                                            <div className={`text-[11px] font-bold uppercase tracking-wider ${isToday ? 'text-[#8200db] dark:text-purple-300' : 'text-slate-400'}`}>
                                                 {parts[0]}
                                             </div>
-                                            <div className={`text-base font-extrabold mt-0.5 ${isToday ? 'text-blue-600' : 'text-slate-800'}`}>
+                                            <div className={`text-base font-extrabold mt-0.5 ${isToday ? 'text-[#8200db] dark:text-white' : 'text-slate-800 dark:text-slate-200'}`}>
                                                 {d.split('-')[2]}
                                             </div>
                                         </div>
 
                                         <div className="flex-1 space-y-2 mt-3">
                                             {dayAppts.length === 0 ? (
-                                                <div className="text-[11px] text-slate-300 text-center py-6 font-medium">
+                                                <div className="text-[11px] text-slate-400 dark:text-slate-500 text-center py-6 font-medium">
                                                     No sessions
                                                 </div>
                                             ) : (
@@ -494,10 +503,10 @@ export default function PractitionerAppointments({
                                                             <div className="text-[10px] font-bold" style={{ color: s.fg }}>
                                                                 {humanTime(a.starts_at, timezone)}
                                                             </div>
-                                                            <div className={`text-xs font-bold truncate mt-0.5 ${isCancelled ? 'line-through text-slate-500' : 'text-slate-900'}`}>
+                                                            <div className={`text-xs font-bold truncate mt-0.5 ${isCancelled ? 'line-through opacity-60' : 'text-slate-900 dark:text-white'}`}>
                                                                 {a.client_name}
                                                             </div>
-                                                            <div className="text-[10px] truncate text-slate-600">
+                                                            <div className="text-[10px] truncate text-slate-600 dark:text-slate-300">
                                                                 {a.service_name}
                                                             </div>
                                                         </div>
@@ -509,28 +518,28 @@ export default function PractitionerAppointments({
                                 );
                             })}
                         </div>
-                    </div>
+                    </GlassCard>
                 )}
 
                 {/* ----------------- VIEW 3: UPCOMING ----------------- */}
                 {view === 'upcoming' && (
                     <div className="space-y-6">
                         {Object.keys(groupedUpcoming).length === 0 ? (
-                            <div className="bg-white p-12 rounded-2xl border border-slate-200/80 text-center shadow-sm flex flex-col items-center">
-                                <CalendarIcon className="w-10 h-10 text-slate-300 mb-2" />
-                                <h3 className="text-base font-bold text-slate-800">No upcoming appointments</h3>
-                                <p className="text-xs text-slate-400 mt-1">
+                            <GlassCard className="p-12 text-center flex flex-col items-center">
+                                <CalendarIcon className="w-10 h-10 text-purple-600 dark:text-purple-400 mb-2 opacity-70" />
+                                <h3 className="text-base font-bold text-slate-900 dark:text-white">No upcoming appointments</h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                                     You have no scheduled bookings in the future.
                                 </p>
-                            </div>
+                            </GlassCard>
                         ) : (
                             Object.entries(groupedUpcoming).map(([dateKey, items]) => (
                                 <div key={dateKey} className="space-y-3">
                                     <div className="flex items-center gap-2">
-                                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-3 py-1 rounded-md">
+                                        <h3 className="text-xs font-bold uppercase tracking-wider text-purple-800 dark:text-purple-300 bg-purple-500/10 px-3 py-1 rounded-xl border border-purple-500/20">
                                             {dateKey === todayDate ? 'Today — ' : ''}{humanDate(dateKey)}
                                         </h3>
-                                        <span className="text-xs text-slate-400 font-semibold">
+                                        <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
                                             ({items.length} {items.length === 1 ? 'appointment' : 'appointments'})
                                         </span>
                                     </div>
@@ -539,25 +548,25 @@ export default function PractitionerAppointments({
                                         {items.map((appt) => {
                                             const s = STATUS_STYLES[appt.status] || STATUS_STYLES.scheduled;
                                             return (
-                                                <div
+                                                <GlassCard
                                                     key={appt.id}
                                                     onClick={() => setSelectedAppt(appt)}
-                                                    className="bg-white p-4 rounded-xl border border-slate-200/80 hover:border-blue-300 hover:shadow-sm transition cursor-pointer flex items-center justify-between gap-4"
+                                                    className="p-4 hover:border-purple-500/40 hover:shadow-sm transition cursor-pointer flex items-center justify-between gap-4"
                                                 >
                                                     <div className="flex items-center gap-3">
-                                                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: s.dot }} />
+                                                        <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs" style={{ background: s.dot }} />
                                                         <div>
-                                                            <div className="text-sm font-bold text-slate-900">
+                                                            <div className="text-sm font-bold text-slate-900 dark:text-white">
                                                                 {appt.client_name}
                                                             </div>
-                                                            <div className="text-xs text-slate-500 mt-0.5">
+                                                            <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                                                                 {appt.service_name} · {appt.room_name || appt.location_name || 'Clinic'}
                                                             </div>
                                                         </div>
                                                     </div>
 
                                                     <div className="flex items-center gap-3 text-right">
-                                                        <span className="text-xs font-semibold text-slate-700 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200/60">
+                                                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 bg-white/60 dark:bg-white/10 px-3 py-1 rounded-xl border border-slate-200/60 dark:border-white/10">
                                                             {humanTime(appt.starts_at, timezone)}
                                                         </span>
                                                         <span
@@ -567,7 +576,7 @@ export default function PractitionerAppointments({
                                                             {s.label}
                                                         </span>
                                                     </div>
-                                                </div>
+                                                </GlassCard>
                                             );
                                         })}
                                     </div>
@@ -578,19 +587,19 @@ export default function PractitionerAppointments({
                 )}
 
                 {/* Status Legend */}
-                <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white border border-slate-200/80 shadow-sm flex-wrap text-xs">
-                    <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">
+                <GlassCard className="p-4 flex items-center justify-between gap-4 flex-wrap text-xs">
+                    <span className="font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[10px]">
                         Status Legend:
                     </span>
                     <div className="flex items-center gap-4 flex-wrap">
                         {Object.entries(STATUS_STYLES).map(([k, s]) => (
-                            <span key={k} className="inline-flex items-center gap-1.5 text-slate-600 font-medium">
-                                <span className="w-2.5 h-2.5 rounded-full" style={{ background: s.dot }} />
+                            <span key={k} className="inline-flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-semibold text-xs">
+                                <span className="w-2.5 h-2.5 rounded-full shadow-xs" style={{ background: s.dot }} />
                                 {s.label}
                             </span>
                         ))}
                     </div>
-                </div>
+                </GlassCard>
             </div>
 
             {/* ----------------- APPOINTMENT DETAIL & NOTES MODAL ----------------- */}
@@ -638,167 +647,150 @@ function AppointmentDetailModal({ appt, tz, onClose, onStatusUpdate, onToast }) 
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs" onClick={onClose} />
-            <div className="relative w-full max-w-lg rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-150">
-                {/* Header */}
-                <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/60">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <span
-                                className="text-[11px] font-bold px-2.5 py-0.5 rounded-full border"
-                                style={{ background: s.bg, color: s.fg, borderColor: s.border }}
-                            >
-                                {s.label}
-                            </span>
-                            <span className="text-xs text-slate-400 font-medium">
-                                {appt.duration_minutes} mins
-                            </span>
-                        </div>
-                        <h2 className="text-lg font-bold text-slate-900 mt-1">
-                            {appt.client_name}
-                        </h2>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="p-1.5 rounded-lg hover:bg-slate-200/60 text-slate-400 hover:text-slate-600 transition"
+        <GlassModal
+            isOpen={true}
+            onClose={onClose}
+            title={appt.client_name}
+            maxWidth="max-w-lg"
+        >
+            <div className="space-y-5">
+                <div className="flex items-center gap-2">
+                    <span
+                        className="text-[11px] font-bold px-2.5 py-0.5 rounded-full border"
+                        style={{ background: s.bg, color: s.fg, borderColor: s.border }}
                     >
-                        ✕
-                    </button>
+                        {s.label}
+                    </span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
+                        {appt.duration_minutes} mins
+                    </span>
                 </div>
 
-                {/* Body */}
-                <div className="p-6 overflow-y-auto space-y-5 flex-1">
-                    {/* Session Details Box */}
-                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2.5 text-xs">
-                        <div className="flex items-center justify-between">
-                            <span className="font-semibold text-slate-500">Service:</span>
-                            <span className="font-bold text-slate-800">{appt.service_name}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <span className="font-semibold text-slate-500">Date & Time:</span>
-                            <span className="font-bold text-slate-800">
-                                {humanDate(zonedDateKey(appt.starts_at, tz))} · {humanTime(appt.starts_at, tz)} - {humanTime(appt.ends_at, tz)}
-                            </span>
-                        </div>
-                        {appt.room_name && (
-                            <div className="flex items-center justify-between">
-                                <span className="font-semibold text-slate-500">Room:</span>
-                                <span className="font-bold text-slate-800">{appt.room_name}</span>
-                            </div>
-                        )}
-                        {appt.location_name && (
-                            <div className="flex items-center justify-between">
-                                <span className="font-semibold text-slate-500">Location:</span>
-                                <span className="font-bold text-slate-800">{appt.location_name}</span>
-                            </div>
-                        )}
+                {/* Session Details Box */}
+                <div className="p-4 rounded-xl bg-white/50 dark:bg-white/[0.04] border border-white/40 dark:border-white/10 space-y-2.5 text-xs">
+                    <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-500 dark:text-slate-400">Service:</span>
+                        <span className="font-bold text-slate-900 dark:text-white">{appt.service_name}</span>
                     </div>
-
-                    {/* Patient Contact (read-only for practitioner) */}
-                    {(appt.client_phone || appt.client_email) && (
-                        <div>
-                            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-                                Patient Contact
-                            </label>
-                            <div className="flex items-center gap-3 flex-wrap text-xs">
-                                {appt.client_phone && (
-                                    <a
-                                        href={`tel:${appt.client_phone}`}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition"
-                                    >
-                                        <Phone className="w-3.5 h-3.5 text-slate-500" />
-                                        {appt.client_phone}
-                                    </a>
-                                )}
-                                {appt.client_email && (
-                                    <a
-                                        href={`mailto:${appt.client_email}`}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition"
-                                    >
-                                        <Mail className="w-3.5 h-3.5 text-slate-500" />
-                                        {appt.client_email}
-                                    </a>
-                                )}
-                            </div>
+                    <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-500 dark:text-slate-400">Date & Time:</span>
+                        <span className="font-bold text-slate-900 dark:text-white">
+                            {humanDate(zonedDateKey(appt.starts_at, tz))} · {humanTime(appt.starts_at, tz)} - {humanTime(appt.ends_at, tz)}
+                        </span>
+                    </div>
+                    {appt.room_name && (
+                        <div className="flex items-center justify-between">
+                            <span className="font-semibold text-slate-500 dark:text-slate-400">Room:</span>
+                            <span className="font-bold text-slate-900 dark:text-white">{appt.room_name}</span>
                         </div>
                     )}
+                    {appt.location_name && (
+                        <div className="flex items-center justify-between">
+                            <span className="font-semibold text-slate-500 dark:text-slate-400">Location:</span>
+                            <span className="font-bold text-slate-900 dark:text-white">{appt.location_name}</span>
+                        </div>
+                    )}
+                </div>
 
-                    {/* Change Status Section */}
+                {/* Patient Contact */}
+                {(appt.client_phone || appt.client_email) && (
                     <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-                            Update Session Status
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                            Patient Contact
                         </label>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            {['confirmed', 'checked_in', 'completed', 'no_show'].map((st) => {
-                                const isCurrent = appt.status === st;
-                                const itemStyle = STATUS_STYLES[st];
-                                return (
-                                    <button
-                                        key={st}
-                                        type="button"
-                                        onClick={() => onStatusUpdate(appt.id, st)}
-                                        className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all ${isCurrent ? 'ring-2 ring-blue-500 ring-offset-1 font-extrabold' : 'opacity-80 hover:opacity-100'}`}
-                                        style={{
-                                            background: itemStyle.bg,
-                                            color: itemStyle.fg,
-                                            borderColor: itemStyle.border,
-                                        }}
-                                    >
-                                        {isCurrent && '✓ '}
-                                        {itemStyle.label}
-                                    </button>
-                                );
-                            })}
+                        <div className="flex items-center gap-3 flex-wrap text-xs">
+                            {appt.client_phone && (
+                                <a
+                                    href={`tel:${appt.client_phone}`}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/50 dark:bg-white/10 hover:bg-white dark:hover:bg-white/15 text-slate-800 dark:text-slate-200 border border-white/40 dark:border-white/10 font-semibold transition"
+                                >
+                                    <Phone className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                                    {appt.client_phone}
+                                </a>
+                            )}
+                            {appt.client_email && (
+                                <a
+                                    href={`mailto:${appt.client_email}`}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/50 dark:bg-white/10 hover:bg-white dark:hover:bg-white/15 text-slate-800 dark:text-slate-200 border border-white/40 dark:border-white/10 font-semibold transition"
+                                >
+                                    <Mail className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                                    {appt.client_email}
+                                </a>
+                            )}
                         </div>
                     </div>
+                )}
 
-                    {/* Clinical / Appointment Notes */}
-                    <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                                Session & Appointment Notes
-                            </label>
-                            <span className="text-[10px] text-slate-400">Editable by practitioner</span>
-                        </div>
-                        <textarea
-                            rows={4}
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            placeholder="Add clinical observation, session notes or follow-up instructions…"
-                            className="w-full px-3.5 py-2.5 rounded-xl text-xs border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition"
-                        />
-                        <div className="flex justify-end mt-2">
-                            <button
-                                type="button"
-                                onClick={saveNotes}
-                                disabled={savingNotes}
-                                className="inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-lg text-white transition disabled:opacity-60"
-                                style={{ background: BRAND_GRADIENT }}
-                            >
-                                <Check className="w-3.5 h-3.5" />
-                                {savingNotes ? 'Saving…' : 'Save Notes'}
-                            </button>
-                        </div>
+                {/* Change Status Section */}
+                <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                        Update Session Status
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {['confirmed', 'checked_in', 'completed', 'no_show'].map((st) => {
+                            const isCurrent = appt.status === st;
+                            const itemStyle = STATUS_STYLES[st];
+                            return (
+                                <button
+                                    key={st}
+                                    type="button"
+                                    onClick={() => onStatusUpdate(appt.id, st)}
+                                    className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
+                                        isCurrent ? 'ring-2 ring-[#8200db] ring-offset-1 font-extrabold' : 'opacity-80 hover:opacity-100'
+                                    }`}
+                                    style={{
+                                        background: itemStyle.bg,
+                                        color: itemStyle.fg,
+                                        borderColor: itemStyle.border,
+                                    }}
+                                >
+                                    {isCurrent && '✓ '}
+                                    {itemStyle.label}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
-                {/* Footer */}
-                <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0">
+                {/* Clinical / Appointment Notes */}
+                <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            Session & Appointment Notes
+                        </label>
+                        <span className="text-[10px] text-slate-400">Editable by practitioner</span>
+                    </div>
+                    <textarea
+                        rows={3}
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        placeholder="Add clinical observation, session notes or follow-up instructions…"
+                        className="w-full px-3.5 py-2.5 rounded-xl text-xs border border-slate-300 dark:border-white/15 bg-white/70 dark:bg-white/10 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#8200db] transition"
+                    />
+                    <div className="flex justify-end mt-2">
+                        <GlassButton
+                            type="button"
+                            variant="primary"
+                            size="sm"
+                            onClick={saveNotes}
+                            disabled={savingNotes}
+                            icon={<Check className="w-3.5 h-3.5" />}
+                        >
+                            {savingNotes ? 'Saving…' : 'Save Notes'}
+                        </GlassButton>
+                    </div>
+                </div>
+
+                <div className="pt-3 border-t border-slate-200/50 dark:border-white/10 flex items-center justify-between">
                     <span className="text-[11px] text-slate-400">
-                        Rescheduling & cancellations managed by clinic reception.
+                        Rescheduling managed by clinic reception.
                     </span>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="text-xs font-semibold px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition"
-                    >
+                    <GlassButton variant="secondary" size="sm" onClick={onClose}>
                         Close
-                    </button>
+                    </GlassButton>
                 </div>
             </div>
-        </div>
+        </GlassModal>
     );
 }
 
@@ -809,7 +801,7 @@ function Toast({ message, onClose }) {
     }, [onClose]);
 
     return (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl animate-in slide-in-from-bottom-5 duration-200">
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900/90 backdrop-blur-md text-white px-4 py-3 rounded-2xl shadow-2xl border border-white/15 animate-in slide-in-from-bottom-5 duration-200">
             <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
             <span className="text-xs font-semibold">{message}</span>
             <button

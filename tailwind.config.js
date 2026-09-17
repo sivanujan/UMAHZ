@@ -31,6 +31,7 @@ export default {
           teal: 'var(--color-accent-teal)',
         },
         brand: {
+          DEFAULT: '#8200db',
           50: '#f0fdfa',
           100: '#ccfbf1',
           200: '#99f6e4',
@@ -39,6 +40,20 @@ export default {
           700: '#0f766e',
           800: '#115e59',
           900: '#134e4a',
+        },
+        aurora: {
+          base: '#FBF7FD',
+          violet: '#F3E8FF',
+          lavender: '#E9D5FF',
+          magenta: '#FBE7F3',
+          indigo: '#E5E7FF',
+          neutral: '#FBF7FD',
+          'dark-base': '#0E0B14',
+          'dark-end': '#16101F',
+          'dark-brand': 'rgba(130, 0, 219, 0.20)',
+          'dark-indigo': '#3B2A6B',
+          'dark-magenta': '#5B1E52',
+          'dark-card': 'rgba(30, 24, 45, 0.5)',
         },
         warm: {
           50: '#fcfbf9',

@@ -40,7 +40,7 @@ class ReportController extends Controller
         $practitioners = StaffMembership::withoutGlobalScopes()
             ->where('tenant_id', $tenant->id)
             ->whereIn('role', [StaffMembership::ROLE_PRACTITIONER, StaffMembership::ROLE_CLINIC_OWNER])
-            ->with('user:id,first_name,last_name')
+            ->with('user:id,name,email')
             ->get()
             ->map(fn ($m) => [
                 'id' => $m->id,

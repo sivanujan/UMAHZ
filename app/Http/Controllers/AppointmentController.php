@@ -52,12 +52,26 @@ class AppointmentController extends Controller
         $tenant = $this->tenant($request);
         $tz = $tenant->timezone ?: 'UTC';
 
-        $view = $request->string('view')->toString() === 'day' ? 'day' : 'week';
+        $rawView = $request->string('view')->toString();
+        $view = in_array($rawView, ['day', 'week', 'month'], true) ? $rawView : 'week';
         $anchor = $this->anchorDate($request->string('date')->toString(), $tz);
 
-        [$rangeStart, $rangeEnd] = $view === 'day'
-            ? [$anchor, $anchor->addDay()]
-            : [$anchor->startOfWeek(CarbonImmutable::MONDAY), $anchor->startOfWeek(CarbonImmutable::MONDAY)->addWeek()];
+        if ($view === 'day') {
+            [$rangeStart, $rangeEnd] = [$anchor, $anchor->addDay()];
+            $anchorOut = $rangeStart->format('Y-m-d');
+        } elseif ($view === 'month') {
+            $monthStart = $anchor->startOfMonth();
+            $monthEnd = $anchor->endOfMonth();
+            $rangeStart = $monthStart->startOfWeek(CarbonImmutable::MONDAY);
+            $rangeEnd = $monthEnd->endOfWeek(CarbonImmutable::SUNDAY)->addDay();
+            $anchorOut = $anchor->format('Y-m-d');
+        } else {
+            [$rangeStart, $rangeEnd] = [
+                $anchor->startOfWeek(CarbonImmutable::MONDAY),
+                $anchor->startOfWeek(CarbonImmutable::MONDAY)->addWeek()
+            ];
+            $anchorOut = $rangeStart->format('Y-m-d');
+        }
 
         $rangeStartUtc = $rangeStart->utc();
         $rangeEndUtc = $rangeEnd->utc();
@@ -76,8 +90,9 @@ class AppointmentController extends Controller
 
         return Inertia::render('Calendar/Index', [
             'view' => $view,
-            'anchorDate' => $rangeStart->format('Y-m-d'),
+            'anchorDate' => $anchorOut,
             'rangeStart' => $rangeStart->format('Y-m-d'),
+            'rangeEnd' => $rangeEnd->subDay()->format('Y-m-d'),
             'timezone' => $tz,
             'appointments' => $appointments,
             'practitioners' => $this->practitioners($tenant->id),
