@@ -1,61 +1,61 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { GlassCard } from '@/Components/UI/GlassCard';
+import { PageHeader } from '@/Components/UI/PageHeader';
+import { GlassButton } from '@/Components/UI/GlassButton';
+import { GlassModal } from '@/Components/UI/GlassModal';
+import { GlassInput, GlassSelect, GlassTextarea, GlassLabel, GlassError } from '@/Components/UI/FormControls';
 import {
     Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, X, Clock, User,
-    MapPin, DoorOpen, Trash2, Check, Ban, AlertCircle, Sparkles, Loader2, CheckCircle2,
-    CalendarCheck, AlertTriangle
+    MapPin, DoorOpen, Trash2, Check, Ban, AlertCircle, Loader2, CheckCircle2,
+    CalendarCheck, AlertTriangle, Users, LayoutGrid, SlidersHorizontal
 } from 'lucide-react';
 
-const BRAND_GRADIENT = 'linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)';
-
-const DAY_START_HOUR = 7;   // 07:00
-const DAY_END_HOUR = 21;    // 21:00
-const HOUR_PX = 60;
-const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const HOUR_PX = 64;
 
 const STATUS_STYLES = {
     scheduled: {
         label: 'Scheduled',
-        bg: 'rgba(37, 99, 235, 0.12)',
-        fg: '#1D4ED8',
-        border: '#3B82F6',
-        dot: '#2563EB',
+        bg: 'rgba(130, 0, 219, 0.10)',
+        fg: '#6b00b6',
+        border: '#8200db',
+        dot: '#8200db',
     },
     confirmed: {
         label: 'Confirmed',
-        bg: 'rgba(6, 182, 212, 0.14)',
-        fg: '#0E7490',
-        border: '#06B6D4',
-        dot: '#0891B2',
+        bg: 'rgba(6, 182, 212, 0.12)',
+        fg: '#0e7490',
+        border: '#06b6d4',
+        dot: '#0891b2',
     },
     checked_in: {
         label: 'Checked in',
-        bg: 'rgba(139, 92, 246, 0.14)',
-        fg: '#6D28D9',
-        border: '#8B5CF6',
-        dot: '#7C3AED',
+        bg: 'rgba(168, 85, 247, 0.12)',
+        fg: '#7e22ce',
+        border: '#a855f7',
+        dot: '#9333ea',
     },
     completed: {
         label: 'Completed',
-        bg: 'rgba(34, 197, 94, 0.14)',
-        fg: '#15803D',
-        border: '#22C55E',
-        dot: '#16A34A',
+        bg: 'rgba(34, 197, 94, 0.12)',
+        fg: '#15803d',
+        border: '#22c55e',
+        dot: '#16a34a',
     },
     no_show: {
         label: 'No-show',
-        bg: 'rgba(245, 158, 11, 0.16)',
-        fg: '#B45309',
-        border: '#F59E0B',
-        dot: '#D97706',
+        bg: 'rgba(245, 158, 11, 0.12)',
+        fg: '#b45309',
+        border: '#f59e0b',
+        dot: '#d97706',
     },
     cancelled: {
         label: 'Cancelled',
-        bg: 'rgba(148, 163, 184, 0.20)',
-        fg: '#64748B',
-        border: '#94A3B8',
-        dot: '#64748B',
+        bg: 'rgba(148, 163, 184, 0.16)',
+        fg: '#475569',
+        border: '#94a3b8',
+        dot: '#64748b',
     },
 };
 
@@ -70,10 +70,6 @@ const COMMON_SERVICES = [
 
 const DURATION_PRESETS = [15, 30, 45, 60, 90];
 
-const fieldClass = 'w-full px-3.5 py-2.5 rounded-lg text-sm outline-none transition focus:ring-4 focus:ring-[#2563EB]/15 focus:border-[#2563EB]/50 border';
-const fieldStyle = { background: 'var(--umahz-hover)', borderColor: 'var(--umahz-border)', color: 'var(--umahz-text-primary)' };
-const labelClass = 'block text-[11px] font-semibold uppercase tracking-wider mb-1.5';
-
 /* ------------------------------ date helpers ------------------------------ */
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -83,6 +79,12 @@ function addDays(dateStr, n) {
     const dt = new Date(Date.UTC(y, m - 1, d));
     dt.setUTCDate(dt.getUTCDate() + n);
     return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}`;
+}
+
+function addMonths(dateStr, n) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1 + n, 1));
+    return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(Math.min(d, 28))}`;
 }
 
 function zonedParts(iso, tz) {
@@ -111,6 +113,13 @@ function humanDate(dateStr) {
     const [y, m, d] = dateStr.split('-').map(Number);
     return new Intl.DateTimeFormat('en-US', {
         weekday: 'short', month: 'short', day: 'numeric',
+    }).format(new Date(Date.UTC(y, m - 1, d)));
+}
+
+function humanMonthYear(dateStr, tz) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Intl.DateTimeFormat('en-US', {
+        month: 'long', year: 'numeric', timeZone: tz,
     }).format(new Date(Date.UTC(y, m - 1, d)));
 }
 
@@ -151,14 +160,14 @@ function packLanes(items) {
     return result;
 }
 
-/* ------------------------------ appointment block ------------------------------ */
+/* ------------------------------ appointment block (time grid) ------------------------------ */
 
-function AppointmentBlock({ appt, tz, onClick }) {
-    const gridStart = DAY_START_HOUR * 60;
+function AppointmentBlock({ appt, tz, startHour, onClick }) {
+    const gridStart = startHour * 60;
     const top = ((appt.startMin - gridStart) / 60) * HOUR_PX;
-    const height = Math.max(26, ((appt.endMin - appt.startMin) / 60) * HOUR_PX - 2);
-    const width = 100 / appt.laneCount;
-    const left = appt.lane * width;
+    const height = Math.max(30, ((appt.endMin - appt.startMin) / 60) * HOUR_PX - 2);
+    const width = 100 / (appt.laneCount || 1);
+    const left = (appt.lane || 0) * width;
     const s = STATUS_STYLES[appt.status] || STATUS_STYLES.scheduled;
     const cancelled = appt.status === 'cancelled';
 
@@ -169,44 +178,45 @@ function AppointmentBlock({ appt, tz, onClick }) {
                 e.stopPropagation();
                 onClick(appt);
             }}
-            className="absolute rounded-lg px-2.5 py-1 text-left overflow-hidden transition-all duration-150 hover:shadow-md hover:z-20 group"
+            className="absolute rounded-xl px-2.5 py-1.5 text-left overflow-hidden transition-all duration-150 hover:shadow-lg hover:-translate-y-0.5 hover:z-30 group border backdrop-blur-md"
             style={{
-                top, height, left: `calc(${left}% + 2px)`, width: `calc(${width}% - 4px)`,
-                background: s.bg, borderLeft: `3.5px solid ${s.border}`,
+                top,
+                height,
+                left: `calc(${left}% + 2px)`,
+                width: `calc(${width}% - 4px)`,
+                backgroundColor: s.bg,
+                borderColor: s.border,
+                borderLeftWidth: '4px',
                 opacity: cancelled ? 0.6 : 1,
             }}
             title={`${appt.client_name} · ${appt.service_name} (${humanTime(appt.starts_at, tz)} - ${humanTime(appt.ends_at, tz)})`}
         >
             <div className="flex items-center justify-between gap-1 leading-tight">
-                <span className="text-[11px] font-bold" style={{ color: s.fg }}>
-                    {humanTime(appt.starts_at, tz)}
+                <span className="text-[11px] font-extrabold flex items-center gap-1" style={{ color: s.fg }}>
+                    <Clock className="w-3 h-3 shrink-0 opacity-80" />
+                    <span>{humanTime(appt.starts_at, tz)}</span>
+                    <span className="text-[10px] font-normal opacity-70">· {appt.duration_minutes}m</span>
                 </span>
                 <span
-                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                    className="w-2 h-2 rounded-full shrink-0 shadow-xs"
                     style={{ background: s.dot }}
                 />
             </div>
 
             <div
-                className={`text-[12px] font-semibold truncate leading-tight mt-0.5 ${cancelled ? 'line-through text-slate-500' : ''}`}
-                style={{ color: cancelled ? undefined : 'var(--umahz-text-primary)' }}
+                className={`text-[12px] font-bold truncate leading-tight mt-1 text-slate-900 dark:text-white ${cancelled ? 'line-through opacity-60' : ''}`}
             >
                 {appt.client_name}
             </div>
 
-            {height > 44 && (
-                <div
-                    className="text-[11px] truncate leading-tight mt-0.5"
-                    style={{ color: 'var(--umahz-text-secondary)' }}
-                >
+            {height > 46 && (
+                <div className="text-[11px] font-semibold truncate leading-tight mt-0.5 text-slate-700 dark:text-slate-200">
                     {appt.service_name}
                 </div>
             )}
 
-            {height > 62 && (appt.practitioner_name || appt.room_name) && (
-                <div
-                    className="text-[10px] truncate leading-tight mt-0.5 text-slate-400"
-                >
+            {height > 66 && (appt.practitioner_name || appt.room_name) && (
+                <div className="text-[10px] truncate leading-tight mt-0.5 text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
                     {[appt.practitioner_name, appt.room_name].filter(Boolean).join(' · ')}
                 </div>
             )}
@@ -214,48 +224,108 @@ function AppointmentBlock({ appt, tz, onClick }) {
     );
 }
 
-/* --------------------------------- day column --------------------------------- */
+/* ------------------------------- live now line ------------------------------- */
 
-function DayColumn({ dateKey, appts, tz, isToday, onCreate, onOpen }) {
-    const hours = [];
-    for (let h = DAY_START_HOUR; h < DAY_END_HOUR; h++) hours.push(h);
-    const packed = useMemo(() => packLanes(appts), [appts]);
+function NowLine({ nowMinutes, startHour, endHour }) {
+    const gridStart = startHour * 60;
+    const gridEnd = endHour * 60;
+    if (nowMinutes < gridStart || nowMinutes > gridEnd) return null;
+    const top = ((nowMinutes - gridStart) / 60) * HOUR_PX;
+
+    const h = Math.floor(nowMinutes / 60);
+    const m = nowMinutes % 60;
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const displayHour = h % 12 === 0 ? 12 : h % 12;
+    const timeLabel = `${displayHour}:${pad(m)} ${ampm}`;
 
     return (
-        <div
-            className={`relative flex-1 min-w-[130px] border-l transition-colors ${isToday ? 'bg-blue-50/20' : ''}`}
-            style={{ borderColor: 'var(--umahz-border)' }}
-        >
-            {hours.map((h) => (
-                <div
-                    key={h}
-                    className="border-b cursor-pointer hover:bg-[var(--umahz-hover)] transition-colors group relative"
-                    style={{ height: HOUR_PX, borderColor: 'var(--umahz-border)' }}
-                    onClick={() => onCreate(dateKey, `${pad(h)}:00`)}
-                    title={`Click to book at ${pad(h)}:00`}
-                >
-                    <span className="hidden group-hover:inline-block absolute right-2 top-1 text-[10px] font-semibold text-blue-500 bg-white/90 px-1.5 py-0.5 rounded shadow-sm">
-                        + {pad(h)}:00
-                    </span>
-                </div>
-            ))}
-            {packed.map((a) => (
-                <AppointmentBlock key={a.id} appt={a} tz={tz} onClick={onOpen} />
-            ))}
-            {isToday && <NowLine tz={tz} />}
+        <div className="absolute left-0 right-0 z-20 pointer-events-none transition-all duration-300" style={{ top }}>
+            {/* Pulsing indicator dot */}
+            <div className="absolute -left-1.5 -top-1.5 w-3 h-3 rounded-full bg-[#8200db] dark:bg-purple-400 ring-4 ring-purple-500/20 shadow-md flex items-center justify-center">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+            </div>
+
+            {/* Gradient line */}
+            <div className="h-[2px] w-full bg-gradient-to-r from-[#8200db] via-purple-500 to-pink-500 dark:from-purple-400 dark:via-purple-400 dark:to-pink-400 shadow-sm" />
+
+            {/* Time badge */}
+            <div className="absolute -top-3 left-3 px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-[#8200db] text-white dark:bg-purple-600 shadow-sm whitespace-nowrap">
+                {timeLabel}
+            </div>
         </div>
     );
 }
 
-function NowLine({ tz }) {
-    const now = zonedParts(new Date().toISOString(), tz);
-    const gridStart = DAY_START_HOUR * 60;
-    if (now.minutesOfDay < gridStart || now.minutesOfDay > DAY_END_HOUR * 60) return null;
-    const top = ((now.minutesOfDay - gridStart) / 60) * HOUR_PX;
+/* --------------------------------- day column (week/day view) --------------------------------- */
+
+function DayColumn({
+    dateKey, appts, tz, isToday, nowMinutes, startHour, endHour, onCreate, onOpen,
+}) {
+    const hours = [];
+    for (let h = startHour; h < endHour; h++) hours.push(h);
+    const packed = useMemo(() => packLanes(appts), [appts]);
+
     return (
-        <div className="absolute left-0 right-0 z-10 pointer-events-none" style={{ top }}>
-            <div className="h-[2px] shadow-sm" style={{ background: '#EF4444' }} />
-            <div className="w-2.5 h-2.5 rounded-full -mt-1.5 -ml-1 bg-red-500 shadow-sm" />
+        <div
+            className={`relative flex-1 min-w-[135px] border-l border-slate-200/50 dark:border-white/10 transition-colors ${
+                isToday ? 'bg-gradient-to-b from-purple-500/[0.07] via-purple-500/[0.03] to-transparent dark:from-purple-500/[0.14] dark:via-purple-500/[0.05] dark:to-transparent' : ''
+            }`}
+        >
+            {hours.map((h) => {
+                const displayH = h % 12 === 0 ? 12 : h % 12;
+                const ampm = h < 12 ? 'AM' : 'PM';
+                const isNoon = h === 12;
+
+                return (
+                    <div
+                        key={h}
+                        className={`border-b ${isNoon ? 'border-purple-300/40 dark:border-purple-500/30' : 'border-slate-200/40 dark:border-white/5'} transition-colors relative flex flex-col`}
+                        style={{ height: HOUR_PX }}
+                    >
+                        {/* 00 min slot */}
+                        <div
+                            className="h-1/2 cursor-pointer hover:bg-purple-500/[0.08] dark:hover:bg-purple-400/[0.10] transition-colors group/slot relative border-b border-dashed border-slate-200/30 dark:border-white/[0.04]"
+                            onClick={() => onCreate(dateKey, `${pad(h)}:00`)}
+                            title={`Click to book at ${displayH}:00 ${ampm}`}
+                        >
+                            <div className="hidden group-hover/slot:flex items-center gap-1 absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-[#8200db] dark:text-purple-300 bg-white/95 dark:bg-slate-900 px-2 py-0.5 rounded-md shadow-xs border border-purple-200 dark:border-purple-800 pointer-events-none z-10">
+                                <Plus className="w-3 h-3" />
+                                <span>{displayH}:00 {ampm}</span>
+                            </div>
+                        </div>
+
+                        {/* 30 min slot */}
+                        <div
+                            className="h-1/2 cursor-pointer hover:bg-purple-500/[0.08] dark:hover:bg-purple-400/[0.10] transition-colors group/slot relative"
+                            onClick={() => onCreate(dateKey, `${pad(h)}:30`)}
+                            title={`Click to book at ${displayH}:30 ${ampm}`}
+                        >
+                            <div className="hidden group-hover/slot:flex items-center gap-1 absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-[#8200db] dark:text-purple-300 bg-white/95 dark:bg-slate-900 px-2 py-0.5 rounded-md shadow-xs border border-purple-200 dark:border-purple-800 pointer-events-none z-10">
+                                <Plus className="w-3 h-3" />
+                                <span>{displayH}:30 {ampm}</span>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })}
+
+            {packed.map((a) => (
+                <AppointmentBlock
+                    key={a.id}
+                    appt={a}
+                    tz={tz}
+                    startHour={startHour}
+                    onClick={onOpen}
+                />
+            ))}
+
+            {isToday && (
+                <NowLine
+                    nowMinutes={nowMinutes}
+                    startHour={startHour}
+                    endHour={endHour}
+                />
+            )}
         </div>
     );
 }
@@ -285,8 +355,6 @@ function AppointmentModal({
     });
 
     const [clientErrors, setClientErrors] = useState({});
-
-    // Keep rooms cascading to current location
     const rooms = useMemo(() => roomsFor(data.location_id), [data.location_id, locations]);
 
     const handleLocationChange = (locId) => {
@@ -367,354 +435,276 @@ function AppointmentModal({
         );
     };
 
-    // Identify if there is a conflict error
     const hasConflict = errors.staff_membership_id && errors.staff_membership_id.includes('already has an appointment');
     const hasRoomConflict = errors.room_id && errors.room_id.includes('already booked');
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
-            <div
-                className="relative w-full max-w-lg rounded-2xl border shadow-2xl max-h-[92vh] overflow-y-auto"
-                style={{ background: 'var(--umahz-surface)', borderColor: 'var(--umahz-border)' }}
-            >
-                {/* Modal Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ borderColor: 'var(--umahz-border)' }}>
-                    <div>
-                        <h2 className="text-base font-bold text-slate-900" style={{ color: 'var(--umahz-text-primary)' }}>
-                            {editing ? 'Edit Appointment' : 'New Appointment'}
-                        </h2>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                            Times are scheduled in <strong className="text-slate-700">{tz}</strong>
-                        </p>
+        <GlassModal
+            isOpen={true}
+            onClose={onClose}
+            title={editing ? 'Edit Appointment' : 'New Appointment'}
+            maxWidth="max-w-lg"
+        >
+            <form onSubmit={submit} className="space-y-4">
+                {/* Conflict Error Alert */}
+                {(hasConflict || hasRoomConflict) && (
+                    <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-800 dark:text-rose-300 text-xs flex items-start gap-2.5 animate-in fade-in duration-200">
+                        <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                        <div>
+                            <p className="font-bold text-rose-900 dark:text-rose-200">Scheduling Conflict</p>
+                            <p className="mt-0.5">
+                                {hasConflict && errors.staff_membership_id}
+                                {hasRoomConflict && errors.room_id}
+                            </p>
+                            <p className="mt-1 text-[11px] text-rose-700 dark:text-rose-300">
+                                Please adjust the start time, duration, or practitioner to resolve.
+                            </p>
+                        </div>
                     </div>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="p-1.5 rounded-lg hover:bg-[var(--umahz-hover)] text-slate-400 hover:text-slate-600 transition"
+                )}
+
+                {/* Status switcher on Edit */}
+                {editing && (
+                    <div>
+                        <GlassLabel>Appointment Status</GlassLabel>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            {['scheduled', 'confirmed', 'checked_in', 'completed', 'no_show'].map((st) => {
+                                const isCurrent = appt.status === st;
+                                const s = STATUS_STYLES[st];
+                                return (
+                                    <button
+                                        key={st}
+                                        type="button"
+                                        onClick={() => setStatus(st)}
+                                        className={`text-[11px] font-bold px-3 py-1 rounded-full border transition-all ${
+                                            isCurrent ? 'ring-2 ring-offset-1 ring-[#8200db] font-extrabold' : 'opacity-80 hover:opacity-100'
+                                        }`}
+                                        style={{
+                                            borderColor: s.border,
+                                            color: s.fg,
+                                            background: s.bg,
+                                        }}
+                                    >
+                                        {isCurrent && '✓ '}
+                                        {s.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Client Selection */}
+                <div>
+                    <GlassLabel required>Client</GlassLabel>
+                    <GlassSelect
+                        value={data.client_id}
+                        onChange={(e) => {
+                            setData('client_id', e.target.value);
+                            setClientErrors((prev) => ({ ...prev, client_id: undefined }));
+                        }}
                     >
-                        <X className="w-5 h-5" />
-                    </button>
+                        <option value="">Select client…</option>
+                        {clients.map((c) => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                    </GlassSelect>
+                    <GlassError message={clientErrors.client_id || errors.client_id} />
                 </div>
 
-                <form onSubmit={submit} className="px-6 py-5 space-y-4">
-                    {/* Conflict Error Alert */}
-                    {(hasConflict || hasRoomConflict) && (
-                        <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5 animate-in fade-in duration-200">
-                            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                            <div>
-                                <p className="font-bold text-rose-900">Scheduling Conflict</p>
-                                <p className="mt-0.5">
-                                    {hasConflict && errors.staff_membership_id}
-                                    {hasRoomConflict && errors.room_id}
-                                </p>
-                                <p className="mt-1 text-[11px] text-rose-700">
-                                    Please adjust the start time, duration, or practitioner to resolve.
-                                </p>
-                            </div>
-                        </div>
-                    )}
+                {/* Practitioner Selection */}
+                <div>
+                    <GlassLabel required>Practitioner</GlassLabel>
+                    <GlassSelect
+                        value={data.staff_membership_id}
+                        onChange={(e) => {
+                            setData('staff_membership_id', e.target.value);
+                            setClientErrors((prev) => ({ ...prev, staff_membership_id: undefined }));
+                        }}
+                    >
+                        <option value="">Select practitioner…</option>
+                        {practitioners.map((p) => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                    </GlassSelect>
+                    {!hasConflict && <GlassError message={clientErrors.staff_membership_id || errors.staff_membership_id} />}
+                </div>
 
-                    {/* Status switcher on Edit */}
-                    {editing && (
-                        <div>
-                            <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>
-                                Appointment Status
-                            </label>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                                {['scheduled', 'confirmed', 'checked_in', 'completed', 'no_show'].map((st) => {
-                                    const isCurrent = appt.status === st;
-                                    const s = STATUS_STYLES[st];
-                                    return (
-                                        <button
-                                            key={st}
-                                            type="button"
-                                            onClick={() => setStatus(st)}
-                                            className={`text-[11px] font-semibold px-3 py-1 rounded-full border transition-all ${isCurrent ? 'ring-2 ring-offset-1 ring-blue-500 font-bold' : 'opacity-80 hover:opacity-100'}`}
-                                            style={{
-                                                borderColor: s.border,
-                                                color: s.fg,
-                                                background: s.bg,
-                                            }}
-                                        >
-                                            {isCurrent && '✓ '}
-                                            {s.label}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Client Selection */}
-                    <div>
-                        <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>
-                            Client <span className="text-rose-500">*</span>
-                        </label>
-                        <select
-                            className={fieldClass}
-                            style={fieldStyle}
-                            value={data.client_id}
-                            onChange={(e) => {
-                                setData('client_id', e.target.value);
-                                setClientErrors((prev) => ({ ...prev, client_id: undefined }));
-                            }}
-                        >
-                            <option value="">Select client…</option>
-                            {clients.map((c) => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                        </select>
-                        {(clientErrors.client_id || errors.client_id) && (
-                            <FieldError msg={clientErrors.client_id || errors.client_id} />
-                        )}
+                {/* Service Name & Quick Suggestions */}
+                <div>
+                    <div className="flex items-center justify-between mb-1">
+                        <GlassLabel required>Service Name</GlassLabel>
+                        <span className="text-[11px] text-slate-400">Quick chips below</span>
                     </div>
-
-                    {/* Practitioner Selection */}
-                    <div>
-                        <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>
-                            Practitioner <span className="text-rose-500">*</span>
-                        </label>
-                        <select
-                            className={fieldClass}
-                            style={fieldStyle}
-                            value={data.staff_membership_id}
-                            onChange={(e) => {
-                                setData('staff_membership_id', e.target.value);
-                                setClientErrors((prev) => ({ ...prev, staff_membership_id: undefined }));
-                            }}
-                        >
-                            <option value="">Select practitioner…</option>
-                            {practitioners.map((p) => (
-                                <option key={p.id} value={p.id}>{p.name}</option>
-                            ))}
-                        </select>
-                        {(clientErrors.staff_membership_id || (!hasConflict && errors.staff_membership_id)) && (
-                            <FieldError msg={clientErrors.staff_membership_id || errors.staff_membership_id} />
-                        )}
-                    </div>
-
-                    {/* Service Name & Quick Suggestions */}
-                    <div>
-                        <div className="flex items-center justify-between mb-1">
-                            <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)', marginBottom: 0 }}>
-                                Service <span className="text-rose-500">*</span>
-                            </label>
-                            <span className="text-[10px] text-slate-400">Quick chips below</span>
-                        </div>
-                        <input
-                            type="text"
-                            className={fieldClass}
-                            style={fieldStyle}
-                            value={data.service_name}
-                            placeholder="e.g. Acupuncture Session"
-                            onChange={(e) => {
-                                setData('service_name', e.target.value);
-                                setClientErrors((prev) => ({ ...prev, service_name: undefined }));
-                            }}
-                        />
-                        {(clientErrors.service_name || errors.service_name) && (
-                            <FieldError msg={clientErrors.service_name || errors.service_name} />
-                        )}
-                        {/* Quick Suggestions Chips */}
-                        <div className="flex items-center gap-1.5 flex-wrap mt-2">
-                            {COMMON_SERVICES.map((s) => (
-                                <button
-                                    key={s}
-                                    type="button"
-                                    onClick={() => {
-                                        setData('service_name', s);
-                                        setClientErrors((prev) => ({ ...prev, service_name: undefined }));
-                                    }}
-                                    className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium transition"
-                                >
-                                    + {s}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Location & Room */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>Location</label>
-                            <select
-                                className={fieldClass}
-                                style={fieldStyle}
-                                value={data.location_id}
-                                onChange={(e) => handleLocationChange(e.target.value)}
-                            >
-                                <option value="">No location specified</option>
-                                {locations.map((l) => (
-                                    <option key={l.id} value={l.id}>{l.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>Room</label>
-                            <select
-                                className={fieldClass}
-                                style={fieldStyle}
-                                value={data.room_id}
-                                onChange={(e) => setData('room_id', e.target.value)}
-                                disabled={!rooms.length}
-                            >
-                                <option value="">No specific room</option>
-                                {rooms.map((r) => (
-                                    <option key={r.id} value={r.id}>{r.name}</option>
-                                ))}
-                            </select>
-                            {errors.room_id && !hasRoomConflict && <FieldError msg={errors.room_id} />}
-                        </div>
-                    </div>
-
-                    {/* Date, Start Time & Duration */}
-                    <div className="grid grid-cols-3 gap-3">
-                        <div>
-                            <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>
-                                Date <span className="text-rose-500">*</span>
-                            </label>
-                            <input
-                                type="date"
-                                className={fieldClass}
-                                style={fieldStyle}
-                                value={data.date}
-                                onChange={(e) => {
-                                    setData('date', e.target.value);
-                                    setClientErrors((prev) => ({ ...prev, date: undefined }));
-                                }}
-                            />
-                            {(clientErrors.date || errors.date) && (
-                                <FieldError msg={clientErrors.date || errors.date} />
-                            )}
-                        </div>
-
-                        <div>
-                            <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>
-                                Start Time <span className="text-rose-500">*</span>
-                            </label>
-                            <input
-                                type="time"
-                                className={fieldClass}
-                                style={fieldStyle}
-                                value={data.start_time}
-                                onChange={(e) => {
-                                    setData('start_time', e.target.value);
-                                    setClientErrors((prev) => ({ ...prev, start_time: undefined }));
-                                }}
-                            />
-                            {(clientErrors.start_time || errors.start_time) && (
-                                <FieldError msg={clientErrors.start_time || errors.start_time} />
-                            )}
-                        </div>
-
-                        <div>
-                            <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>
-                                Duration (min) <span className="text-rose-500">*</span>
-                            </label>
-                            <input
-                                type="number"
-                                min="5"
-                                max="480"
-                                step="5"
-                                className={fieldClass}
-                                style={fieldStyle}
-                                value={data.duration_minutes}
-                                onChange={(e) => {
-                                    setData('duration_minutes', parseInt(e.target.value || '0', 10));
-                                    setClientErrors((prev) => ({ ...prev, duration_minutes: undefined }));
-                                }}
-                            />
-                            {(clientErrors.duration_minutes || errors.duration_minutes) && (
-                                <FieldError msg={clientErrors.duration_minutes || errors.duration_minutes} />
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Quick duration presets */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[10px] font-semibold uppercase text-slate-400 mr-1">Presets:</span>
-                        {DURATION_PRESETS.map((mins) => (
+                    <GlassInput
+                        type="text"
+                        value={data.service_name}
+                        placeholder="e.g. Acupuncture Session"
+                        onChange={(e) => {
+                            setData('service_name', e.target.value);
+                            setClientErrors((prev) => ({ ...prev, service_name: undefined }));
+                        }}
+                    />
+                    <GlassError message={clientErrors.service_name || errors.service_name} />
+                    <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                        {COMMON_SERVICES.map((s) => (
                             <button
-                                key={mins}
+                                key={s}
                                 type="button"
-                                onClick={() => setData('duration_minutes', mins)}
-                                className={`text-[11px] px-2.5 py-0.5 rounded-md border font-semibold transition ${data.duration_minutes === mins ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border-slate-200'}`}
+                                onClick={() => {
+                                    setData('service_name', s);
+                                    setClientErrors((prev) => ({ ...prev, service_name: undefined }));
+                                }}
+                                className="text-[11px] font-semibold px-2.5 py-0.5 rounded-lg bg-white/50 dark:bg-white/10 hover:bg-purple-500/15 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-white/10 transition"
                             >
-                                {mins}m
+                                + {s}
                             </button>
                         ))}
                     </div>
+                </div>
 
-                    {/* Notes */}
+                {/* Location & Room */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>Notes (Optional)</label>
-                        <textarea
-                            rows={2}
-                            className={fieldClass}
-                            style={fieldStyle}
-                            value={data.notes}
-                            placeholder="Internal notes regarding this booking…"
-                            onChange={(e) => setData('notes', e.target.value)}
+                        <GlassLabel>Location</GlassLabel>
+                        <GlassSelect
+                            value={data.location_id}
+                            onChange={(e) => handleLocationChange(e.target.value)}
+                        >
+                            <option value="">No location specified</option>
+                            {locations.map((l) => (
+                                <option key={l.id} value={l.id}>{l.name}</option>
+                            ))}
+                        </GlassSelect>
+                    </div>
+                    <div>
+                        <GlassLabel>Room</GlassLabel>
+                        <GlassSelect
+                            value={data.room_id}
+                            onChange={(e) => setData('room_id', e.target.value)}
+                            disabled={!rooms.length}
+                        >
+                            <option value="">No specific room</option>
+                            {rooms.map((r) => (
+                                <option key={r.id} value={r.id}>{r.name}</option>
+                            ))}
+                        </GlassSelect>
+                        {!hasRoomConflict && <GlassError message={errors.room_id} />}
+                    </div>
+                </div>
+
+                {/* Date, Start Time & Duration */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <GlassLabel required>Date</GlassLabel>
+                        <GlassInput
+                            type="date"
+                            value={data.date}
+                            onChange={(e) => {
+                                setData('date', e.target.value);
+                                setClientErrors((prev) => ({ ...prev, date: undefined }));
+                            }}
                         />
+                        <GlassError message={clientErrors.date || errors.date} />
                     </div>
 
-                    {/* Starts_at error / closed hours error */}
-                    {errors.starts_at && <FieldError msg={errors.starts_at} />}
-
-                    {/* Action buttons */}
-                    <div className="flex items-center justify-between pt-4 border-t" style={{ borderColor: 'var(--umahz-border)' }}>
-                        {editing ? (
-                            <button
-                                type="button"
-                                onClick={doCancel}
-                                className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-2 rounded-lg text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition"
-                            >
-                                <Ban className="w-3.5 h-3.5" /> Cancel appointment
-                            </button>
-                        ) : <span />}
-
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                disabled={processing}
-                                className="text-[13px] font-semibold px-4 py-2 rounded-lg border text-slate-600 hover:bg-slate-50 transition"
-                                style={{ borderColor: 'var(--umahz-border)' }}
-                            >
-                                Close
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={processing || hasConflict || hasRoomConflict}
-                                className="inline-flex items-center gap-1.5 text-[13px] font-semibold px-5 py-2 rounded-lg text-white disabled:opacity-60 transition shadow-sm"
-                                style={{ background: BRAND_GRADIENT }}
-                            >
-                                {processing ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                        {editing ? 'Saving…' : 'Booking…'}
-                                    </>
-                                ) : (
-                                    <>
-                                        <Check className="w-4 h-4" />
-                                        {editing ? 'Save Changes' : 'Book Appointment'}
-                                    </>
-                                )}
-                            </button>
-                        </div>
+                    <div>
+                        <GlassLabel required>Start Time</GlassLabel>
+                        <GlassInput
+                            type="time"
+                            value={data.start_time}
+                            onChange={(e) => {
+                                setData('start_time', e.target.value);
+                                setClientErrors((prev) => ({ ...prev, start_time: undefined }));
+                            }}
+                        />
+                        <GlassError message={clientErrors.start_time || errors.start_time} />
                     </div>
-                </form>
-            </div>
-        </div>
-    );
-}
 
-function FieldError({ msg }) {
-    return (
-        <p className="mt-1 text-[12px] flex items-center gap-1 font-medium text-rose-600">
-            <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {msg}
-        </p>
+                    <div>
+                        <GlassLabel required>Duration (min)</GlassLabel>
+                        <GlassInput
+                            type="number"
+                            min="5"
+                            max="480"
+                            step="5"
+                            value={data.duration_minutes}
+                            onChange={(e) => {
+                                setData('duration_minutes', parseInt(e.target.value || '0', 10));
+                                setClientErrors((prev) => ({ ...prev, duration_minutes: undefined }));
+                            }}
+                        />
+                        <GlassError message={clientErrors.duration_minutes || errors.duration_minutes} />
+                    </div>
+                </div>
+
+                {/* Quick duration presets */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1">Presets:</span>
+                    {DURATION_PRESETS.map((mins) => (
+                        <button
+                            key={mins}
+                            type="button"
+                            onClick={() => setData('duration_minutes', mins)}
+                            className={`text-[11px] px-2.5 py-0.5 rounded-lg border font-bold transition ${
+                                data.duration_minutes === mins
+                                    ? 'bg-[#8200db] text-white border-[#8200db]'
+                                    : 'bg-white/40 dark:bg-white/10 text-slate-700 dark:text-slate-300 border-white/40 dark:border-white/10'
+                            }`}
+                        >
+                            {mins}m
+                        </button>
+                    ))}
+                </div>
+
+                {/* Notes */}
+                <div>
+                    <GlassLabel>Notes (Optional)</GlassLabel>
+                    <GlassTextarea
+                        rows={2}
+                        value={data.notes}
+                        placeholder="Internal notes regarding this booking…"
+                        onChange={(e) => setData('notes', e.target.value)}
+                    />
+                </div>
+
+                {errors.starts_at && <GlassError message={errors.starts_at} />}
+
+                {/* Action buttons */}
+                <div className="flex items-center justify-between pt-4 border-t border-slate-200/50 dark:border-white/10">
+                    {editing ? (
+                        <GlassButton
+                            type="button"
+                            variant="danger"
+                            size="sm"
+                            onClick={doCancel}
+                            icon={<Ban className="w-3.5 h-3.5" />}
+                        >
+                            Cancel appointment
+                        </GlassButton>
+                    ) : <span />}
+
+                    <div className="flex items-center gap-2">
+                        <GlassButton
+                            type="button"
+                            variant="secondary"
+                            onClick={onClose}
+                            disabled={processing}
+                        >
+                            Close
+                        </GlassButton>
+                        <GlassButton
+                            type="submit"
+                            variant="primary"
+                            disabled={processing || hasConflict || hasRoomConflict}
+                            icon={processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                        >
+                            {editing ? 'Save Changes' : 'Book Appointment'}
+                        </GlassButton>
+                    </div>
+                </div>
+            </form>
+        </GlassModal>
     );
 }
 
@@ -727,7 +717,7 @@ function Toast({ message, onClose }) {
     }, [onClose]);
 
     return (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl animate-in slide-in-from-bottom-5 duration-200">
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900/90 backdrop-blur-md text-white px-4 py-3 rounded-2xl shadow-2xl border border-white/15 animate-in slide-in-from-bottom-5 duration-200">
             <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
             <span className="text-xs font-semibold">{message}</span>
             <button
@@ -746,20 +736,61 @@ function Toast({ message, onClose }) {
 export default function CalendarIndex() {
     const { props } = usePage();
     const {
-        view, anchorDate, rangeStart, timezone, appointments,
-        practitioners, clients, locations, statuses, filters,
+        view = 'week', anchorDate, rangeStart, rangeEnd, timezone = 'UTC', appointments = [],
+        practitioners = [], clients = [], locations = [], statuses, filters = {},
     } = props;
 
     const [modal, setModal] = useState(null); // { appt } | { defaults }
     const [toastMessage, setToastMessage] = useState(null);
+    const [fullDay, setFullDay] = useState(false);
+    const [splitByPractitioner, setSplitByPractitioner] = useState(false);
 
-    const days = view === 'week'
-        ? Array.from({ length: 7 }, (_, i) => addDays(rangeStart, i))
-        : [anchorDate];
+    const scrollContainerRef = useRef(null);
+
+    // Live clock for current time line
+    const [nowMinutes, setNowMinutes] = useState(() => zonedParts(new Date().toISOString(), timezone).minutesOfDay);
+
+    useEffect(() => {
+        const updateNow = () => {
+            setNowMinutes(zonedParts(new Date().toISOString(), timezone).minutesOfDay);
+        };
+        updateNow();
+        const interval = setInterval(updateNow, 30000); // 30s update
+        return () => clearInterval(interval);
+    }, [timezone]);
+
+    // Calculate smart business hours vs full day
+    const hasOffHourAppts = useMemo(() => {
+        return appointments.some((a) => {
+            const s = zonedParts(a.starts_at, timezone);
+            const e = zonedParts(a.ends_at, timezone);
+            return s.hour < 8 || e.hour >= 19 || (e.hour === 19 && e.minute > 0);
+        });
+    }, [appointments, timezone]);
+
+    const startHour = fullDay || hasOffHourAppts ? 7 : 8;
+    const endHour = fullDay || hasOffHourAppts ? 21 : 19;
 
     const today = todayInZone(timezone);
 
-    // Pre-compute zoned start/end minutes and bucket by clinic-local day.
+    // Compute visible days based on view
+    const days = useMemo(() => {
+        if (view === 'day') return [anchorDate];
+        if (view === 'week') return Array.from({ length: 7 }, (_, i) => addDays(rangeStart, i));
+        if (view === 'month') {
+            const [y1, m1, d1] = rangeStart.split('-').map(Number);
+            const endStr = rangeEnd || addDays(rangeStart, 34);
+            const [y2, m2, d2] = endStr.split('-').map(Number);
+            const dt1 = new Date(Date.UTC(y1, m1 - 1, d1));
+            const dt2 = new Date(Date.UTC(y2, m2 - 1, d2));
+            const diffDays = Math.round((dt2 - dt1) / (1000 * 60 * 60 * 24)) + 1;
+            const count = Math.max(28, Math.min(diffDays, 42));
+            return Array.from({ length: count }, (_, i) => addDays(rangeStart, i));
+        }
+        return [anchorDate];
+    }, [view, rangeStart, anchorDate, rangeEnd]);
+
+    // Group appointments by date
     const byDay = useMemo(() => {
         const map = Object.fromEntries(days.map((d) => [d, []]));
         appointments.forEach((a) => {
@@ -769,12 +800,12 @@ export default function CalendarIndex() {
                 map[s.dateKey].push({
                     ...a,
                     startMin: s.minutesOfDay,
-                    endMin: e.dateKey === s.dateKey ? e.minutesOfDay : DAY_END_HOUR * 60,
+                    endMin: e.dateKey === s.dateKey ? e.minutesOfDay : endHour * 60,
                 });
             }
         });
         return map;
-    }, [appointments, timezone, rangeStart, view]);
+    }, [appointments, timezone, days, endHour]);
 
     const navigate = (patch) => {
         router.get('/app/calendar', {
@@ -782,19 +813,28 @@ export default function CalendarIndex() {
         }, { preserveState: true, preserveScroll: true, replace: true });
     };
 
-    const shift = (dir) => navigate({ date: addDays(anchorDate, dir * (view === 'week' ? 7 : 1)) });
+    const shift = (dir) => {
+        if (view === 'month') {
+            navigate({ date: addMonths(anchorDate, dir) });
+        } else if (view === 'week') {
+            navigate({ date: addDays(anchorDate, dir * 7) });
+        } else {
+            navigate({ date: addDays(anchorDate, dir) });
+        }
+    };
+
     const setView = (v) => navigate({ view: v, date: anchorDate });
     const setFilter = (key, value) => navigate({ [key]: value || undefined });
 
     const roomsForFilter = locations.find((l) => l.id === filters.location_id)?.rooms || [];
     const hours = [];
-    for (let h = DAY_START_HOUR; h < DAY_END_HOUR; h++) hours.push(h);
+    for (let h = startHour; h < endHour; h++) hours.push(h);
 
-    const openCreate = (date, start_time) => setModal({
+    const openCreate = (date, start_time, staffId) => setModal({
         defaults: {
             date,
             start_time,
-            staff_membership_id: filters.staff_membership_id,
+            staff_membership_id: staffId || filters.staff_membership_id || (practitioners[0]?.id ?? ''),
             location_id: filters.location_id,
             room_id: filters.room_id,
         },
@@ -802,210 +842,424 @@ export default function CalendarIndex() {
 
     const totalAppointmentsInView = appointments.length;
 
+    // Subtitle based on view
+    let rangeSubtitle = '';
+    if (view === 'month') {
+        rangeSubtitle = `${humanMonthYear(anchorDate, timezone)} • ${timezone}`;
+    } else if (view === 'week') {
+        const weekEndDate = addDays(rangeStart, 6);
+        rangeSubtitle = `${humanDate(rangeStart)} – ${humanDate(weekEndDate)} • ${timezone}`;
+    } else {
+        rangeSubtitle = `${humanDate(anchorDate)} • ${timezone}`;
+    }
+
+    // Resource split for Day View
+    const canSplitPractitioners = view === 'day' && practitioners.length > 1 && !filters.staff_membership_id;
+
     return (
-        <AuthenticatedLayout>
-            <Head title="Calendar" />
+        <AuthenticatedLayout title="Appointments">
+            <Head title="Calendar - Appointments" />
 
-            <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6">
+            <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
                 {/* Header */}
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm" style={{ background: BRAND_GRADIENT }}>
-                            <CalendarIcon className="w-5 h-5" />
-                        </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-slate-900" style={{ color: 'var(--umahz-text-primary)' }}>
-                                Clinic Calendar
-                            </h1>
-                            <p className="text-[12px] text-slate-500 flex items-center gap-2 mt-0.5">
-                                <span>{view === 'week' ? `Week of ${humanDate(rangeStart)}` : humanDate(anchorDate)}</span>
-                                <span>•</span>
-                                <span className="inline-flex items-center gap-1 font-medium bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
-                                    <Clock className="w-3 h-3 text-slate-400" />
-                                    {timezone}
-                                </span>
-                            </p>
-                        </div>
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={() => openCreate(view === 'week' ? today : anchorDate, '09:00')}
-                        className="inline-flex items-center gap-1.5 text-[13px] font-semibold px-4 py-2.5 rounded-lg text-white shadow-sm transition hover:opacity-95"
-                        style={{ background: BRAND_GRADIENT }}
-                    >
-                        <Plus className="w-4 h-4" /> New appointment
-                    </button>
-                </div>
+                <PageHeader
+                    eyebrow="Clinic Schedule"
+                    title="Calendar & Appointments"
+                    subtitle={rangeSubtitle}
+                    actions={
+                        <GlassButton
+                            variant="primary"
+                            icon={<Plus className="w-4 h-4" />}
+                            onClick={() => openCreate(view === 'month' ? today : (view === 'week' ? today : anchorDate), '09:00')}
+                        >
+                            New appointment
+                        </GlassButton>
+                    }
+                />
 
                 {/* Toolbar */}
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-4 bg-white p-3 rounded-xl border border-slate-200/80 shadow-sm">
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1">
-                            <button
-                                type="button"
-                                onClick={() => shift(-1)}
-                                className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition"
-                                title="Previous"
-                            >
-                                <ChevronLeft className="w-4 h-4" />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => navigate({ date: today })}
-                                className="text-[12px] font-semibold px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 transition"
-                            >
-                                Today
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => shift(1)}
-                                className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition"
-                                title="Next"
-                            >
-                                <ChevronRight className="w-4 h-4" />
-                            </button>
-                        </div>
-
-                        <div className="flex rounded-lg border border-slate-200 overflow-hidden bg-slate-100 p-0.5">
-                            {['day', 'week'].map((v) => (
+                <GlassCard className="p-4 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        {/* Navigation Controls */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-1">
                                 <button
-                                    key={v}
                                     type="button"
-                                    onClick={() => setView(v)}
-                                    className={`text-[12px] font-semibold px-3 py-1 rounded-md capitalize transition ${v === view ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                                    onClick={() => shift(-1)}
+                                    className="p-2 rounded-xl border border-slate-200/80 dark:border-white/10 hover:bg-white/60 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 transition"
+                                    title="Previous"
                                 >
-                                    {v}
+                                    <ChevronLeft className="w-4 h-4" />
                                 </button>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate({ date: today })}
+                                    className={`text-xs font-bold px-3 py-2 rounded-xl border transition ${
+                                        anchorDate === today
+                                            ? 'bg-[#8200db] text-white border-[#8200db] shadow-xs'
+                                            : 'border-slate-200/80 dark:border-white/10 hover:bg-white/60 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300'
+                                    }`}
+                                >
+                                    Today
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => shift(1)}
+                                    className="p-2 rounded-xl border border-slate-200/80 dark:border-white/10 hover:bg-white/60 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 transition"
+                                    title="Next"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+
+                            {/* Day / Week / Month View Switcher */}
+                            <div className="flex rounded-xl border border-slate-200/80 dark:border-white/10 overflow-hidden bg-white/40 dark:bg-white/[0.04] p-1">
+                                {['day', 'week', 'month'].map((v) => (
+                                    <button
+                                        key={v}
+                                        type="button"
+                                        onClick={() => setView(v)}
+                                        className={`text-xs font-bold px-3 py-1 rounded-lg capitalize transition ${
+                                            v === view
+                                                ? 'bg-white dark:bg-white/15 text-[#8200db] dark:text-white shadow-xs'
+                                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                                        }`}
+                                    >
+                                        {v}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Smart Time Range Toggle (only relevant in day/week time grids) */}
+                            {view !== 'month' && (
+                                <button
+                                    type="button"
+                                    onClick={() => setFullDay((prev) => !prev)}
+                                    className={`text-xs font-medium px-3 py-1.5 rounded-xl border flex items-center gap-1.5 transition ${
+                                        fullDay
+                                            ? 'bg-purple-500/15 border-purple-500/30 text-[#8200db] dark:text-purple-300 font-semibold'
+                                            : 'border-slate-200/80 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:bg-white/40 dark:hover:bg-white/5'
+                                    }`}
+                                    title={fullDay ? 'Click to show business hours only (8 AM – 7 PM)' : 'Click to expand full day (7 AM – 9 PM)'}
+                                >
+                                    <Clock className="w-3.5 h-3.5" />
+                                    <span>{fullDay ? 'Full Day (7 AM–9 PM)' : 'Business Hours (8 AM–7 PM)'}</span>
+                                </button>
+                            )}
+
+                            {/* Day View Resource Split Toggle */}
+                            {canSplitPractitioners && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSplitByPractitioner((prev) => !prev)}
+                                    className={`text-xs font-medium px-3 py-1.5 rounded-xl border flex items-center gap-1.5 transition ${
+                                        splitByPractitioner
+                                            ? 'bg-purple-500/15 border-purple-500/30 text-[#8200db] dark:text-purple-300 font-semibold'
+                                            : 'border-slate-200/80 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:bg-white/40 dark:hover:bg-white/5'
+                                    }`}
+                                >
+                                    <Users className="w-3.5 h-3.5" />
+                                    <span>{splitByPractitioner ? 'Practitioner Columns' : 'Single Column'}</span>
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Filters */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <select
+                                className="text-xs font-medium px-3 py-2 rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-white/10 text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-[#8200db]"
+                                value={filters.staff_membership_id || ''}
+                                onChange={(e) => setFilter('staff_membership_id', e.target.value)}
+                            >
+                                <option value="">All practitioners</option>
+                                {practitioners.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            </select>
+                            <select
+                                className="text-xs font-medium px-3 py-2 rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-white/10 text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-[#8200db]"
+                                value={filters.location_id || ''}
+                                onChange={(e) => setFilter('location_id', e.target.value)}
+                            >
+                                <option value="">All locations</option>
+                                {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                            </select>
+                            <select
+                                className="text-xs font-medium px-3 py-2 rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-white/10 text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-[#8200db] disabled:opacity-50"
+                                value={filters.room_id || ''}
+                                onChange={(e) => setFilter('room_id', e.target.value)}
+                                disabled={!roomsForFilter.length}
+                            >
+                                <option value="">All rooms</option>
+                                {roomsForFilter.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Integrated Compact Status Legend Row */}
+                    <div className="flex items-center justify-between gap-3 flex-wrap pt-2.5 border-t border-slate-200/40 dark:border-white/[0.06] text-xs">
+                        <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase tracking-wider">
+                            <span>Status:</span>
+                        </div>
+                        <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+                            {Object.entries(STATUS_STYLES).map(([k, s]) => (
+                                <span key={k} className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                    <span className="w-2 h-2 rounded-full shadow-xs shrink-0" style={{ background: s.dot }} />
+                                    <span>{s.label}</span>
+                                </span>
                             ))}
                         </div>
-                    </div>
-
-                    {/* Filters */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <select
-                            className="text-[12px] px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20"
-                            value={filters.staff_membership_id || ''}
-                            onChange={(e) => setFilter('staff_membership_id', e.target.value)}
-                        >
-                            <option value="">All practitioners</option>
-                            {practitioners.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                        </select>
-                        <select
-                            className="text-[12px] px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20"
-                            value={filters.location_id || ''}
-                            onChange={(e) => setFilter('location_id', e.target.value)}
-                        >
-                            <option value="">All locations</option>
-                            {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-                        </select>
-                        <select
-                            className="text-[12px] px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50"
-                            value={filters.room_id || ''}
-                            onChange={(e) => setFilter('room_id', e.target.value)}
-                            disabled={!roomsForFilter.length}
-                        >
-                            <option value="">All rooms</option>
-                            {roomsForFilter.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                        </select>
-                    </div>
-                </div>
-
-                {/* Main Calendar Grid Card */}
-                <div className="rounded-2xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
-                    {/* Day Headers */}
-                    <div className="flex border-b border-slate-200 bg-slate-50/70">
-                        <div className="w-16 shrink-0 border-r border-slate-200 text-[10px] font-bold text-slate-400 flex items-center justify-center">
-                            TIME
+                        <div className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                            {totalAppointmentsInView} {totalAppointmentsInView === 1 ? 'appointment' : 'appointments'}
                         </div>
-                        {days.map((d) => {
-                            const isToday = d === today;
-                            const parts = humanDate(d).split(' ');
-                            return (
-                                <div
-                                    key={d}
-                                    className={`flex-1 min-w-[130px] text-center py-2.5 border-l border-slate-200 transition-colors ${isToday ? 'bg-blue-50/60 font-bold' : ''}`}
-                                >
-                                    <div className={`text-[11px] uppercase tracking-wider font-bold ${isToday ? 'text-blue-700' : 'text-slate-400'}`}>
-                                        {parts[0]}
-                                    </div>
-                                    <div className="flex items-center justify-center gap-1 mt-0.5">
-                                        <span className={`text-[16px] font-bold ${isToday ? 'text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full' : 'text-slate-800'}`}>
-                                            {d.split('-')[2]}
-                                        </span>
-                                        <span className="text-[11px] text-slate-400 font-medium">
-                                            {parts[1]}
-                                        </span>
-                                    </div>
-                                </div>
-                            );
-                        })}
                     </div>
+                </GlassCard>
 
-                    {/* Time Grid Rows */}
-                    <div className="flex overflow-x-auto relative">
-                        {/* Time axis */}
-                        <div className="w-16 shrink-0 border-r border-slate-200 bg-slate-50/30 select-none">
-                            {hours.map((h) => (
-                                <div
-                                    key={h}
-                                    className="text-right pr-2.5 text-[11px] font-medium text-slate-400 border-b border-slate-100 -mt-2.5 flex items-start justify-end"
-                                    style={{ height: HOUR_PX }}
-                                >
-                                    {h % 12 === 0 ? 12 : h % 12} {h < 12 ? 'AM' : 'PM'}
+                {/* Main Calendar Card */}
+                <GlassCard className="overflow-hidden relative shadow-lg">
+                    {view === 'month' ? (
+                        /* ── MONTH VIEW ── */
+                        <div className="overflow-x-auto">
+                            <div className="min-w-[760px]">
+                                {/* Weekday Headers */}
+                                <div className="grid grid-cols-7 border-b border-slate-200/60 dark:border-white/10 bg-white/60 dark:bg-white/[0.03]">
+                                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName) => (
+                                        <div
+                                            key={dayName}
+                                            className="py-3 text-center text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase border-r last:border-r-0 border-slate-200/40 dark:border-white/5"
+                                        >
+                                            {dayName}
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
+
+                                {/* Month Days Grid */}
+                                <div className="grid grid-cols-7 divide-x divide-y divide-slate-200/50 dark:divide-white/10 border-b border-slate-200/50 dark:border-white/10">
+                                    {days.map((d) => {
+                                        const isToday = d === today;
+                                        const isCurrentMonth = d.slice(0, 7) === anchorDate.slice(0, 7);
+                                        const dayNum = parseInt(d.split('-')[2], 10);
+                                        const dayAppts = byDay[d] || [];
+
+                                        return (
+                                            <div
+                                                key={d}
+                                                onClick={() => openCreate(d, '09:00')}
+                                                className={`min-h-[120px] p-2 flex flex-col justify-between transition-colors relative group/cell cursor-pointer ${
+                                                    isCurrentMonth
+                                                        ? 'bg-transparent hover:bg-purple-500/[0.04] dark:hover:bg-purple-400/[0.05]'
+                                                        : 'bg-black/[0.02] dark:bg-white/[0.01] opacity-55 hover:opacity-90'
+                                                } ${isToday ? 'bg-purple-500/[0.07] dark:bg-purple-500/[0.14]' : ''}`}
+                                            >
+                                                {/* Header in Cell: Day number & quick book button */}
+                                                <div className="flex items-center justify-between mb-1.5">
+                                                    <span
+                                                        className={`text-xs font-bold ${
+                                                            isToday
+                                                                ? 'bg-gradient-to-r from-[#8200db] to-[#9333ea] text-white shadow-xs px-2 py-0.5 rounded-full font-black'
+                                                                : isCurrentMonth
+                                                                    ? 'text-slate-800 dark:text-slate-200 font-extrabold'
+                                                                    : 'text-slate-400 dark:text-slate-500'
+                                                        }`}
+                                                    >
+                                                        {dayNum}
+                                                    </span>
+
+                                                    <span className="hidden group-hover/cell:inline-flex items-center gap-0.5 text-[10px] font-bold text-[#8200db] dark:text-purple-300 bg-white/95 dark:bg-slate-800 px-1.5 py-0.5 rounded shadow-xs border border-purple-200/80 dark:border-purple-800">
+                                                        <Plus className="w-2.5 h-2.5" /> Book
+                                                    </span>
+                                                </div>
+
+                                                {/* Compact Appointment Chips */}
+                                                <div className="space-y-1 my-0.5 flex-1">
+                                                    {dayAppts.slice(0, 3).map((a) => {
+                                                        const s = STATUS_STYLES[a.status] || STATUS_STYLES.scheduled;
+                                                        return (
+                                                            <button
+                                                                key={a.id}
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setModal({ appt: a });
+                                                                }}
+                                                                className="w-full text-left rounded-md px-1.5 py-0.5 text-[11px] font-semibold truncate flex items-center gap-1.5 border transition hover:shadow-sm"
+                                                                style={{
+                                                                    backgroundColor: s.bg,
+                                                                    borderColor: s.border,
+                                                                    color: s.fg,
+                                                                    borderLeftWidth: '3px',
+                                                                }}
+                                                                title={`${a.client_name} · ${a.service_name} (${humanTime(a.starts_at, timezone)})`}
+                                                            >
+                                                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: s.dot }} />
+                                                                <span className="font-bold shrink-0">{humanTime(a.starts_at, timezone)}</span>
+                                                                <span className="truncate text-slate-800 dark:text-slate-200">{a.client_name}</span>
+                                                            </button>
+                                                        );
+                                                    })}
+
+                                                    {dayAppts.length > 3 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setView('day');
+                                                                navigate({ view: 'day', date: d });
+                                                            }}
+                                                            className="text-[10px] font-bold text-[#8200db] dark:text-purple-300 hover:underline px-1 py-0.5 block text-left"
+                                                        >
+                                                            +{dayAppts.length - 3} more…
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         </div>
+                    ) : (
+                        /* ── DAY & WEEK TIME-GRID VIEW ── */
+                        <>
+                            {/* Day Headers */}
+                            <div className="flex border-b border-slate-200/50 dark:border-white/10 bg-white/60 dark:bg-white/[0.03] select-none">
+                                <div className="w-20 shrink-0 border-r border-slate-200/50 dark:border-white/10 text-[10px] font-bold text-slate-400 dark:text-slate-500 flex flex-col items-center justify-center py-2">
+                                    <span>TIME</span>
+                                    <span className="text-[9px] font-normal opacity-70">({timezone.split('/')[1] || timezone})</span>
+                                </div>
 
-                        {/* Day Columns */}
-                        {days.map((d) => (
-                            <DayColumn
-                                key={d}
-                                dateKey={d}
-                                appts={byDay[d] || []}
-                                tz={timezone}
-                                isToday={d === today}
-                                onCreate={openCreate}
-                                onOpen={(appt) => setModal({ appt })}
-                            />
-                        ))}
-                    </div>
-                </div>
+                                {/* If in day view with split practitioners */}
+                                {canSplitPractitioners && splitByPractitioner ? (
+                                    practitioners.map((p) => (
+                                        <div
+                                            key={p.id}
+                                            className="flex-1 min-w-[160px] text-center py-3 border-l border-slate-200/50 dark:border-white/10"
+                                        >
+                                            <div className="text-[13px] font-bold text-slate-900 dark:text-white flex items-center justify-center gap-1.5">
+                                                <User className="w-3.5 h-3.5 text-[#8200db] dark:text-purple-400" />
+                                                <span>{p.name}</span>
+                                            </div>
+                                            <div className="text-[11px] text-purple-600 dark:text-purple-300 font-medium truncate mt-0.5">
+                                                {Array.isArray(p.disciplines) ? p.disciplines.join(', ') : 'Practitioner'}
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    days.map((d) => {
+                                        const isToday = d === today;
+                                        const parts = humanDate(d).split(' ');
+                                        return (
+                                            <div
+                                                key={d}
+                                                className={`flex-1 min-w-[135px] text-center py-3 border-l border-slate-200/50 dark:border-white/10 transition-colors ${
+                                                    isToday ? 'bg-purple-500/[0.09] dark:bg-purple-500/[0.16]' : ''
+                                                }`}
+                                            >
+                                                <div className={`text-[11px] uppercase tracking-wider font-extrabold ${isToday ? 'text-[#8200db] dark:text-purple-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                                                    {parts[0]}
+                                                </div>
+                                                <div className="flex items-center justify-center gap-1 mt-1">
+                                                    <span className={`text-[15px] ${isToday ? 'bg-gradient-to-r from-[#8200db] to-[#9333ea] text-white shadow-md shadow-purple-500/25 px-3 py-0.5 rounded-full font-black' : 'font-extrabold text-slate-800 dark:text-slate-200'}`}>
+                                                        {d.split('-')[2]}
+                                                    </span>
+                                                    <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+                                                        {parts[1]}
+                                                    </span>
+                                                </div>
+                                                {isToday && (
+                                                    <div className="text-[9px] font-black uppercase tracking-widest text-[#8200db] dark:text-purple-300 mt-0.5">
+                                                        Today
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
 
-                {/* Empty State when no appointments in current view */}
-                {totalAppointmentsInView === 0 && (
-                    <div className="mt-4 p-6 rounded-2xl bg-white border border-slate-200/80 text-center text-slate-500 shadow-sm flex flex-col items-center">
-                        <CalendarCheck className="w-10 h-10 text-slate-300 mb-2" />
-                        <p className="font-semibold text-slate-700 text-sm">
-                            No appointments scheduled for this {view === 'week' ? 'week' : 'day'}
-                        </p>
-                        <p className="text-xs text-slate-400 mt-1 max-w-sm">
-                            Click any empty time slot in the calendar above or use the button below to book a new appointment.
-                        </p>
-                        <button
-                            type="button"
-                            onClick={() => openCreate(view === 'week' ? today : anchorDate, '09:00')}
-                            className="mt-3.5 inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition"
-                        >
-                            <Plus className="w-3.5 h-3.5" /> Book appointment
-                        </button>
-                    </div>
-                )}
+                            {/* Time Grid Scroll Area */}
+                            <div ref={scrollContainerRef} className="flex overflow-x-auto relative">
+                                {/* Time axis */}
+                                <div className="w-20 shrink-0 border-r border-slate-200/50 dark:border-white/10 bg-white/40 dark:bg-white/[0.01] select-none">
+                                    {hours.map((h) => {
+                                        const isNoon = h === 12;
+                                        return (
+                                            <div
+                                                key={h}
+                                                className={`text-right pr-2 text-[11px] font-bold border-b ${isNoon ? 'border-purple-300/40 dark:border-purple-500/30 text-[#8200db] dark:text-purple-300' : 'border-slate-200/30 dark:border-white/5 text-slate-400 dark:text-slate-500'} -mt-2.5 flex items-start justify-end`}
+                                                style={{ height: HOUR_PX }}
+                                            >
+                                                <span>{h % 12 === 0 ? 12 : h % 12} {h < 12 ? 'AM' : 'PM'}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
 
-                {/* Legend Bar */}
-                <div className="flex items-center justify-between gap-4 mt-5 p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-sm flex-wrap text-xs">
-                    <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">
-                        Status Legend:
-                    </span>
-                    <div className="flex items-center gap-4 flex-wrap">
-                        {Object.entries(STATUS_STYLES).map(([k, s]) => (
-                            <span key={k} className="inline-flex items-center gap-1.5 text-slate-600 font-medium">
-                                <span className="w-2.5 h-2.5 rounded-full" style={{ background: s.dot }} />
-                                {s.label}
-                            </span>
-                        ))}
-                    </div>
-                </div>
+                                {/* Columns */}
+                                {canSplitPractitioners && splitByPractitioner ? (
+                                    practitioners.map((p) => {
+                                        const practitionerAppts = (byDay[anchorDate] || []).filter((a) => a.staff_membership_id === p.id);
+                                        return (
+                                            <DayColumn
+                                                key={p.id}
+                                                dateKey={anchorDate}
+                                                appts={practitionerAppts}
+                                                tz={timezone}
+                                                isToday={anchorDate === today}
+                                                nowMinutes={nowMinutes}
+                                                startHour={startHour}
+                                                endHour={endHour}
+                                                onCreate={(d, t) => openCreate(d, t, p.id)}
+                                                onOpen={(appt) => setModal({ appt })}
+                                            />
+                                        );
+                                    })
+                                ) : (
+                                    days.map((d) => (
+                                        <DayColumn
+                                            key={d}
+                                            dateKey={d}
+                                            appts={byDay[d] || []}
+                                            tz={timezone}
+                                            isToday={d === today}
+                                            nowMinutes={nowMinutes}
+                                            startHour={startHour}
+                                            endHour={endHour}
+                                            onCreate={openCreate}
+                                            onOpen={(appt) => setModal({ appt })}
+                                        />
+                                    ))
+                                )}
+
+                                {/* Inline Empty State Overlay */}
+                                {totalAppointmentsInView === 0 && (
+                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 p-4">
+                                        <div className="pointer-events-auto max-w-sm w-full p-6 rounded-2xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 shadow-2xl text-center space-y-3 animate-in fade-in zoom-in-95 duration-200">
+                                            <div className="w-11 h-11 rounded-2xl bg-purple-500/15 text-[#8200db] dark:text-purple-300 flex items-center justify-center mx-auto shadow-inner">
+                                                <CalendarCheck className="w-6 h-6" />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                                                    No appointments scheduled {view === 'week' ? 'this week' : 'today'}
+                                                </h4>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                                    Click any time slot in the calendar or use the button below to book an appointment.
+                                                </p>
+                                            </div>
+                                            <GlassButton
+                                                variant="primary"
+                                                size="sm"
+                                                icon={<Plus className="w-3.5 h-3.5" />}
+                                                onClick={() => openCreate(view === 'week' ? today : anchorDate, '09:00')}
+                                                className="mx-auto"
+                                            >
+                                                New appointment
+                                            </GlassButton>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </GlassCard>
             </div>
 
             {/* Modal */}

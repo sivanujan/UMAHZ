@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\Tenant;
 use App\Support\RoleRedirect;
 use App\Support\Tenancy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -27,11 +29,42 @@ class AuthenticatedSessionController extends Controller
         $host = $request->getHost();
         $isCentral = $host === Tenancy::centralDomain();
         $isPortal = $host === Tenancy::portalHost();
+        $subdomain = Tenancy::subdomainFromHost($host);
+
+        $clinic = null;
+        $clinicNotFound = false;
+
+        if ($subdomain !== null) {
+            $clinic = Cache::remember("tenant_login_branding_{$subdomain}", 300, function () use ($subdomain) {
+                $tenant = Tenant::withoutGlobalScopes()
+                    ->where('subdomain', $subdomain)
+                    ->first();
+
+                if (! $tenant || $tenant->status !== Tenant::STATUS_APPROVED) {
+                    return null;
+                }
+
+                return [
+                    'name' => $tenant->name,
+                    'subdomain' => $tenant->subdomain,
+                    'logo_url' => $tenant->logo_url,
+                    'accent_color' => $tenant->brand_color,
+                    'tagline' => $tenant->homepage_settings['tagline'] ?? null,
+                ];
+            });
+
+            if (! $clinic) {
+                $clinicNotFound = true;
+            }
+        }
 
         return Inertia::render('Auth/Login', [
             'status' => session('status'),
             'canRegisterClient' => $isPortal,
             'canRegisterClinic' => $isCentral,
+            'clinic' => $clinic,
+            'clinicNotFound' => $clinicNotFound,
+            'centralLoginUrl' => Tenancy::centralUrl('/login'),
         ]);
     }
 
@@ -40,6 +73,17 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(Request $request): HttpResponse|RedirectResponse
     {
+        $subdomain = Tenancy::subdomainFromHost($request->getHost());
+
+        if ($subdomain !== null) {
+            $tenant = Tenant::withoutGlobalScopes()->where('subdomain', $subdomain)->first();
+            if (! $tenant || $tenant->status !== Tenant::STATUS_APPROVED) {
+                return back()->withErrors([
+                    'email' => 'This clinic workspace was not found or is currently inactive.',
+                ])->onlyInput('email');
+            }
+        }
+
         $credentials = $request->validate([
             'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string'],

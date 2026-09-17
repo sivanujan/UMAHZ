@@ -15,6 +15,7 @@ export default function PublicHome({ clinic }) {
         <>
             <Head>
                 <title>{clinic.name}</title>
+                <meta name="generator" content="UMAHZ Studio" />
                 <meta
                     name="description"
                     content={
@@ -36,6 +37,13 @@ export default function PublicHome({ clinic }) {
                     img { max-width: 100%; height: auto; }
                     a { color: inherit; }
                     ${clinic.gjs_css || ''}
+                    .umahz-section { padding: 60px 20px; background-color: #ffffff; box-sizing: border-box; width: 100%; position: relative; }
+                    .umahz-row { display: flex; flex-wrap: wrap; width: 100%; max-width: 1200px; margin: 0 auto; gap: 20px; box-sizing: border-box; align-items: stretch; position: relative; }
+                    .umahz-column { box-sizing: border-box; min-height: 80px; padding: 24px; display: flex; flex-direction: column; position: relative; border-radius: 12px; }
+                    @media (max-width: 768px) {
+                        .umahz-row { flex-direction: column !important; gap: 16px !important; }
+                        .umahz-column { flex: 1 1 100% !important; width: 100% !important; max-width: 100% !important; }
+                    }
                 `}</style>
             </Head>
 

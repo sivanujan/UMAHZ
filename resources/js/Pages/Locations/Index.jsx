@@ -2,29 +2,22 @@ import React, { useState } from 'react';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AddressPicker from '@/Components/AddressPicker';
-import { MapPin, Plus, Pencil, Power, Trash2, DoorOpen, Phone, Clock, X, ArrowRight } from 'lucide-react';
+import { GlassCard } from '@/Components/UI/GlassCard';
+import { PageHeader } from '@/Components/UI/PageHeader';
+import { GlassButton } from '@/Components/UI/GlassButton';
+import { StatusBadge } from '@/Components/UI/StatusBadge';
+import { GlassModal } from '@/Components/UI/GlassModal';
+import { GlassInput, GlassSelect, GlassTextarea, GlassLabel, GlassError } from '@/Components/UI/FormControls';
+import { EmptyState } from '@/Components/UI/EmptyState';
+import {
+    MapPin, Plus, Pencil, Power, Trash2, DoorOpen, Phone, Clock,
+    ArrowRight, Users, Calendar, CheckCircle2, AlertTriangle, Building2,
+    Check, X, Sparkles
+} from 'lucide-react';
 
-const BRAND_GRADIENT = 'linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)';
+/* ------------------------------- Location Modal ------------------------------- */
 
-const fieldClass = 'w-full px-3.5 py-2.5 rounded-lg text-sm outline-none transition focus:ring-4 focus:ring-[#2563EB]/15 focus:border-[#2563EB]/50 border';
-const fieldStyle = { background: 'var(--umahz-hover)', borderColor: 'var(--umahz-border)', color: 'var(--umahz-text-primary)' };
-const labelClass = 'block text-[11px] font-semibold uppercase tracking-wider mb-1.5';
-
-function StatusPill({ active }) {
-    return (
-        <span
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold"
-            style={active
-                ? { background: 'rgba(34,197,94,0.12)', color: '#16A34A' }
-                : { background: 'var(--umahz-hover)', color: 'var(--umahz-text-tertiary)' }}
-        >
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: active ? '#22C55E' : '#94A3B8' }} />
-            {active ? 'Active' : 'Inactive'}
-        </span>
-    );
-}
-
-function LocationModal({ location, timezones, provinces, onClose }) {
+function LocationModal({ location, timezones = [], provinces = [], onClose }) {
     const editing = Boolean(location);
     const { data, setData, post, patch, processing, errors } = useForm({
         name: location?.name || '',
@@ -52,178 +45,400 @@ function LocationModal({ location, timezones, provinces, onClose }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
-            <div
-                className="relative w-full max-w-lg rounded-2xl border shadow-2xl"
-                style={{ background: 'var(--umahz-surface)', borderColor: 'var(--umahz-border)' }}
-            >
-                <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--umahz-border)' }}>
-                    <h2 className="text-base font-bold" style={{ color: 'var(--umahz-text-primary)' }}>
-                        {editing ? 'Edit location' : 'New location'}
-                    </h2>
-                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--umahz-hover)]" style={{ color: 'var(--umahz-text-tertiary)' }}>
-                        <X className="w-5 h-5" />
-                    </button>
+        <GlassModal
+            isOpen={true}
+            onClose={onClose}
+            title={editing ? 'Edit Location' : 'New Clinic Location'}
+            maxWidth="max-w-lg"
+        >
+            <form onSubmit={submit} className="space-y-4">
+                <div>
+                    <GlassLabel required>Location Name</GlassLabel>
+                    <GlassInput
+                        value={data.name}
+                        onChange={(e) => setData('name', e.target.value)}
+                        placeholder="e.g. Downtown Wellness Centre"
+                        autoFocus
+                    />
+                    <GlassError message={errors.name} />
                 </div>
 
-                <form onSubmit={submit} className="px-6 py-5 space-y-4">
-                    <div>
-                        <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>Name</label>
-                        <input className={fieldClass} style={fieldStyle} value={data.name}
-                            onChange={(e) => setData('name', e.target.value)} placeholder="Downtown Clinic" autoFocus />
-                        {errors.name && <p className="text-xs mt-1" style={{ color: 'var(--umahz-danger)' }}>{errors.name}</p>}
+                <div>
+                    <GlassLabel>Address & Coordinates</GlassLabel>
+                    <div className="mb-3">
+                        <AddressPicker
+                            provinces={provinces}
+                            lat={data.latitude}
+                            lng={data.longitude}
+                            onPick={onPick}
+                        />
                     </div>
-                    <div>
-                        <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>Address</label>
-                        <div className="mb-3">
-                            <AddressPicker provinces={provinces} lat={data.latitude} lng={data.longitude} onPick={onPick} />
-                        </div>
-                        <textarea className={fieldClass} style={fieldStyle} rows={2} value={data.address}
-                            onChange={(e) => setData('address', e.target.value)} placeholder="123 Wellness Ave, Suite 200" />
-                        {errors.address && <p className="text-xs mt-1" style={{ color: 'var(--umahz-danger)' }}>{errors.address}</p>}
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>Phone</label>
-                            <input className={fieldClass} style={fieldStyle} value={data.phone}
-                                onChange={(e) => setData('phone', e.target.value)} placeholder="+1 (555) 000-0000" />
-                            {errors.phone && <p className="text-xs mt-1" style={{ color: 'var(--umahz-danger)' }}>{errors.phone}</p>}
-                        </div>
-                        <div>
-                            <label className={labelClass} style={{ color: 'var(--umahz-text-secondary)' }}>Timezone</label>
-                            <select className={fieldClass} style={fieldStyle} value={data.timezone}
-                                onChange={(e) => setData('timezone', e.target.value)}>
-                                {timezones.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
-                            </select>
-                            {errors.timezone && <p className="text-xs mt-1" style={{ color: 'var(--umahz-danger)' }}>{errors.timezone}</p>}
-                        </div>
-                    </div>
+                    <GlassTextarea
+                        rows={2}
+                        value={data.address}
+                        onChange={(e) => setData('address', e.target.value)}
+                        placeholder="123 Wellness Ave, Suite 200, Toronto, ON"
+                    />
+                    <GlassError message={errors.address} />
+                </div>
 
-                    <div className="flex items-center justify-end gap-2 pt-2">
-                        <button type="button" onClick={onClose}
-                            className="px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-[var(--umahz-hover)]"
-                            style={{ color: 'var(--umahz-text-secondary)' }}>
-                            Cancel
-                        </button>
-                        <button type="submit" disabled={processing}
-                            className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:opacity-60"
-                            style={{ background: BRAND_GRADIENT, boxShadow: '0 10px 22px -12px rgba(37,99,235,0.6)' }}>
-                            {editing ? 'Save changes' : 'Create location'}
-                        </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <GlassLabel>Phone Number</GlassLabel>
+                        <GlassInput
+                            value={data.phone}
+                            onChange={(e) => setData('phone', e.target.value)}
+                            placeholder="+1 (555) 000-0000"
+                        />
+                        <GlassError message={errors.phone} />
                     </div>
-                </form>
-            </div>
-        </div>
+                    <div>
+                        <GlassLabel required>Timezone</GlassLabel>
+                        <GlassSelect
+                            value={data.timezone}
+                            onChange={(e) => setData('timezone', e.target.value)}
+                        >
+                            {timezones.map((tz) => (
+                                <option key={tz} value={tz}>{tz}</option>
+                            ))}
+                        </GlassSelect>
+                        <GlassError message={errors.timezone} />
+                    </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-200/50 dark:border-white/10">
+                    <GlassButton type="button" variant="secondary" onClick={onClose}>
+                        Cancel
+                    </GlassButton>
+                    <GlassButton type="submit" variant="primary" disabled={processing}>
+                        {editing ? 'Save changes' : 'Create location'}
+                    </GlassButton>
+                </div>
+            </form>
+        </GlassModal>
     );
 }
 
-export default function LocationsIndex({ locations, timezones, provinces = [] }) {
+/* --------------------------------- Main Component --------------------------------- */
+
+export default function LocationsIndex({ locations = [], timezones = [], provinces = [] }) {
     const { flash, errors } = usePage().props;
     const [modal, setModal] = useState(null); // null | 'new' | location object
+    const [deleteModal, setDeleteModal] = useState(null); // null | location object
 
-    const toggle = (loc) => router.patch(`/app/locations/${loc.id}/toggle`, {}, { preserveScroll: true });
-    const remove = (loc) => {
-        if (confirm(`Delete "${loc.name}"? This can't be undone.`)) {
-            router.delete(`/app/locations/${loc.id}`, { preserveScroll: true });
-        }
+    const toggle = (loc) => {
+        router.patch(`/app/locations/${loc.id}/toggle`, {}, { preserveScroll: true });
     };
+
+    const confirmDelete = () => {
+        if (!deleteModal) return;
+        router.delete(`/app/locations/${deleteModal.id}`, {
+            preserveScroll: true,
+            onSuccess: () => setDeleteModal(null),
+        });
+    };
+
+    // Calculate Summary KPIs
+    const totalLocations = locations.length;
+    const activeLocations = locations.filter((l) => l.is_active).length;
+    const totalRooms = locations.reduce((sum, l) => sum + (l.rooms_count || 0), 0);
+    const appointmentsToday = locations.reduce((sum, l) => sum + (l.appointments_today_count || 0), 0);
 
     return (
         <AuthenticatedLayout title="Locations & Rooms">
             <Head title="Locations & Rooms" />
 
-            {flash?.success && (
-                <div className="mb-5 p-3 rounded-lg text-sm font-medium" style={{ background: 'rgba(34,197,94,0.1)', color: '#16A34A' }}>
-                    {flash.success}
-                </div>
-            )}
-            {errors?.location && (
-                <div className="mb-5 p-3 rounded-lg text-sm font-medium" style={{ background: 'rgba(220,38,38,0.1)', color: 'var(--umahz-danger)' }}>
-                    {errors.location}
-                </div>
-            )}
+            <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+                <PageHeader
+                    eyebrow="Facilities & Practices"
+                    title="Locations & Rooms"
+                    subtitle="Manage physical clinic branches, treatment rooms, and facility schedules."
+                    actions={
+                        <GlassButton
+                            variant="primary"
+                            icon={<Plus className="w-4 h-4" />}
+                            onClick={() => setModal('new')}
+                        >
+                            New location
+                        </GlassButton>
+                    }
+                />
 
-            <div className="flex items-center justify-between mb-6">
-                <p className="text-sm" style={{ color: 'var(--umahz-text-secondary)' }}>
-                    Manage your clinic's locations and the rooms within each.
-                </p>
-                <button onClick={() => setModal('new')}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition hover:-translate-y-0.5"
-                    style={{ background: BRAND_GRADIENT, boxShadow: '0 10px 22px -12px rgba(37,99,235,0.6)' }}>
-                    <Plus className="w-4 h-4" /> New location
-                </button>
-            </div>
+                {flash?.success && (
+                    <div className="p-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 text-sm font-semibold flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span>{flash.success}</span>
+                    </div>
+                )}
+                {errors?.location && (
+                    <div className="p-4 rounded-2xl border border-rose-500/20 bg-rose-500/10 text-rose-800 dark:text-rose-300 text-sm font-semibold flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                        <span>{errors.location}</span>
+                    </div>
+                )}
 
-            {locations.length === 0 ? (
-                <div className="rounded-2xl border p-12 text-center" style={{ background: 'var(--umahz-surface)', borderColor: 'var(--umahz-border)' }}>
-                    <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style={{ background: 'rgba(37,99,235,0.1)', color: 'var(--umahz-accent)' }}>
-                        <MapPin className="w-6 h-6" />
-                    </span>
-                    <h3 className="font-semibold" style={{ color: 'var(--umahz-text-primary)' }}>No locations yet</h3>
-                    <p className="text-sm mt-1" style={{ color: 'var(--umahz-text-secondary)' }}>Add your first clinic location to start assigning rooms.</p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    {locations.map((loc) => (
-                        <div key={loc.id} className="rounded-2xl border shadow-sm p-5 flex flex-col transition-colors"
-                            style={{ background: 'var(--umahz-surface)', borderColor: 'var(--umahz-border)', opacity: loc.is_active ? 1 : 0.72 }}>
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-center gap-3 min-w-0">
-                                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl" style={{ background: 'rgba(37,99,235,0.1)', color: 'var(--umahz-accent)' }}>
-                                        <MapPin className="w-5 h-5" />
-                                    </span>
-                                    <div className="min-w-0">
-                                        <h3 className="font-bold truncate" style={{ color: 'var(--umahz-text-primary)' }}>{loc.name}</h3>
-                                        <p className="text-xs flex items-center gap-1 mt-0.5" style={{ color: 'var(--umahz-text-tertiary)' }}>
-                                            <DoorOpen className="w-3.5 h-3.5" />
-                                            {loc.active_rooms_count} active / {loc.rooms_count} room{loc.rooms_count === 1 ? '' : 's'}
-                                        </p>
+                {/* Top Summary Stat Chips */}
+                {totalLocations > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                        <GlassCard className="p-4 flex items-center gap-3.5">
+                            <div className="w-10 h-10 rounded-2xl bg-purple-500/15 border border-purple-500/20 text-[#8200db] dark:text-purple-300 flex items-center justify-center shrink-0 shadow-inner">
+                                <Building2 className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                                    {totalLocations}
+                                </div>
+                                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                    Total Locations
+                                </div>
+                            </div>
+                        </GlassCard>
+
+                        <GlassCard className="p-4 flex items-center gap-3.5">
+                            <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-inner">
+                                <CheckCircle2 className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                                    {activeLocations}
+                                </div>
+                                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                    Active Practices
+                                </div>
+                            </div>
+                        </GlassCard>
+
+                        <GlassCard className="p-4 flex items-center gap-3.5">
+                            <div className="w-10 h-10 rounded-2xl bg-indigo-500/15 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 shadow-inner">
+                                <DoorOpen className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                                    {totalRooms}
+                                </div>
+                                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                    Treatment Rooms
+                                </div>
+                            </div>
+                        </GlassCard>
+
+                        <GlassCard className="p-4 flex items-center gap-3.5">
+                            <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 shadow-inner">
+                                <Calendar className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                                    {appointmentsToday}
+                                </div>
+                                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                    Visits Today
+                                </div>
+                            </div>
+                        </GlassCard>
+                    </div>
+                )}
+
+                {/* Locations Responsive Grid */}
+                {locations.length === 0 ? (
+                    <GlassCard className="p-12 text-center">
+                        <EmptyState
+                            icon={MapPin}
+                            title="No locations configured yet"
+                            description="Add your clinic's primary location to configure treatment rooms, assign practitioners, and start scheduling appointments."
+                            action={
+                                <GlassButton
+                                    variant="primary"
+                                    icon={<Plus className="w-4 h-4" />}
+                                    onClick={() => setModal('new')}
+                                >
+                                    Add First Location
+                                </GlassButton>
+                            }
+                        />
+                    </GlassCard>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                        {locations.map((loc) => {
+                            const roomsCount = loc.rooms_count ?? 0;
+                            const activeRooms = loc.active_rooms_count ?? 0;
+                            const practitionersCount = loc.practitioners_count ?? 0;
+                            const todayVisits = loc.appointments_today_count ?? 0;
+
+                            return (
+                                <GlassCard
+                                    key={loc.id}
+                                    className={`p-6 flex flex-col justify-between transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 ${
+                                        loc.is_active ? '' : 'opacity-70'
+                                    }`}
+                                >
+                                    <div>
+                                        {/* Card Header: Icon + Title + Status */}
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex items-center gap-3.5 min-w-0">
+                                                <div className="w-11 h-11 rounded-2xl bg-purple-500/15 dark:bg-purple-400/20 border border-purple-500/25 text-[#8200db] dark:text-purple-300 flex items-center justify-center shrink-0 shadow-inner">
+                                                    <MapPin className="w-5 h-5" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h3 className="text-base font-bold text-slate-900 dark:text-white truncate">
+                                                        {loc.name}
+                                                    </h3>
+                                                    <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                                                        <span className="truncate">{loc.timezone}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <StatusBadge variant={loc.is_active ? 'success' : 'neutral'}>
+                                                {loc.is_active ? 'Active' : 'Inactive'}
+                                            </StatusBadge>
+                                        </div>
+
+                                        {/* Address & Phone Details */}
+                                        <div className="mt-5 space-y-2 text-xs sm:text-sm text-slate-600 dark:text-slate-300 min-h-[44px]">
+                                            <p className="flex items-start gap-2">
+                                                <MapPin className="w-4 h-4 mt-0.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                                                <span className="leading-snug line-clamp-2">
+                                                    {loc.address || <span className="text-slate-400 italic">Address not set</span>}
+                                                </span>
+                                            </p>
+                                            {loc.phone ? (
+                                                <p className="flex items-center gap-2">
+                                                    <Phone className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                                                    <span>{loc.phone}</span>
+                                                </p>
+                                            ) : (
+                                                <p className="flex items-center gap-2 text-slate-400 dark:text-slate-500 italic text-xs">
+                                                    <Phone className="w-3.5 h-3.5 opacity-60 shrink-0" />
+                                                    <span>Phone not specified</span>
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        {/* Stats Row Strip */}
+                                        <div className="mt-5 pt-4 border-t border-slate-200/50 dark:border-white/10 grid grid-cols-3 gap-2 text-center">
+                                            <div className="p-2 rounded-xl bg-purple-500/5 dark:bg-white/[0.02] border border-purple-500/10">
+                                                <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center justify-center gap-1">
+                                                    <DoorOpen className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                                                    <span>{roomsCount}</span>
+                                                </div>
+                                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                                                    {activeRooms} Active
+                                                </div>
+                                            </div>
+
+                                            <div className="p-2 rounded-xl bg-purple-500/5 dark:bg-white/[0.02] border border-purple-500/10">
+                                                <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center justify-center gap-1">
+                                                    <Users className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
+                                                    <span>{practitionersCount}</span>
+                                                </div>
+                                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                                                    Staff
+                                                </div>
+                                            </div>
+
+                                            <div className="p-2 rounded-xl bg-purple-500/5 dark:bg-white/[0.02] border border-purple-500/10">
+                                                <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center justify-center gap-1">
+                                                    <Calendar className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                                                    <span>{todayVisits}</span>
+                                                </div>
+                                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                                                    Today
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
+
+                                    {/* Card Footer Actions */}
+                                    <div className="mt-6 pt-4 flex items-center justify-between border-t border-slate-200/50 dark:border-white/10">
+                                        <Link
+                                            href={`/app/locations/${loc.id}`}
+                                            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[#8200db] dark:text-purple-300 hover:gap-2 transition-all"
+                                        >
+                                            Manage rooms <ArrowRight className="w-4 h-4" />
+                                        </Link>
+
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => setModal(loc)}
+                                                title="Edit location details"
+                                                aria-label={`Edit ${loc.name}`}
+                                                className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-300 hover:bg-purple-500/10 transition-colors"
+                                            >
+                                                <Pencil className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => toggle(loc)}
+                                                title={loc.is_active ? 'Deactivate location' : 'Reactivate location'}
+                                                aria-label={loc.is_active ? 'Deactivate location' : 'Reactivate location'}
+                                                className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                                            >
+                                                <Power className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setDeleteModal(loc)}
+                                                title="Delete location"
+                                                aria-label={`Delete ${loc.name}`}
+                                                className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </GlassCard>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {/* Edit / New Location Modal */}
+                {modal && (
+                    <LocationModal
+                        location={modal === 'new' ? null : modal}
+                        timezones={timezones}
+                        provinces={provinces}
+                        onClose={() => setModal(null)}
+                    />
+                )}
+
+                {/* Delete Confirmation Modal */}
+                {deleteModal && (
+                    <GlassModal
+                        isOpen={true}
+                        onClose={() => setDeleteModal(null)}
+                        title={`Delete "${deleteModal.name}"`}
+                        maxWidth="max-w-md"
+                    >
+                        <div className="space-y-4">
+                            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-900 dark:text-rose-200 flex items-start gap-2.5">
+                                <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="font-bold">Are you sure?</p>
+                                    <p className="mt-0.5 text-slate-600 dark:text-slate-300">
+                                        Deleting "{deleteModal.name}" cannot be undone. Note that if this location has treatment rooms or appointment history, you must deactivate it instead of deleting.
+                                    </p>
                                 </div>
-                                <StatusPill active={loc.is_active} />
                             </div>
 
-                            <div className="mt-4 space-y-1.5 text-sm" style={{ color: 'var(--umahz-text-secondary)' }}>
-                                {loc.address && <p className="flex items-start gap-2"><MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--umahz-text-tertiary)' }} />{loc.address}</p>}
-                                {loc.phone && <p className="flex items-center gap-2"><Phone className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--umahz-text-tertiary)' }} />{loc.phone}</p>}
-                                <p className="flex items-center gap-2"><Clock className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--umahz-text-tertiary)' }} />{loc.timezone}</p>
-                            </div>
-
-                            <div className="mt-5 pt-4 flex items-center justify-between border-t" style={{ borderColor: 'var(--umahz-border)' }}>
-                                <Link href={`/app/locations/${loc.id}`}
-                                    className="inline-flex items-center gap-1 text-sm font-semibold hover:gap-1.5 transition-all"
-                                    style={{ color: 'var(--umahz-accent)' }}>
-                                    Manage rooms <ArrowRight className="w-4 h-4" />
-                                </Link>
-                                <div className="flex items-center gap-1">
-                                    <button onClick={() => setModal(loc)} title="Edit"
-                                        className="p-2 rounded-lg hover:bg-[var(--umahz-hover)]" style={{ color: 'var(--umahz-text-secondary)' }}>
-                                        <Pencil className="w-4 h-4" />
-                                    </button>
-                                    <button onClick={() => toggle(loc)} title={loc.is_active ? 'Deactivate' : 'Reactivate'}
-                                        className="p-2 rounded-lg hover:bg-[var(--umahz-hover)]" style={{ color: 'var(--umahz-text-secondary)' }}>
-                                        <Power className="w-4 h-4" />
-                                    </button>
-                                    <button onClick={() => remove(loc)} title="Delete"
-                                        className="p-2 rounded-lg hover:bg-rose-500/10" style={{ color: 'var(--umahz-danger)' }}>
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
+                            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200/50 dark:border-white/10">
+                                <GlassButton
+                                    variant="secondary"
+                                    onClick={() => setDeleteModal(null)}
+                                >
+                                    Cancel
+                                </GlassButton>
+                                <GlassButton
+                                    variant="danger"
+                                    onClick={confirmDelete}
+                                >
+                                    Delete Location
+                                </GlassButton>
                             </div>
                         </div>
-                    ))}
-                </div>
-            )}
-
-            {modal && (
-                <LocationModal
-                    location={modal === 'new' ? null : modal}
-                    timezones={timezones}
-                    provinces={provinces}
-                    onClose={() => setModal(null)}
-                />
-            )}
+                    </GlassModal>
+                )}
+            </div>
         </AuthenticatedLayout>
     );
 }

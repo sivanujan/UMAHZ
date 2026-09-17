@@ -10,6 +10,7 @@ import {
 import Logo from '@/Components/Common/Logo';
 import ThemeToggle from '@/Components/Common/ThemeToggle';
 import AuthVisualPanel from '@/Components/Auth/AuthVisualPanel';
+import PhoneInput from '@/Components/UI/PhoneInput';
 import PasswordStrengthMeter from '@/Components/UI/PasswordStrengthMeter';
 import AddressPicker from '@/Components/AddressPicker';
 import PaymentStep from '@/Components/Onboarding/PaymentStep';
@@ -1106,7 +1107,13 @@ function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', 
             <Head title="Apply to Join UMAHZ — Practice Onboarding" />
 
             {/* Left Column: Form Surface */}
-            <div className="flex flex-col justify-between p-6 sm:p-10 lg:pl-12 lg:pr-14 xl:pl-16 xl:pr-20 min-h-screen relative z-10">
+            <div
+                className={`flex flex-col justify-between p-6 sm:p-10 min-h-screen relative z-10 transition-all duration-300 ${
+                    currentStep === 5
+                        ? 'lg:pl-8 lg:pr-10 xl:pl-12 xl:pr-14'
+                        : 'lg:pl-12 lg:pr-14 xl:pl-16 xl:pr-20'
+                }`}
+            >
                 {/* Top Navigation Bar */}
                 <div ref={formTopRef} className="flex items-center justify-between gap-4 pb-4">
                     <Link
@@ -1128,7 +1135,11 @@ function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', 
                 </div>
 
                 {/* Form Center Container */}
-                <div className="w-full max-w-[540px] mx-auto my-auto py-6 space-y-6">
+                <div
+                    className={`w-full mx-auto my-auto py-6 space-y-6 transition-all duration-300 ${
+                        currentStep === 5 ? 'max-w-[780px] xl:max-w-[840px]' : 'max-w-[540px]'
+                    }`}
+                >
                     {/* Header with Title */}
                     <div className="space-y-1.5">
                         <h1 className="text-2xl sm:text-3xl font-bold tracking-normal text-slate-900 dark:text-white flex items-center flex-wrap gap-x-2">
@@ -1354,13 +1365,11 @@ function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', 
                                                     required
                                                     placeholder="jane@clinic.com"
                                                 />
-                                                <Field
+                                                <PhoneInput
                                                     id="primary_contact_phone"
-                                                    icon={Phone}
                                                     label="Contact Phone"
-                                                    type="tel"
                                                     value={data.primary_contact_phone}
-                                                    onChange={(e) => setData('primary_contact_phone', e.target.value)}
+                                                    onChange={(val) => setData('primary_contact_phone', val)}
                                                     onBlur={() => markTouched('primary_contact_phone')}
                                                     error={contactPhoneError}
                                                     valid={contactPhoneValid}
@@ -1541,7 +1550,7 @@ function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', 
             </div>
 
             {/* Right Column: Branded Visual Panel (Hidden on Mobile) */}
-            <AuthVisualPanel />
+            <AuthVisualPanel currentStep={currentStep} data={data} tiers={tiers} />
         </div>
     );
 }

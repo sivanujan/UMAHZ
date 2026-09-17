@@ -55,11 +55,64 @@ class Tenancy
     }
 
     /**
+     * An absolute URL on the central domain (apex/root).
+     */
+    public static function centralUrl(string $path = ''): string
+    {
+        return static::urlForHost(static::centralDomain(), $path);
+    }
+
+    /**
      * An absolute URL on the patient portal host.
      */
     public static function portalUrl(string $path = ''): string
     {
         return static::urlForHost(static::portalHost(), $path);
+    }
+
+    /**
+     * Extract and normalize the clinic subdomain from a request host if it matches
+     * a subdomain of the central domain. Returns null if the host is the central
+     * domain itself, the portal host, has multiple sub-levels, or is reserved.
+     */
+    public static function subdomainFromHost(?string $host): ?string
+    {
+        if (empty($host)) {
+            return null;
+        }
+
+        $host = strtolower(trim($host));
+        $central = strtolower(static::centralDomain());
+
+        // Strip port if host has port (e.g. host:8000)
+        if (str_contains($host, ':')) {
+            $host = explode(':', $host, 2)[0];
+        }
+
+        // Exact match with central domain or portal host -> not a clinic subdomain
+        if ($host === $central || $host === strtolower(static::portalHost())) {
+            return null;
+        }
+
+        $suffix = '.' . $central;
+        if (! str_ends_with($host, $suffix)) {
+            return null;
+        }
+
+        $subdomain = substr($host, 0, -strlen($suffix));
+
+        // Subdomains cannot be empty or contain additional dots (nested subdomains)
+        if ($subdomain === '' || str_contains($subdomain, '.')) {
+            return null;
+        }
+
+        $normalized = static::normalize($subdomain);
+
+        if (static::isReserved($normalized)) {
+            return null;
+        }
+
+        return $normalized;
     }
 
     protected static function urlForHost(string $host, string $path): string

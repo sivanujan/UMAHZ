@@ -1,21 +1,47 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full bg-stone-50 dark:bg-[#0B0F19]">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="min-h-full bg-[#FBF7FD] dark:bg-[#0E0B14]">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="generator" content="UMAHZ Studio">
         {{-- Read by raw fetch() calls (e.g. clinical-note autosave/create) to pass Laravel's CSRF check. --}}
         <meta name="csrf-token" content="{{ csrf_token() }}">
+
+        <!-- Root background styling: prevents white gaps or flashes at the top of the viewport -->
+        <style>
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                min-height: 100%;
+                background-color: #FBF7FD;
+            }
+            html.dark, html.dark body {
+                background-color: #0E0B14 !important;
+            }
+            #app {
+                margin: 0 !important;
+                padding: 0 !important;
+                min-height: 100%;
+                background: transparent !important;
+            }
+        </style>
 
         <!-- Theme Initialization: Prevents flash of incorrect theme before paint -->
         <script>
             (function() {
                 try {
-                    var stored = localStorage.getItem('umahz-theme');
+                    var isApp = window.location.pathname.indexOf('/app') === 0;
+                    var stored = isApp 
+                        ? localStorage.getItem('umahz-app-theme') 
+                        : (localStorage.getItem('umahz-theme') || localStorage.getItem('umahz-app-theme'));
                     var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-                    if (stored === 'dark' || (!stored && prefersDark) || (stored === 'system' && prefersDark)) {
+                    var isDark = stored === 'dark' || (!stored && prefersDark && !isApp) || (stored === 'system' && prefersDark);
+                    if (isDark) {
                         document.documentElement.classList.add('dark');
+                        document.documentElement.style.backgroundColor = '#0E0B14';
                     } else {
                         document.documentElement.classList.remove('dark');
+                        document.documentElement.style.backgroundColor = '#FBF7FD';
                     }
                 } catch (e) {}
             })();
@@ -44,7 +70,7 @@
         @vite(['resources/js/app.jsx', "resources/js/Pages/{$page['component']}.jsx"])
         @inertiaHead
     </head>
-    <body class="font-sans antialiased h-full text-slate-800 dark:text-slate-100 bg-[#F9F5FB] dark:bg-[#0B0F19] selection:bg-[#5B2EFF] selection:text-white">
+    <body class="font-sans antialiased min-h-screen m-0 p-0 text-slate-800 dark:text-slate-100 bg-[#FBF7FD] dark:bg-[#0E0B14] selection:bg-[#5B2EFF] selection:text-white">
         @inertia
     </body>
 </html>

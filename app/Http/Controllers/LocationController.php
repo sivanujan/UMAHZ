@@ -49,19 +49,39 @@ class LocationController extends Controller
                 'name' => $room->name,
                 'description' => $room->description,
                 'is_active' => $room->is_active,
+                'upcoming_appointments_count' => Appointment::where('room_id', $room->id)
+                    ->where('starts_at', '>=', now())
+                    ->whereNotIn('status', ['cancelled'])
+                    ->count(),
             ]);
+
+        $stats = [
+            'total_rooms' => $rooms->count(),
+            'active_rooms' => $rooms->where('is_active', true)->count(),
+            'practitioners_count' => Appointment::where('location_id', $location->id)
+                ->distinct('staff_membership_id')
+                ->count('staff_membership_id'),
+            'upcoming_appointments' => Appointment::where('location_id', $location->id)
+                ->where('starts_at', '>=', now())
+                ->whereNotIn('status', ['cancelled'])
+                ->count(),
+        ];
 
         return Inertia::render('Locations/Show', [
             'location' => [
                 'id' => $location->id,
                 'name' => $location->name,
                 'address' => $location->address,
+                'latitude' => $location->latitude,
+                'longitude' => $location->longitude,
                 'phone' => $location->phone,
                 'timezone' => $location->timezone,
                 'is_active' => $location->is_active,
             ],
             'rooms' => $rooms,
+            'stats' => $stats,
             'timezones' => timezone_identifiers_list(),
+            'provinces' => \App\Support\ClinicOptions::PROVINCES,
         ]);
     }
 
@@ -132,6 +152,10 @@ class LocationController extends Controller
 
     protected function summary(Location $location): array
     {
+        $now = now();
+        $startOfDay = $now->copy()->startOfDay();
+        $endOfDay = $now->copy()->endOfDay();
+
         return [
             'id' => $location->id,
             'name' => $location->name,
@@ -141,8 +165,19 @@ class LocationController extends Controller
             'phone' => $location->phone,
             'timezone' => $location->timezone,
             'is_active' => $location->is_active,
-            'rooms_count' => $location->rooms_count,
-            'active_rooms_count' => $location->active_rooms_count,
+            'rooms_count' => (int) ($location->rooms_count ?? 0),
+            'active_rooms_count' => (int) ($location->active_rooms_count ?? 0),
+            'appointments_today_count' => Appointment::where('location_id', $location->id)
+                ->whereBetween('starts_at', [$startOfDay, $endOfDay])
+                ->whereNotIn('status', ['cancelled'])
+                ->count(),
+            'practitioners_count' => Appointment::where('location_id', $location->id)
+                ->distinct('staff_membership_id')
+                ->count('staff_membership_id'),
+            'upcoming_appointments_count' => Appointment::where('location_id', $location->id)
+                ->where('starts_at', '>=', now())
+                ->whereNotIn('status', ['cancelled'])
+                ->count(),
         ];
     }
 

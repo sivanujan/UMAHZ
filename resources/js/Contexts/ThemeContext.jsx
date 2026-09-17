@@ -40,7 +40,7 @@ export function ThemeProvider({
         const nextResolved = resolve(preference);
         setResolved(nextResolved);
 
-        if (typeof document !== 'undefined' && storageKey === DEFAULT_STORAGE_KEY) {
+        if (typeof document !== 'undefined') {
             document.documentElement.classList.toggle('dark', nextResolved === 'dark');
         }
 
@@ -50,7 +50,7 @@ export function ThemeProvider({
         const onChange = () => {
             const sysResolved = resolve('system');
             setResolved(sysResolved);
-            if (typeof document !== 'undefined' && storageKey === DEFAULT_STORAGE_KEY) {
+            if (typeof document !== 'undefined') {
                 document.documentElement.classList.toggle('dark', sysResolved === 'dark');
             }
         };
@@ -82,6 +82,15 @@ export function ThemeProvider({
 
 export function useTheme() {
     const ctx = useContext(ThemeContext);
-    if (!ctx) throw new Error('useTheme must be used within a ThemeProvider');
+    if (!ctx) {
+        // Graceful fallback for components mounted before or outside ThemeProvider
+        const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+        return {
+            preference: isDark ? 'dark' : 'light',
+            resolved: isDark ? 'dark' : 'light',
+            setPreference: () => {},
+            toggle: () => {},
+        };
+    }
     return ctx;
 }

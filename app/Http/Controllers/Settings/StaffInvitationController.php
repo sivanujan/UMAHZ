@@ -29,7 +29,7 @@ class StaffInvitationController extends Controller
     {
         $tenantId = TenantScope::getTenantId();
 
-        $memberships = StaffMembership::with('user')
+        $memberships = StaffMembership::with(['user', 'practitionerProfile'])
             ->where('tenant_id', $tenantId)
             ->latest('created_at')
             ->get()
@@ -41,6 +41,8 @@ class StaffInvitationController extends Controller
                 'status' => $membership->status,
                 'invited_at' => $membership->invited_at?->diffForHumans(),
                 'joined_at' => $membership->joined_at?->diffForHumans(),
+                'created_at_date' => $membership->created_at?->format('M j, Y'),
+                'discipline' => $membership->practitionerProfile?->professionLabel(),
                 // The owner can't act on their own row.
                 'is_self' => $membership->user_id === $request->user()->id,
             ]);
@@ -108,30 +110,76 @@ class StaffInvitationController extends Controller
     }
 
     /**
-     * Suspend / reactivate a staff member (toggle their access without losing
-     * their records).
+     * Update a staff member's status (active, suspended, deactivated) or access role.
      */
     public function updateStatus(Request $request, StaffMembership $membership, \App\Services\ClinicSubscriptionService $subscriptions): RedirectResponse
     {
         $data = $request->validate([
-            'status' => ['required', Rule::in([StaffMembership::STATUS_ACTIVE, StaffMembership::STATUS_SUSPENDED])],
+            'status' => ['nullable', Rule::in([StaffMembership::STATUS_ACTIVE, StaffMembership::STATUS_SUSPENDED, StaffMembership::STATUS_DEACTIVATED])],
+            'role' => ['nullable', 'string', 'in:'.implode(',', self::INVITABLE_ROLES)],
         ]);
 
-        // The last-owner guard only applies when we're REVOKING access.
-        $this->authorizeManage($request, $membership, revoking: $data['status'] !== StaffMembership::STATUS_ACTIVE);
+        if (isset($data['role'])) {
+            $this->authorizeManage($request, $membership, revoking: false);
 
-        $membership->update([
-            'status' => $data['status'],
-            'joined_at' => $membership->joined_at ?? now(),
-        ]);
+            if ($data['role'] === StaffMembership::ROLE_PRACTITIONER && $membership->role !== StaffMembership::ROLE_PRACTITIONER) {
+                $tenant = $membership->tenant;
+                if ($tenant && ! $subscriptions->canAddPractitioner($tenant)) {
+                    $limit = $tenant->maxPractitioners() ?? 1;
+                    return back()->withErrors([
+                        'role' => "Your current plan ({$tenant->planName()}) is limited to {$limit} practitioner(s). Please upgrade your subscription plan to add more practitioners.",
+                    ]);
+                }
+            }
 
-        if ($membership->tenant) {
-            $subscriptions->syncPractitionerCounts($membership->tenant);
+            $membership->update(['role' => $data['role']]);
+
+            if ($membership->tenant) {
+                $subscriptions->syncPractitionerCounts($membership->tenant);
+            }
+
+            $roleName = ucwords(str_replace('_', ' ', $data['role']));
+            return back()->with('success', "Role updated to {$roleName}.");
         }
 
-        $verb = $data['status'] === StaffMembership::STATUS_ACTIVE ? 'reactivated' : 'suspended';
+        if (isset($data['status'])) {
+            // The last-owner guard only applies when we're REVOKING access.
+            $this->authorizeManage($request, $membership, revoking: $data['status'] !== StaffMembership::STATUS_ACTIVE);
 
-        return back()->with('success', "Staff member {$verb}.");
+            $membership->update([
+                'status' => $data['status'],
+                'joined_at' => $membership->joined_at ?? now(),
+            ]);
+
+            if ($membership->tenant) {
+                $subscriptions->syncPractitionerCounts($membership->tenant);
+            }
+
+            $verb = match ($data['status']) {
+                StaffMembership::STATUS_ACTIVE => 'reactivated',
+                StaffMembership::STATUS_SUSPENDED => 'suspended',
+                StaffMembership::STATUS_DEACTIVATED => 'deactivated',
+                default => 'updated',
+            };
+
+            return back()->with('success', "Staff member {$verb}.");
+        }
+
+        return back();
+    }
+
+    /**
+     * Resend an invitation email to a pending staff member.
+     */
+    public function resend(Request $request, StaffMembership $membership): RedirectResponse
+    {
+        $this->authorizeManage($request, $membership, revoking: false);
+        abort_unless($membership->status === StaffMembership::STATUS_INVITED, 400, 'This invitation is not pending.');
+
+        $membership->update(['invited_at' => now()]);
+        $this->notifySafely($membership->user, new StaffInvitationNotification($membership));
+
+        return back()->with('success', "Invitation resent to {$membership->user->email}.");
     }
 
     /**

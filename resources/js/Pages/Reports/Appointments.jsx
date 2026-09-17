@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import ReportLayout from './ReportLayout';
+import KpiCard from '@/Components/Dashboard/KpiCard';
+import ChartCard from '@/Components/UI/ChartCard';
+import { GlassCard } from '@/Components/UI/GlassCard';
 import {
     Calendar,
     CheckCircle2,
@@ -8,49 +11,45 @@ import {
     User,
     Building2,
     Stethoscope,
-    Clock,
     TrendingUp,
+    BarChart3,
+    ArrowUpDown,
 } from 'lucide-react';
+import {
+    ResponsiveContainer,
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    Tooltip,
+    CartesianGrid,
+    Legend,
+} from 'recharts';
+import { useTheme } from '@/Contexts/ThemeContext';
 
-function StatCard({ label, value, subtext, rate, icon: Icon, tint, borderTint }) {
+/* Custom Dark-Mode Aware Tooltip for Recharts */
+function CustomChartTooltip({ active, payload, label }) {
+    if (!active || !payload || !payload.length) return null;
+
     return (
-        <div
-            className="p-5 rounded-xl border shadow-sm flex flex-col justify-between transition-colors duration-300"
-            style={{
-                background: 'var(--umahz-surface)',
-                borderColor: borderTint || 'var(--umahz-border)',
-            }}
-        >
-            <div className="flex items-start justify-between">
-                <div>
-                    <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--umahz-text-secondary)' }}>
-                        {label}
-                    </p>
-                    <h3 className="text-3xl font-bold mt-1.5" style={{ color: 'var(--umahz-text-primary)' }}>
-                        {value}
-                    </h3>
-                </div>
-                <div
-                    className="h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ background: `color-mix(in srgb, ${tint} 14%, transparent)`, color: tint }}
-                >
-                    <Icon className="w-5 h-5" />
-                </div>
-            </div>
-
-            <div className="mt-4 pt-3 border-t flex items-center justify-between text-xs" style={{ borderColor: 'var(--umahz-border)' }}>
-                <span style={{ color: 'var(--umahz-text-tertiary)' }}>{subtext}</span>
-                {rate !== undefined && (
-                    <span
-                        className="font-semibold px-2 py-0.5 rounded text-[11px]"
-                        style={{
-                            background: `color-mix(in srgb, ${tint} 12%, transparent)`,
-                            color: tint,
-                        }}
-                    >
-                        {rate}%
-                    </span>
-                )}
+        <div className="p-3 rounded-xl shadow-xl border border-slate-200/80 dark:border-white/15 bg-white/95 dark:bg-[#1a122e]/95 backdrop-blur-md text-xs">
+            <p className="font-bold text-slate-900 dark:text-white mb-1.5 border-b border-slate-100 dark:border-white/10 pb-1">
+                {label}
+            </p>
+            <div className="space-y-1">
+                {payload.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                            <span className="text-slate-600 dark:text-slate-300 font-medium">
+                                {item.name}:
+                            </span>
+                        </div>
+                        <span className="font-bold text-slate-900 dark:text-white">
+                            {item.value}
+                        </span>
+                    </div>
+                ))}
             </div>
         </div>
     );
@@ -65,15 +64,69 @@ export default function AppointmentsReport({
     data,
     report,
 }) {
+    const { resolved } = useTheme();
+    const isDark = resolved === 'dark';
+
     const payload = report || data || {};
-    const summary = payload.summary || { total: 0, completed: 0, cancelled: 0, no_show: 0, booked: 0, confirmed: 0, completion_rate: 0, cancellation_rate: 0, no_show_rate: 0 };
+    const summary = payload.summary || {
+        total: 0,
+        completed: 0,
+        cancelled: 0,
+        no_show: 0,
+        scheduled: 0,
+        confirmed: 0,
+        completion_rate: 0,
+        cancellation_rate: 0,
+        no_show_rate: 0,
+    };
+    const comparison = payload.comparison || {
+        total_growth: 0,
+        completed_growth: 0,
+        cancelled_growth: 0,
+        no_show_growth: 0,
+        prev_total: 0,
+    };
     const daily = payload.trend || payload.daily || [];
     const byPractitioner = payload.by_practitioner || [];
     const byService = payload.by_service || [];
     const byLocation = payload.by_location || [];
 
-    // Find max daily total for normalized bar chart scaling
-    const maxDailyTotal = Math.max(...daily.map((d) => d.total || 0), 1);
+    // Sorting state for Practitioner Performance table
+    const [sortField, setSortField] = useState('total');
+    const [sortDirection, setSortDirection] = useState('desc');
+
+    const handleSort = (field) => {
+        if (sortField === field) {
+            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortDirection('desc');
+        }
+    };
+
+    const sortedPractitioners = useMemo(() => {
+        return [...byPractitioner].sort((a, b) => {
+            let valA = a[sortField] ?? 0;
+            let valB = b[sortField] ?? 0;
+            if (typeof valA === 'string') {
+                return sortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+            return sortDirection === 'asc' ? valA - valB : valB - valA;
+        });
+    }, [byPractitioner, sortField, sortDirection]);
+
+    // Check if chart has any activity across range
+    const totalDailyActivity = useMemo(() => {
+        return daily.reduce((acc, d) => acc + (d.total || 0), 0);
+    }, [daily]);
+
+    const hasChartData = totalDailyActivity > 0;
+
+    // Trend sparkline arrays for KPI cards
+    const totalSparkline = useMemo(() => daily.map((d) => d.total || 0), [daily]);
+    const completedSparkline = useMemo(() => daily.map((d) => d.completed || 0), [daily]);
+    const cancelledSparkline = useMemo(() => daily.map((d) => d.cancelled || 0), [daily]);
+    const noShowSparkline = useMemo(() => daily.map((d) => d.no_show || 0), [daily]);
 
     return (
         <ReportLayout
@@ -86,250 +139,312 @@ export default function AppointmentsReport({
             locations={locations}
             exportRoute="/app/reports/appointments/export"
         >
-            {/* KPI Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard
-                    label="Total Appointments"
-                    value={(summary.total || 0).toLocaleString()}
-                    subtext={`${summary.booked || 0} booked • ${summary.confirmed || 0} confirmed`}
-                    icon={Calendar}
-                    tint="#3B82F6"
-                />
-                <StatCard
-                    label="Completed Sessions"
-                    value={(summary.completed || 0).toLocaleString()}
-                    subtext="Successfully delivered"
-                    rate={summary.completion_rate || 0}
-                    icon={CheckCircle2}
-                    tint="#10B981"
-                />
-                <StatCard
-                    label="Cancellations"
-                    value={(summary.cancelled || 0).toLocaleString()}
-                    subtext="Cancelled by client/clinic"
-                    rate={summary.cancellation_rate || 0}
-                    icon={XCircle}
-                    tint="#F43F5E"
-                />
-                <StatCard
-                    label="No-Shows"
-                    value={(summary.no_show || 0).toLocaleString()}
-                    subtext="Missed appointments"
-                    rate={summary.no_show_rate || 0}
-                    icon={AlertCircle}
-                    tint="#F59E0B"
-                />
-            </div>
+            <div className="space-y-6">
+                {/* 1. Professional KPI Summary Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <KpiCard
+                        label="Total Appointments"
+                        rawValue={summary.total || 0}
+                        icon={Calendar}
+                        iconTint="#8200db"
+                        iconBg="rgba(130,0,219,0.12)"
+                        trend={{
+                            value: comparison.total_growth,
+                            isPositive: comparison.total_growth >= 0,
+                            text: `vs prev period (${comparison.prev_total || 0})`,
+                            hasComparison: comparison.prev_total > 0,
+                        }}
+                        sparkline={totalSparkline}
+                        delay={0}
+                    />
 
-            {/* Daily Scheduling Volume Chart */}
-            <div
-                className="p-6 rounded-xl border shadow-sm transition-colors duration-300"
-                style={{ background: 'var(--umahz-surface)', borderColor: 'var(--umahz-border)' }}
-            >
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-4 border-b gap-2" style={{ borderColor: 'var(--umahz-border)' }}>
-                    <div>
-                        <h2 className="font-semibold text-base flex items-center gap-2" style={{ color: 'var(--umahz-text-primary)' }}>
-                            <TrendingUp className="w-4 h-4 text-emerald-500" />
-                            Appointment Activity Over Time
-                        </h2>
-                        <p className="text-xs mt-0.5" style={{ color: 'var(--umahz-text-secondary)' }}>
-                            Daily breakdown of completed, cancelled, and no-show sessions.
-                        </p>
-                    </div>
+                    <KpiCard
+                        label={`Completed (${summary.completion_rate || 0}% rate)`}
+                        rawValue={summary.completed || 0}
+                        icon={CheckCircle2}
+                        iconTint="#10B981"
+                        iconBg="rgba(16,185,129,0.12)"
+                        trend={{
+                            value: comparison.completed_growth,
+                            isPositive: comparison.completed_growth >= 0,
+                            text: `${summary.completion_rate || 0}% completion rate`,
+                        }}
+                        sparkline={completedSparkline}
+                        delay={1}
+                    />
 
-                    {/* Legend */}
-                    <div className="flex items-center gap-4 text-xs">
-                        <div className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
-                            <span style={{ color: 'var(--umahz-text-secondary)' }}>Completed</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-sm bg-rose-500" />
-                            <span style={{ color: 'var(--umahz-text-secondary)' }}>Cancelled</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-sm bg-amber-500" />
-                            <span style={{ color: 'var(--umahz-text-secondary)' }}>No-Show</span>
-                        </div>
-                    </div>
+                    <KpiCard
+                        label={`Cancellations (${summary.cancellation_rate || 0}% rate)`}
+                        rawValue={summary.cancelled || 0}
+                        icon={XCircle}
+                        iconTint="#F43F5E"
+                        iconBg="rgba(244,63,94,0.12)"
+                        trend={{
+                            value: comparison.cancelled_growth,
+                            isPositive: comparison.cancelled_growth <= 0, // Less cancellations is good
+                            text: `${summary.cancellation_rate || 0}% cancellation rate`,
+                        }}
+                        sparkline={cancelledSparkline}
+                        delay={2}
+                    />
+
+                    <KpiCard
+                        label={`No-Shows (${summary.no_show_rate || 0}% rate)`}
+                        rawValue={summary.no_show || 0}
+                        icon={AlertCircle}
+                        iconTint="#F59E0B"
+                        iconBg="rgba(245,158,11,0.12)"
+                        trend={{
+                            value: comparison.no_show_growth,
+                            isPositive: comparison.no_show_growth <= 0, // Less no-shows is good
+                            text: `${summary.no_show_rate || 0}% no-show rate`,
+                        }}
+                        sparkline={noShowSparkline}
+                        delay={3}
+                    />
                 </div>
 
-                {daily.length === 0 ? (
-                    <div className="py-12 text-center text-sm" style={{ color: 'var(--umahz-text-tertiary)' }}>
-                        No appointments found within this selected period.
-                    </div>
-                ) : (
-                    <div className="mt-6">
-                        {/* Bar chart scrollable container */}
-                        <div className="overflow-x-auto pb-2">
-                            <div className="flex items-end gap-2 sm:gap-3 min-w-[600px] h-48 pt-6 px-2">
-                                {daily.map((day, idx) => {
-                                    const completedHeight = (day.completed / maxDailyTotal) * 100;
-                                    const cancelledHeight = (day.cancelled / maxDailyTotal) * 100;
-                                    const noShowHeight = (day.no_show / maxDailyTotal) * 100;
-                                    const otherHeight = ((day.total - day.completed - day.cancelled - day.no_show) / maxDailyTotal) * 100;
-
-                                    return (
-                                        <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group relative">
-                                            {/* Tooltip */}
-                                            <div
-                                                className="absolute bottom-full mb-2 hidden group-hover:flex flex-col p-2 rounded-lg text-[11px] shadow-lg z-20 whitespace-nowrap pointer-events-none"
-                                                style={{
-                                                    background: 'var(--umahz-sidebar-bg, #0F172A)',
-                                                    color: '#FFFFFF',
-                                                    border: '1px solid var(--umahz-border)',
-                                                }}
-                                            >
-                                                <div className="font-semibold text-white mb-1">{day.label}</div>
-                                                <div className="text-emerald-400">Completed: {day.completed}</div>
-                                                <div className="text-rose-400">Cancelled: {day.cancelled}</div>
-                                                <div className="text-amber-400">No-show: {day.no_show}</div>
-                                                <div className="text-gray-300 font-bold pt-1 border-t border-gray-700 mt-1">Total: {day.total}</div>
-                                            </div>
-
-                                            {/* Stacked bar */}
-                                            <div className="w-full max-w-[28px] flex flex-col-reverse rounded-t overflow-hidden bg-slate-100 dark:bg-slate-800/40">
-                                                <div style={{ height: `${completedHeight}%` }} className="w-full bg-emerald-500 transition-all duration-300" />
-                                                <div style={{ height: `${cancelledHeight}%` }} className="w-full bg-rose-500 transition-all duration-300" />
-                                                <div style={{ height: `${noShowHeight}%` }} className="w-full bg-amber-500 transition-all duration-300" />
-                                                <div style={{ height: `${Math.max(0, otherHeight)}%` }} className="w-full bg-blue-400 transition-all duration-300" />
-                                            </div>
-
-                                            {/* Day label */}
-                                            <div className="text-[10px] mt-2 truncate max-w-[40px] text-center" style={{ color: 'var(--umahz-text-tertiary)' }}>
-                                                {day.label.split(',')[0]}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                {/* 2. Main Daily Scheduling Volume Chart */}
+                <ChartCard
+                    icon={BarChart3}
+                    title="Appointment Activity Over Time"
+                    subtitle="Daily breakdown of completed, cancelled, and no-show patient sessions."
+                    hasData={hasChartData}
+                    emptyTitle="No appointment activity in this range"
+                    emptyDescription="There are no booked or recorded appointments within the selected date range and filter criteria."
+                    legend={
+                        <div className="flex items-center gap-3 text-xs font-semibold">
+                            <div className="flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 shadow-2xs" />
+                                <span className="text-slate-600 dark:text-slate-300">Completed</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded-sm bg-rose-500 shadow-2xs" />
+                                <span className="text-slate-600 dark:text-slate-300">Cancelled</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded-sm bg-amber-500 shadow-2xs" />
+                                <span className="text-slate-600 dark:text-slate-300">No-Show</span>
                             </div>
                         </div>
-                    </div>
-                )}
-            </div>
-
-            {/* Breakdown Tables Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Breakdown by Practitioner */}
-                <div
-                    className="p-6 rounded-xl border shadow-sm transition-colors duration-300"
-                    style={{ background: 'var(--umahz-surface)', borderColor: 'var(--umahz-border)' }}
+                    }
                 >
-                    <h2 className="font-semibold text-base flex items-center gap-2 mb-4" style={{ color: 'var(--umahz-text-primary)' }}>
-                        <User className="w-4 h-4 text-blue-500" />
-                        Performance by Practitioner
-                    </h2>
+                    <div className="w-full h-72 pt-2">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={daily} margin={{ top: 10, right: 10, left: -18, bottom: 0 }}>
+                                <CartesianGrid
+                                    strokeDasharray="3 3"
+                                    stroke={isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)'}
+                                    vertical={false}
+                                />
+                                <XAxis
+                                    dataKey="label"
+                                    tick={{ fill: isDark ? '#94A3B8' : '#64748B', fontSize: 11, fontWeight: 500 }}
+                                    axisLine={{ stroke: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}
+                                    tickLine={false}
+                                />
+                                <YAxis
+                                    allowDecimals={false}
+                                    tick={{ fill: isDark ? '#94A3B8' : '#64748B', fontSize: 11 }}
+                                    axisLine={{ stroke: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}
+                                    tickLine={false}
+                                />
+                                <Tooltip content={<CustomChartTooltip />} />
+                                <Bar dataKey="completed" name="Completed" stackId="a" fill="#10B981" radius={[0, 0, 0, 0]} />
+                                <Bar dataKey="cancelled" name="Cancelled" stackId="a" fill="#F43F5E" radius={[0, 0, 0, 0]} />
+                                <Bar dataKey="no_show" name="No-Show" stackId="a" fill="#F59E0B" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </ChartCard>
 
-                    {byPractitioner.length === 0 ? (
-                        <p className="text-xs py-4 text-center" style={{ color: 'var(--umahz-text-tertiary)' }}>No practitioner data in range.</p>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-xs">
-                                <thead>
-                                    <tr className="border-b text-[11px] font-semibold uppercase tracking-wider" style={{ borderColor: 'var(--umahz-border)', color: 'var(--umahz-text-secondary)' }}>
-                                        <th className="pb-2.5">Practitioner</th>
-                                        <th className="pb-2.5 text-center">Total</th>
-                                        <th className="pb-2.5 text-center">Completed</th>
-                                        <th className="pb-2.5 text-center">Cancelled</th>
-                                        <th className="pb-2.5 text-right">Completion</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y" style={{ borderColor: 'var(--umahz-border)' }}>
-                                    {byPractitioner.map((p, idx) => (
-                                        <tr key={idx} className="hover:bg-slate-500/5 transition-colors">
-                                            <td className="py-2.5 font-medium" style={{ color: 'var(--umahz-text-primary)' }}>
-                                                {p.name}
-                                            </td>
-                                            <td className="py-2.5 text-center font-bold" style={{ color: 'var(--umahz-text-primary)' }}>
-                                                {p.total}
-                                            </td>
-                                            <td className="py-2.5 text-center text-emerald-600 dark:text-emerald-400 font-medium">
-                                                {p.completed}
-                                            </td>
-                                            <td className="py-2.5 text-center text-rose-500 font-medium">
-                                                {p.cancelled}
-                                            </td>
-                                            <td className="py-2.5 text-right font-medium text-emerald-600 dark:text-emerald-400">
-                                                {p.completion_rate ?? 0}%
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
-
-                {/* Breakdown by Service & Location */}
-                <div className="space-y-6">
-                    {/* By Service */}
-                    <div
-                        className="p-6 rounded-xl border shadow-sm transition-colors duration-300"
-                        style={{ background: 'var(--umahz-surface)', borderColor: 'var(--umahz-border)' }}
-                    >
-                        <h2 className="font-semibold text-base flex items-center gap-2 mb-4" style={{ color: 'var(--umahz-text-primary)' }}>
-                            <Stethoscope className="w-4 h-4 text-emerald-500" />
-                            Appointments by Service
-                        </h2>
-
-                        {byService.length === 0 ? (
-                            <p className="text-xs py-4 text-center" style={{ color: 'var(--umahz-text-tertiary)' }}>No service appointments recorded.</p>
-                        ) : (
-                            <div className="space-y-3">
-                                {byService.map((s, idx) => {
-                                    const count = s.total || s.count || 0;
-                                    const pct = summary.total > 0 ? Math.round((count / summary.total) * 100) : 0;
-                                    return (
-                                        <div key={idx} className="space-y-1">
-                                            <div className="flex items-center justify-between text-xs">
-                                                <span className="font-medium" style={{ color: 'var(--umahz-text-primary)' }}>
-                                                    {s.name}
-                                                </span>
-                                                <span style={{ color: 'var(--umahz-text-secondary)' }}>
-                                                    {count} sessions ({pct}%)
-                                                </span>
-                                            </div>
-                                            <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                                                <div
-                                                    className="h-full rounded-full bg-emerald-500"
-                                                    style={{ width: `${pct}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                {/* 3. Report Breakdown Sections */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Performance by Practitioner */}
+                    <GlassCard className="p-5 sm:p-6 flex flex-col justify-between">
+                        <div>
+                            <div className="flex items-center justify-between pb-4 border-b border-slate-200/60 dark:border-white/10">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-300 flex items-center justify-center shrink-0 border border-purple-500/20">
+                                        <User className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                            Performance by Practitioner
+                                        </h3>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                            Clinical session volume and delivery fulfillment.
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
+
+                            {sortedPractitioners.length === 0 ? (
+                                <p className="text-xs py-8 text-center text-slate-400 dark:text-slate-500 font-medium">
+                                    No practitioner activity recorded in this period.
+                                </p>
+                            ) : (
+                                <div className="overflow-x-auto mt-4">
+                                    <table className="w-full text-left text-xs">
+                                        <thead>
+                                            <tr className="border-b border-slate-200/80 dark:border-white/10 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                <th className="pb-3 cursor-pointer select-none" onClick={() => handleSort('name')}>
+                                                    <div className="flex items-center gap-1">
+                                                        <span>Practitioner</span>
+                                                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                                                    </div>
+                                                </th>
+                                                <th className="pb-3 text-center cursor-pointer select-none" onClick={() => handleSort('total')}>
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <span>Total</span>
+                                                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                                                    </div>
+                                                </th>
+                                                <th className="pb-3 text-center cursor-pointer select-none" onClick={() => handleSort('completed')}>
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <span>Done</span>
+                                                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                                                    </div>
+                                                </th>
+                                                <th className="pb-3 text-center cursor-pointer select-none" onClick={() => handleSort('cancelled')}>
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <span>Cancel</span>
+                                                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                                                    </div>
+                                                </th>
+                                                <th className="pb-3 text-right cursor-pointer select-none" onClick={() => handleSort('completion_rate')}>
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <span>Fulfillment</span>
+                                                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                                                    </div>
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-white/[0.06]">
+                                            {sortedPractitioners.map((p, idx) => {
+                                                const rate = p.completion_rate ?? 0;
+                                                return (
+                                                    <tr key={idx} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-colors">
+                                                        <td className="py-3 font-semibold text-slate-900 dark:text-white">
+                                                            {p.name}
+                                                        </td>
+                                                        <td className="py-3 text-center font-bold text-slate-900 dark:text-white">
+                                                            {p.total}
+                                                        </td>
+                                                        <td className="py-3 text-center text-emerald-600 dark:text-emerald-400 font-semibold">
+                                                            {p.completed}
+                                                        </td>
+                                                        <td className="py-3 text-center text-rose-500 font-semibold">
+                                                            {p.cancelled}
+                                                        </td>
+                                                        <td className="py-3 text-right">
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                <div className="w-14 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden hidden sm:block">
+                                                                    <div
+                                                                        className="h-full rounded-full bg-emerald-500"
+                                                                        style={{ width: `${Math.min(100, rate)}%` }}
+                                                                    />
+                                                                </div>
+                                                                <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                                                                    {rate}%
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    </GlassCard>
+
+                    {/* Breakdown by Service & Location */}
+                    <div className="space-y-6">
+                        {/* By Service */}
+                        <GlassCard className="p-5 sm:p-6">
+                            <div className="flex items-center gap-2.5 pb-4 border-b border-slate-200/60 dark:border-white/10">
+                                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20">
+                                    <Stethoscope className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                        Appointments by Service
+                                    </h3>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                        Demand volume per clinical modality or session type.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {byService.length === 0 ? (
+                                <p className="text-xs py-8 text-center text-slate-400 dark:text-slate-500 font-medium">
+                                    No service appointments recorded in this period.
+                                </p>
+                            ) : (
+                                <div className="space-y-3.5 mt-4">
+                                    {byService.map((s, idx) => {
+                                        const count = s.total || s.count || 0;
+                                        const pct = summary.total > 0 ? Math.round((count / summary.total) * 100) : 0;
+                                        return (
+                                            <div key={idx} className="space-y-1.5">
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <span className="font-bold text-slate-900 dark:text-white">
+                                                        {s.name}
+                                                    </span>
+                                                    <span className="text-slate-500 dark:text-slate-400 font-semibold">
+                                                        {count} sessions ({pct}%)
+                                                    </span>
+                                                </div>
+                                                <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-white/[0.08] overflow-hidden">
+                                                    <div
+                                                        className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-300"
+                                                        style={{ width: `${pct}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </GlassCard>
+
+                        {/* By Location */}
+                        {byLocation.length > 0 && (
+                            <GlassCard className="p-5 sm:p-6">
+                                <div className="flex items-center gap-2.5 pb-4 border-b border-slate-200/60 dark:border-white/10">
+                                    <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 border border-purple-500/20">
+                                        <Building2 className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                            Appointments by Location
+                                        </h3>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                            Distribution across physical clinic branches.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                                    {byLocation.map((loc, idx) => (
+                                        <div
+                                            key={idx}
+                                            className="p-3.5 rounded-xl border border-slate-200/60 dark:border-white/10 bg-white/40 dark:bg-white/[0.03] flex items-center justify-between text-xs"
+                                        >
+                                            <span className="font-bold text-slate-900 dark:text-white truncate mr-2">
+                                                {loc.name}
+                                            </span>
+                                            <span className="font-extrabold px-2.5 py-1 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 shrink-0">
+                                                {loc.total || loc.count || 0} visits
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </GlassCard>
                         )}
                     </div>
-
-                    {/* By Location */}
-                    {byLocation.length > 0 && (
-                        <div
-                            className="p-6 rounded-xl border shadow-sm transition-colors duration-300"
-                            style={{ background: 'var(--umahz-surface)', borderColor: 'var(--umahz-border)' }}
-                        >
-                            <h2 className="font-semibold text-base flex items-center gap-2 mb-4" style={{ color: 'var(--umahz-text-primary)' }}>
-                                <Building2 className="w-4 h-4 text-purple-500" />
-                                Appointments by Location
-                            </h2>
-                            <div className="grid grid-cols-2 gap-3">
-                                {byLocation.map((loc, idx) => (
-                                    <div
-                                        key={idx}
-                                        className="p-3 rounded-lg border flex items-center justify-between text-xs"
-                                        style={{ background: 'var(--umahz-surface-2)', borderColor: 'var(--umahz-border)' }}
-                                    >
-                                        <span className="font-medium truncate mr-2" style={{ color: 'var(--umahz-text-primary)' }}>
-                                            {loc.name}
-                                        </span>
-                                        <span className="font-bold px-2 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400">
-                                            {loc.total || loc.count || 0}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
         </ReportLayout>

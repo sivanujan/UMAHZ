@@ -30,7 +30,8 @@ use App\Http\Controllers\PractitionerAppointmentController;
 use App\Http\Controllers\ClinicHomeController;
 use App\Http\Controllers\PublicIntakeController;
 use App\Http\Controllers\ReportController;
-
+use App\Http\Controllers\SearchController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\Settings\StaffInvitationController;
 use App\Http\Controllers\StripeWebhookController;
@@ -267,6 +268,8 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
     */
     Route::middleware(['auth', 'verified', 'tenant.subdomain', 'staff.role'])->prefix('app')->name('app.')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'app'])->name('dashboard');
+        Route::get('/search', [SearchController::class, 'search'])->name('search');
+        Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
 
         // Clinic setup wizard — owner-only, exempted from the onboarding gate
         // itself (see EnsureStaffRole) so it's always reachable.
@@ -327,6 +330,7 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
         // (owner, practitioner, receptionist). Every action is tenant-scoped
         // by the Appointment global scope + BookingService boundary checks.
         Route::get('/calendar', [AppointmentController::class, 'index'])->name('calendar');
+        Route::get('/appointments', [AppointmentController::class, 'index'])->name('appointments');
         Route::post('/appointments', [AppointmentController::class, 'store'])->name('appointments.store');
         Route::patch('/appointments/{appointment}', [AppointmentController::class, 'update'])->name('appointments.update');
         Route::patch('/appointments/{appointment}/status', [AppointmentController::class, 'status'])->name('appointments.status');
@@ -361,6 +365,7 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
             Route::get('/staff', [StaffInvitationController::class, 'index'])->name('staff.index');
             Route::post('/staff', [StaffInvitationController::class, 'store'])->name('staff.store');
             Route::patch('/staff/{membership}', [StaffInvitationController::class, 'updateStatus'])->name('staff.update');
+            Route::post('/staff/{membership}/resend', [StaffInvitationController::class, 'resend'])->name('staff.resend');
             Route::delete('/staff/{membership}', [StaffInvitationController::class, 'destroy'])->name('staff.destroy');
 
             // Clinic Subscription & Billing — plan upgrade, card management, invoice downloads.
@@ -393,6 +398,8 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
             Route::post('/settings/page-layout', [ClinicSettingsController::class, 'saveLayout'])->name('settings.page-layout');
             Route::get('/settings/page-builder/assets', [ClinicSettingsController::class, 'listBuilderAssets'])->name('settings.page-builder.assets');
             Route::post('/settings/page-builder/upload', [ClinicSettingsController::class, 'uploadBuilderImage'])->name('settings.page-builder.upload');
+            Route::delete('/settings/page-builder/assets', [ClinicSettingsController::class, 'deleteBuilderAsset'])->name('settings.page-builder.assets.delete');
+            Route::patch('/settings/page-builder/assets', [ClinicSettingsController::class, 'renameBuilderAsset'])->name('settings.page-builder.assets.rename');
 
             // Consent types & templates configuration
             Route::get('/settings/consents', [ConsentTypeController::class, 'index'])->name('settings.consents.index');

@@ -27,6 +27,19 @@
   --color-accent-violet-hover: #481EDD;
   --color-accent-pink: #DB2777;
   --color-accent-teal: #0D9488;
+
+  /* Brand-derived Aurora Glassmorphism Background (Light Mode) */
+  --brand-primary: #8200db;
+  --aurora-bg-base: #FBF7FD;
+  --aurora-bg-gradient: linear-gradient(135deg, #FBF7FD 0%, #FAF1F7 45%, #E5E7FF 100%);
+  --aurora-tint-violet: #F3E8FF;
+  --aurora-blob-violet: #C4A5F5;
+  --aurora-blob-magenta: #F0A5D0;
+  --aurora-blob-indigo: #A5B4FF;
+  --glass-card-bg: rgba(255, 255, 255, 0.40);
+  --glass-card-border: rgba(255, 255, 255, 0.65);
+  --glass-shell-bg: rgba(255, 255, 255, 0.18);
+  --glass-shell-border: rgba(255, 255, 255, 0.70);
 }
 
 .dark {
@@ -43,6 +56,18 @@
   --color-accent-violet-hover: #936BFF;
   --color-accent-pink: #F472B6;
   --color-accent-teal: #2DD4BF;
+
+  /* Brand-derived Aurora Glassmorphism Background (Dark Mode) */
+  --aurora-bg-base: #0E0B14;
+  --aurora-bg-gradient: linear-gradient(145deg, #0E0B14 0%, #120D1B 50%, #16101F 100%);
+  --aurora-tint-violet: rgba(130, 0, 219, 0.22);
+  --aurora-blob-violet: rgba(130, 0, 219, 0.22);
+  --aurora-blob-magenta: rgba(91, 30, 82, 0.38);
+  --aurora-blob-indigo: rgba(59, 42, 107, 0.45);
+  --glass-card-bg: rgba(30, 24, 45, 0.50);
+  --glass-card-border: rgba(255, 255, 255, 0.10);
+  --glass-shell-bg: rgba(14, 11, 20, 0.45);
+  --glass-shell-border: rgba(255, 255, 255, 0.08);
 }
 
 /* UMAHZ client portal theme tokens (light + dark) */
@@ -130,11 +155,13 @@
   --umahz-sidebar-active-bar: #2563EB;
   --umahz-sidebar-border: rgba(255, 255, 255, 0.08);
 
-  background: var(--umahz-bg);
+  /* In TopNavLayout, background is rendered by AuroraBackground without opaque walls */
+  background: transparent;
   transition: background-color 0.25s ease;
 }
 
 .umahz-app.dark {
+  background: transparent;
   --umahz-bg: #0B1524;
   --umahz-surface: #13263C;
   --umahz-surface-2: #0F1E30;
@@ -167,10 +194,27 @@
 }
 
 @layer base {
+  html,
   body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    background-color: #FBF7FD;
     font-family: 'Satoshi', system-ui, -apple-system, sans-serif;
     font-weight: 400;
     line-height: 1.6;
+  }
+
+  html.dark,
+  html.dark body {
+    background-color: #0E0B14;
+  }
+
+  #app {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    background: transparent;
   }
 
   p {

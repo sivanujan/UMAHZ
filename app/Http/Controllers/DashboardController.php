@@ -109,6 +109,7 @@ class DashboardController extends Controller
             ->get();
 
         $now = now();
+        $tenant = Tenant::find($tenantId);
 
         $staff = $memberships->map(function (StaffMembership $m) use ($now) {
             $todaysAppointments = Appointment::where('staff_membership_id', $m->id)
@@ -126,19 +127,123 @@ class DashboardController extends Controller
             };
 
             return [
+                'id' => $m->id,
                 'name' => $m->user->name,
                 'role' => $m->role,
                 'availability' => $availability,
+                'todays_count' => $todaysAppointments->count(),
             ];
         });
 
-        // Revenue = paid patient invoices this month. Amounts are integer minor
-        // units; divide only for display formatting (never for money math).
-        $monthlyRevenue = (int) Invoice::where('tenant_id', $tenantId)
+        // Revenue = paid patient invoices this month (integer minor units)
+        $monthlyRevenueMinor = (int) Invoice::where('tenant_id', $tenantId)
             ->where('status', Invoice::STATUS_PAID)
             ->whereMonth('paid_at', $now->month)
             ->whereYear('paid_at', $now->year)
             ->sum('total_amount');
+
+        // Revenue last month for growth comparison
+        $prevMonth = $now->copy()->subMonth();
+        $prevMonthRevenueMinor = (int) Invoice::where('tenant_id', $tenantId)
+            ->where('status', Invoice::STATUS_PAID)
+            ->whereMonth('paid_at', $prevMonth->month)
+            ->whereYear('paid_at', $prevMonth->year)
+            ->sum('total_amount');
+
+        $revenueGrowth = null;
+        if ($prevMonthRevenueMinor > 0) {
+            $revenueGrowth = round((($monthlyRevenueMinor - $prevMonthRevenueMinor) / $prevMonthRevenueMinor) * 100, 1);
+        } elseif ($monthlyRevenueMinor > 0) {
+            $revenueGrowth = 100.0;
+        }
+
+        // Outstanding balance from open invoices
+        $outstandingBalanceMinor = (int) Invoice::where('tenant_id', $tenantId)
+            ->where('status', Invoice::STATUS_OPEN)
+            ->sum('total_amount');
+
+        // 6-month revenue chart history (chronological)
+        $revenueChart = [];
+        for ($i = 5; $i >= 0; $i--) {
+            $mDate = $now->copy()->subMonths($i);
+            $mTotal = (int) Invoice::where('tenant_id', $tenantId)
+                ->where('status', Invoice::STATUS_PAID)
+                ->whereMonth('paid_at', $mDate->month)
+                ->whereYear('paid_at', $mDate->year)
+                ->sum('total_amount');
+
+            $revenueChart[] = [
+                'month' => $mDate->format('M'),
+                'year' => $mDate->format('Y'),
+                'label' => $mDate->format('M Y'),
+                'revenue' => round($mTotal / 100, 2),
+                'formatted' => '$'.number_format($mTotal / 100, 2),
+            ];
+        }
+
+        // Collection rate percentage
+        $totalPaidCount = Invoice::where('tenant_id', $tenantId)->where('status', Invoice::STATUS_PAID)->count();
+        $totalOpenCount = Invoice::where('tenant_id', $tenantId)->where('status', Invoice::STATUS_OPEN)->count();
+        $totalInvoiceCount = $totalPaidCount + $totalOpenCount;
+        $collectionRate = $totalInvoiceCount > 0 ? round(($totalPaidCount / $totalInvoiceCount) * 100) : 100;
+
+        // Appointment capacity / utilization
+        $totalAppointmentsCount = Appointment::where('tenant_id', $tenantId)->count();
+        $confirmedAppointmentsCount = Appointment::where('tenant_id', $tenantId)
+            ->whereIn('status', [Appointment::STATUS_CONFIRMED, Appointment::STATUS_CHECKED_IN, Appointment::STATUS_COMPLETED])
+            ->count();
+        $utilizationRate = $totalAppointmentsCount > 0 ? round(($confirmedAppointmentsCount / $totalAppointmentsCount) * 100) : 0;
+
+        // Recent / upcoming appointments
+        $appointmentsQuery = Appointment::with(['client', 'staffMembership.user', 'room'])
+            ->where('tenant_id', $tenantId)
+            ->where('starts_at', '>=', $now->copy()->startOfDay())
+            ->orderBy('starts_at', 'asc')
+            ->limit(6)
+            ->get();
+
+        if ($appointmentsQuery->isEmpty()) {
+            $appointmentsQuery = Appointment::with(['client', 'staffMembership.user', 'room'])
+                ->where('tenant_id', $tenantId)
+                ->latest('starts_at')
+                ->limit(6)
+                ->get();
+        }
+
+        $recentAppointments = $appointmentsQuery->map(function (Appointment $a) {
+            $firstName = $a->client?->first_name ?? '';
+            $lastName = $a->client?->last_name ?? '';
+            $fullName = trim("{$firstName} {$lastName}") ?: 'Guest Patient';
+            $initials = strtoupper(substr($firstName, 0, 1).substr($lastName, 0, 1)) ?: 'GP';
+
+            $dateLabel = $a->starts_at->isToday()
+                ? 'Today'
+                : ($a->starts_at->isTomorrow()
+                    ? 'Tomorrow'
+                    : ($a->starts_at->isYesterday() ? 'Yesterday' : $a->starts_at->format('M j')));
+
+            return [
+                'id' => $a->id,
+                'client_name' => $fullName,
+                'client_avatar' => $initials,
+                'practitioner_name' => $a->staffMembership?->user?->name ?? 'Staff',
+                'service_name' => $a->service_name ?: 'General Consultation',
+                'time' => $a->starts_at->format('g:i A'),
+                'date' => $dateLabel,
+                'status' => $a->status,
+                'room' => $a->room?->name ?? 'Main Suite',
+            ];
+        });
+
+        // Setup checklist for clinic onboarding progress
+        $setupMilestones = [
+            ['key' => 'profile', 'label' => 'Clinic Profile', 'complete' => ! empty($tenant?->phone) || ! empty($tenant?->email), 'href' => '/app/settings'],
+            ['key' => 'branding', 'label' => 'Custom Branding', 'complete' => ! empty($tenant?->logo_url) || ! empty($tenant?->brand_color), 'href' => '/app/settings'],
+            ['key' => 'disciplines', 'label' => 'Practitioner Disciplines', 'complete' => ! empty($tenant?->requested_disciplines), 'href' => '/app/settings'],
+            ['key' => 'locations', 'label' => 'Clinic Location & Rooms', 'complete' => Location::where('tenant_id', $tenantId)->exists(), 'href' => '/app/locations'],
+            ['key' => 'staff', 'label' => 'Staff Practitioners', 'complete' => StaffMembership::where('tenant_id', $tenantId)->count() > 1, 'href' => '/app/staff'],
+        ];
+        $completedMilestones = count(array_filter($setupMilestones, fn ($s) => $s['complete']));
 
         $outstandingInvoices = Invoice::with('client')
             ->where('tenant_id', $tenantId)
@@ -147,12 +252,12 @@ class DashboardController extends Controller
             ->limit(5)
             ->get()
             ->map(fn (Invoice $invoice) => [
-                'client' => $invoice->client->first_name.' '.$invoice->client->last_name,
+                'id' => $invoice->id,
+                'client' => $invoice->client ? ($invoice->client->first_name.' '.$invoice->client->last_name) : 'Patient',
                 'amount' => $this->money($invoice->amountDue()),
                 'due' => $this->dueLabel($invoice),
             ]);
 
-        $tenant = Tenant::find($tenantId);
         $subscription = $tenant?->subscription(Tenant::PLATFORM_SUBSCRIPTION);
         $subscriptionSummary = $tenant ? [
             'plan_name' => $tenant->planName(),
@@ -169,7 +274,21 @@ class DashboardController extends Controller
                 'todayAppointments' => Appointment::where('tenant_id', $tenantId)->whereDate('starts_at', $now->toDateString())->count(),
                 'totalClients' => Client::count(),
                 'activeLocations' => Location::count(),
-                'monthlyRevenue' => $this->money($monthlyRevenue),
+                'monthlyRevenue' => $this->money($monthlyRevenueMinor),
+                'monthlyRevenueRaw' => round($monthlyRevenueMinor / 100, 2),
+                'revenueGrowth' => $revenueGrowth,
+                'outstandingBalance' => $this->money($outstandingBalanceMinor),
+                'outstandingBalanceRaw' => round($outstandingBalanceMinor / 100, 2),
+                'collectionRate' => $collectionRate,
+                'utilizationRate' => $utilizationRate,
+            ],
+            'revenueChart' => $revenueChart,
+            'recentAppointments' => $recentAppointments,
+            'setupProgress' => [
+                'completed' => $completedMilestones,
+                'total' => count($setupMilestones),
+                'percentage' => round(($completedMilestones / count($setupMilestones)) * 100),
+                'items' => $setupMilestones,
             ],
             'subscription' => $subscriptionSummary,
             'outstandingInvoices' => $outstandingInvoices,

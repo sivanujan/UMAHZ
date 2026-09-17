@@ -72,10 +72,10 @@ export function validateField(name, value, allData = {}, extraContext = {}) {
             return null;
 
         case 'primary_contact_phone': {
-            if (!val) return 'Phone number is required.';
+            if (!val) return 'Enter a valid phone number.';
             const digits = getDigits(val);
-            if (digits.length < 10 || digits.length > 15) {
-                return 'Enter a valid phone number (10–15 digits).';
+            if (digits.length < 8 || digits.length > 16) {
+                return 'Enter a valid phone number.';
             }
             return null;
         }

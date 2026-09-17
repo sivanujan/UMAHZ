@@ -1,8 +1,17 @@
-import React, { useState } from 'react';
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import React, { useState, useEffect } from 'react';
+import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AddressPicker from '@/Components/AddressPicker';
-import { Building2, Mail, Phone, MapPin, Stethoscope, Palette, Upload, Check, ShieldCheck, ClipboardList, Plus, Sparkles, Trash2, Globe } from 'lucide-react';
+import { GlassCard } from '@/Components/UI/GlassCard';
+import { PageHeader } from '@/Components/UI/PageHeader';
+import { GlassButton } from '@/Components/UI/GlassButton';
+import { GlassInput, GlassSelect, GlassLabel, GlassError } from '@/Components/UI/FormControls';
+import {
+    Building2, Mail, Phone, MapPin, Stethoscope, Palette, Upload,
+    Check, ShieldCheck, ClipboardList, Plus, Trash2, Globe, ArrowRight,
+    Sparkles, Save, FileText, CheckCircle2, ChevronRight, Sliders
+} from 'lucide-react';
 
 const DISCIPLINE_LABELS = {
     massage_therapy: 'Massage Therapy',
@@ -12,35 +21,46 @@ const DISCIPLINE_LABELS = {
     colon_hydrotherapy: 'Colon Hydrotherapy',
 };
 
-const labelClass = 'block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1';
-const inputClass = 'w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 text-slate-900 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-700 focus:border-violet-700';
+const SETTINGS_TABS = [
+    {
+        id: 'profile',
+        label: 'Clinic Profile',
+        description: 'Name, address, contact & currency',
+        icon: Building2,
+    },
+    {
+        id: 'disciplines',
+        label: 'Disciplines',
+        description: 'Offered medical & wellness services',
+        icon: Stethoscope,
+    },
+    {
+        id: 'branding',
+        label: 'Branding',
+        description: 'Logo & brand accent colors',
+        icon: Palette,
+    },
+    {
+        id: 'public_page',
+        label: 'Public Page',
+        description: 'Patient homepage & visual page builder',
+        icon: Globe,
+    },
+    {
+        id: 'compliance',
+        label: 'Compliance',
+        description: 'Consent agreements & intake forms',
+        icon: ShieldCheck,
+    },
+    {
+        id: 'clinical_docs',
+        label: 'Clinical Docs',
+        description: 'Encounter & SOAP note templates',
+        icon: FileText,
+    },
+];
 
-function Card({ icon: Icon, title, subtitle, children }) {
-    return (
-        <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-6">
-            <div className="flex items-start gap-2 mb-5">
-                <Icon className="w-4 h-4 text-violet-700 mt-0.5" />
-                <div>
-                    <h2 className="font-semibold text-slate-800 text-sm">{title}</h2>
-                    {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
-                </div>
-            </div>
-            {children}
-        </div>
-    );
-}
-
-function SaveButton({ processing, children = 'Save changes' }) {
-    return (
-        <button
-            type="submit"
-            disabled={processing}
-            className="px-5 py-2.5 bg-violet-700 hover:bg-violet-800 disabled:opacity-60 text-white font-medium text-sm rounded-lg transition-colors"
-        >
-            {children}
-        </button>
-    );
-}
+/* ----------------------------- Profile Section ----------------------------- */
 
 function ProfileSection({ tenant, timezones, currencies, provinces, countries, cities }) {
     const { data, setData, patch, processing, errors } = useForm({
@@ -72,88 +92,175 @@ function ProfileSection({ tenant, timezones, currencies, provinces, countries, c
         patch('/app/settings/profile', { preserveScroll: true });
     };
 
+    const fullAddress = [data.address_line1, data.address_city, data.address_region, data.address_country]
+        .filter(Boolean)
+        .join(', ');
+
     return (
-        <Card icon={Building2} title="Clinic Profile" subtitle="Shown on bookings, invoices and client communications.">
-            <form onSubmit={submit} className="space-y-4">
+        <GlassCard className="p-6 sm:p-8">
+            <div className="flex items-center gap-3.5 mb-6 pb-5 border-b border-slate-200/50 dark:border-white/10">
+                <div className="w-11 h-11 rounded-2xl bg-purple-500/10 dark:bg-purple-400/15 border border-purple-500/20 text-[#8200db] dark:text-purple-300 flex items-center justify-center shrink-0 shadow-xs">
+                    <Building2 className="w-5 h-5" />
+                </div>
                 <div>
-                    <label className={labelClass}>Clinic Name</label>
-                    <input type="text" value={data.name} onChange={(e) => setData('name', e.target.value)} required className={inputClass} />
-                    {errors.name && <p className="text-xs text-rose-600 mt-1">{errors.name}</p>}
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">Clinic Profile</h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Your clinic details shown on client receipts, invoices, and booking confirmations.
+                    </p>
+                </div>
+            </div>
+
+            <form onSubmit={submit} className="space-y-6">
+                <div>
+                    <GlassLabel required>Clinic Official Name</GlassLabel>
+                    <GlassInput
+                        type="text"
+                        value={data.name}
+                        onChange={(e) => setData('name', e.target.value)}
+                        required
+                        placeholder="e.g. Astrogenapp Health & Wellness"
+                    />
+                    <GlassError message={errors.name} />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label className={labelClass}>Contact Email</label>
+                        <GlassLabel required>Contact Email</GlassLabel>
                         <div className="relative">
-                            <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                            <input type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} required className={`${inputClass} pl-9`} />
+                            <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 pointer-events-none" />
+                            <GlassInput
+                                type="email"
+                                value={data.email}
+                                onChange={(e) => setData('email', e.target.value)}
+                                required
+                                className="pl-10"
+                                placeholder="clinic@domain.com"
+                            />
                         </div>
-                        {errors.email && <p className="text-xs text-rose-600 mt-1">{errors.email}</p>}
+                        <GlassError message={errors.email} />
                     </div>
                     <div>
-                        <label className={labelClass}>Phone</label>
+                        <GlassLabel required>Contact Phone</GlassLabel>
                         <div className="relative">
-                            <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                            <input type="tel" value={data.phone} onChange={(e) => setData('phone', e.target.value)} required className={`${inputClass} pl-9`} />
+                            <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 pointer-events-none" />
+                            <GlassInput
+                                type="tel"
+                                value={data.phone}
+                                onChange={(e) => setData('phone', e.target.value)}
+                                required
+                                className="pl-10"
+                                placeholder="+1 (555) 000-0000"
+                            />
                         </div>
-                        {errors.phone && <p className="text-xs text-rose-600 mt-1">{errors.phone}</p>}
+                        <GlassError message={errors.phone} />
                     </div>
                 </div>
 
-                <AddressPicker provinces={provinces} lat={data.address_lat} lng={data.address_lng} onPick={onPick} />
-
-                <div>
-                    <label className={labelClass}>Street Address</label>
+                {/* Address & Interactive Map */}
+                <div className="space-y-3 pt-2">
+                    <GlassLabel required>Street Address & Map Pin</GlassLabel>
                     <div className="relative">
-                        <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                        <input type="text" value={data.address_line1} onChange={(e) => setData('address_line1', e.target.value)} required placeholder="Street address" className={`${inputClass} pl-9`} />
+                        <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 pointer-events-none" />
+                        <GlassInput
+                            type="text"
+                            value={data.address_line1}
+                            onChange={(e) => setData('address_line1', e.target.value)}
+                            required
+                            placeholder="Street address line (e.g. 123 Health Ave, Suite 200)"
+                            className="pl-10"
+                        />
                     </div>
-                    {errors.address_line1 && <p className="text-xs text-rose-600 mt-1">{errors.address_line1}</p>}
+                    <GlassError message={errors.address_line1} />
+
+                    <div className="pt-2">
+                        <AddressPicker
+                            provinces={provinces}
+                            lat={data.address_lat}
+                            lng={data.address_lng}
+                            onPick={onPick}
+                            addressText={fullAddress}
+                        />
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                {/* City, Province, Country */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                        <label className={labelClass}>City</label>
-                        <input type="text" list="ca-cities" value={data.address_city} onChange={(e) => setData('address_city', e.target.value)} required className={inputClass} />
-                        {errors.address_city && <p className="text-xs text-rose-600 mt-1">{errors.address_city}</p>}
+                        <GlassLabel required>City</GlassLabel>
+                        <GlassInput
+                            type="text"
+                            list="ca-cities"
+                            value={data.address_city}
+                            onChange={(e) => setData('address_city', e.target.value)}
+                            required
+                            placeholder="Toronto"
+                        />
+                        <GlassError message={errors.address_city} />
                     </div>
                     <div>
-                        <label className={labelClass}>Province</label>
-                        <select value={data.address_region} onChange={(e) => setData('address_region', e.target.value)} required className={inputClass}>
-                            <option value="" disabled>Province</option>
+                        <GlassLabel required>Province / State</GlassLabel>
+                        <GlassSelect
+                            value={data.address_region}
+                            onChange={(e) => setData('address_region', e.target.value)}
+                            required
+                        >
+                            <option value="" disabled>Select province</option>
                             {provinces.map((p) => <option key={p} value={p}>{p}</option>)}
-                        </select>
-                        {errors.address_region && <p className="text-xs text-rose-600 mt-1">{errors.address_region}</p>}
+                        </GlassSelect>
+                        <GlassError message={errors.address_region} />
                     </div>
                     <div>
-                        <label className={labelClass}>Country</label>
-                        <select value={data.address_country} onChange={(e) => setData('address_country', e.target.value)} required className={inputClass}>
+                        <GlassLabel required>Country</GlassLabel>
+                        <GlassSelect
+                            value={data.address_country}
+                            onChange={(e) => setData('address_country', e.target.value)}
+                            required
+                        >
                             {countries.map((c) => <option key={c} value={c}>{c}</option>)}
-                        </select>
+                        </GlassSelect>
                     </div>
                 </div>
                 <datalist id="ca-cities">{cities.map((c) => <option key={c} value={c} />)}</datalist>
 
+                {/* Timezone & Currency */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label className={labelClass}>Timezone</label>
-                        <select value={data.timezone} onChange={(e) => setData('timezone', e.target.value)} className={inputClass}>
+                        <GlassLabel>Clinic Timezone</GlassLabel>
+                        <GlassSelect
+                            value={data.timezone}
+                            onChange={(e) => setData('timezone', e.target.value)}
+                        >
                             {timezones.map((tz) => <option key={tz} value={tz}>{tz.replace('_', ' ')}</option>)}
-                        </select>
+                        </GlassSelect>
                     </div>
                     <div>
-                        <label className={labelClass}>Currency</label>
-                        <select value={data.currency} onChange={(e) => setData('currency', e.target.value)} className={inputClass}>
+                        <GlassLabel>Billing Currency</GlassLabel>
+                        <GlassSelect
+                            value={data.currency}
+                            onChange={(e) => setData('currency', e.target.value)}
+                        >
                             {currencies.map((c) => <option key={c} value={c}>{c}</option>)}
-                        </select>
+                        </GlassSelect>
                     </div>
                 </div>
 
-                <div className="pt-1"><SaveButton processing={processing} /></div>
+                {/* Sticky Save Bar */}
+                <div className="pt-4 border-t border-slate-200/50 dark:border-white/10 flex items-center justify-end">
+                    <GlassButton
+                        type="submit"
+                        variant="primary"
+                        disabled={processing}
+                        icon={<Save className="w-4 h-4" />}
+                    >
+                        Save Profile Changes
+                    </GlassButton>
+                </div>
             </form>
-        </Card>
+        </GlassCard>
     );
 }
+
+/* ---------------------------- Disciplines Section ---------------------------- */
 
 function DisciplinesSection({ tenant, allDisciplines = [], customDisciplines = [], disciplineLabels = {} }) {
     const labelsMap = { ...DISCIPLINE_LABELS, ...disciplineLabels };
@@ -223,102 +330,151 @@ function DisciplinesSection({ tenant, allDisciplines = [], customDisciplines = [
     };
 
     return (
-        <Card icon={Stethoscope} title="Disciplines Offered" subtitle="Practitioners can only be assigned to disciplines your clinic offers.">
-            <form onSubmit={submit} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {allDisciplines.map((d) => {
-                        const active = data.disciplines.includes(d);
-                        return (
-                            <button
-                                key={d} type="button" onClick={() => toggle(d)}
-                                aria-pressed={active}
-                                className={`text-left px-3.5 py-3 rounded-lg border text-sm font-medium transition-all flex items-center gap-2.5 ${
-                                    active ? 'bg-violet-50 border-violet-500 text-slate-900' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-violet-300'
-                                }`}
-                            >
-                                <span className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border ${active ? 'bg-violet-700 border-violet-700' : 'border-slate-300 bg-white'}`}>
-                                    {active && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
-                                </span>
-                                {labelsMap[d] || d}
-                            </button>
-                        );
-                    })}
+        <GlassCard className="p-6 sm:p-8">
+            <div className="flex items-center gap-3.5 mb-6 pb-5 border-b border-slate-200/50 dark:border-white/10">
+                <div className="w-11 h-11 rounded-2xl bg-purple-500/10 dark:bg-purple-400/15 border border-purple-500/20 text-[#8200db] dark:text-purple-300 flex items-center justify-center shrink-0 shadow-xs">
+                    <Stethoscope className="w-5 h-5" />
+                </div>
+                <div>
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">Disciplines Offered</h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Practitioners and services can only be assigned to disciplines your clinic offers.
+                    </p>
+                </div>
+            </div>
 
-                    {/* Custom Disciplines */}
-                    {(data.custom_disciplines || []).map((item) => {
-                        const active = data.disciplines.includes(item.slug);
-                        return (
-                            <div
-                                key={item.slug}
-                                className={`px-3.5 py-3 rounded-lg border text-sm font-medium transition-all flex items-center justify-between gap-2 ${
-                                    active ? 'bg-violet-50/80 border-violet-500 text-slate-900' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-violet-300'
-                                }`}
-                            >
+            <form onSubmit={submit} className="space-y-6">
+                <div>
+                    <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
+                        Platform Standard Disciplines
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {allDisciplines.map((d) => {
+                            const active = data.disciplines.includes(d);
+                            return (
                                 <button
+                                    key={d}
                                     type="button"
-                                    onClick={() => toggle(item.slug)}
-                                    className="flex items-center gap-2.5 flex-1 text-left min-w-0"
+                                    onClick={() => toggle(d)}
+                                    aria-pressed={active}
+                                    className={`text-left px-4 py-3.5 rounded-2xl border text-sm font-semibold transition-all flex items-center gap-3 ${
+                                        active
+                                            ? 'bg-purple-500/15 border-purple-500/40 text-purple-950 dark:text-purple-200 shadow-xs'
+                                            : 'bg-white/40 dark:bg-white/[0.03] border-white/40 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:border-purple-300'
+                                    }`}
                                 >
-                                    <span className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border ${active ? 'bg-violet-700 border-violet-700' : 'border-slate-300 bg-white'}`}>
-                                        {active && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                                    <span className={`w-5 h-5 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
+                                        active ? 'bg-[#8200db] border-[#8200db]' : 'border-slate-300 dark:border-white/20 bg-white dark:bg-white/10'
+                                    }`}>
+                                        {active && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
                                     </span>
-                                    <span className="truncate flex-1 font-semibold">{item.label}</span>
-                                    <span className="text-[10px] uppercase tracking-wider text-violet-600 font-bold bg-violet-100/70 px-1.5 py-0.5 rounded">
-                                        Custom
-                                    </span>
+                                    <span>{labelsMap[d] || d}</span>
                                 </button>
-                                <button
-                                    type="button"
-                                    onClick={() => handleRemoveCustom(item.slug)}
-                                    title={`Remove custom discipline "${item.label}"`}
-                                    className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors flex-shrink-0"
-                                >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                            </div>
-                        );
-                    })}
+                            );
+                        })}
+                    </div>
                 </div>
 
-                {/* Inline Custom Discipline Input */}
-                <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-2">
-                    <label className="block text-xs font-semibold text-slate-700 flex items-center justify-between">
+                {/* Custom Disciplines */}
+                {(data.custom_disciplines || []).length > 0 && (
+                    <div>
+                        <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
+                            Custom Clinic Disciplines
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {(data.custom_disciplines || []).map((item) => {
+                                const active = data.disciplines.includes(item.slug);
+                                return (
+                                    <div
+                                        key={item.slug}
+                                        className={`px-4 py-3.5 rounded-2xl border text-sm font-semibold transition-all flex items-center justify-between gap-2 ${
+                                            active
+                                                ? 'bg-purple-500/15 border-purple-500/40 text-purple-950 dark:text-purple-200 shadow-xs'
+                                                : 'bg-white/40 dark:bg-white/[0.03] border-white/40 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:border-purple-300'
+                                        }`}
+                                    >
+                                        <button
+                                            type="button"
+                                            onClick={() => toggle(item.slug)}
+                                            className="flex items-center gap-3 flex-1 text-left min-w-0"
+                                        >
+                                            <span className={`w-5 h-5 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
+                                                active ? 'bg-[#8200db] border-[#8200db]' : 'border-slate-300 dark:border-white/20 bg-white dark:bg-white/10'
+                                            }`}>
+                                                {active && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
+                                            </span>
+                                            <span className="truncate flex-1">{item.label}</span>
+                                            <span className="text-[10px] uppercase tracking-wider text-purple-700 dark:text-purple-300 font-bold bg-purple-500/20 px-2 py-0.5 rounded-md">
+                                                Custom
+                                            </span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveCustom(item.slug)}
+                                            title={`Remove custom discipline "${item.label}"`}
+                                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-colors shrink-0"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Add Custom Discipline Box */}
+                <div className="bg-white/50 dark:bg-white/[0.03] border border-white/40 dark:border-white/10 rounded-2xl p-4 sm:p-5 space-y-2.5">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
                         <span>Add Custom Discipline</span>
-                        <span className="text-[10px] font-normal text-slate-400">e.g. Physiotherapy, Reiki, Chiropractic</span>
+                        <span className="text-[11px] font-normal text-slate-400">e.g. Physiotherapy, Reiki, Chiropractic, Kinesiology</span>
                     </label>
-                    <div className="flex gap-2">
-                        <input
+                    <div className="flex gap-2.5">
+                        <GlassInput
                             type="text"
                             value={newCustomName}
                             onChange={(e) => { setNewCustomName(e.target.value); setLocalError(null); }}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCustom(); } }}
                             placeholder="Enter discipline name..."
-                            className="flex-1 px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-700 focus:border-violet-700 text-slate-900"
+                            className="flex-1"
                         />
-                        <button
+                        <GlassButton
                             type="button"
+                            variant="secondary"
                             onClick={handleAddCustom}
-                            className="px-3.5 py-2 bg-violet-700 hover:bg-violet-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+                            icon={<Plus className="w-4 h-4" />}
                         >
-                            <Plus className="w-3.5 h-3.5" />
                             Add
-                        </button>
+                        </GlassButton>
                     </div>
-                    {localError && <p className="text-xs text-rose-600 font-medium">{localError}</p>}
+                    {localError && <p className="text-xs text-rose-600 dark:text-rose-400 font-semibold">{localError}</p>}
                 </div>
 
-                {errors.disciplines && <p className="text-xs text-rose-600">{errors.disciplines}</p>}
-                {errors.custom_disciplines && <p className="text-xs text-rose-600">{errors.custom_disciplines}</p>}
-                <div className="pt-1"><SaveButton processing={processing} children="Update disciplines" /></div>
+                {errors.disciplines && <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{errors.disciplines}</p>}
+                {errors.custom_disciplines && <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{errors.custom_disciplines}</p>}
+
+                {/* Sticky Save Bar */}
+                <div className="pt-4 border-t border-slate-200/50 dark:border-white/10 flex items-center justify-end">
+                    <GlassButton
+                        type="submit"
+                        variant="primary"
+                        disabled={processing}
+                        icon={<Save className="w-4 h-4" />}
+                    >
+                        Update Disciplines
+                    </GlassButton>
+                </div>
             </form>
-        </Card>
+        </GlassCard>
     );
 }
+
+/* ----------------------------- Branding Section ----------------------------- */
 
 function BrandingSection({ tenant }) {
     const { data, setData, post, processing, errors } = useForm({
         logo: null,
-        brand_color: tenant.brand_color || '#5B2EFF',
+        brand_color: tenant.brand_color || '#8200db',
     });
 
     const submit = (e) => {
@@ -327,126 +483,466 @@ function BrandingSection({ tenant }) {
     };
 
     return (
-        <Card icon={Palette} title="Branding" subtitle="Your logo and colour on client-facing pages.">
-            <form onSubmit={submit} className="space-y-4">
+        <GlassCard className="p-6 sm:p-8">
+            <div className="flex items-center gap-3.5 mb-6 pb-5 border-b border-slate-200/50 dark:border-white/10">
+                <div className="w-11 h-11 rounded-2xl bg-purple-500/10 dark:bg-purple-400/15 border border-purple-500/20 text-[#8200db] dark:text-purple-300 flex items-center justify-center shrink-0 shadow-xs">
+                    <Palette className="w-5 h-5" />
+                </div>
                 <div>
-                    <label className={labelClass}>Clinic Logo</label>
-                    <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">Branding & Theme</h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Customize your clinic logo and primary brand accent across all client-facing pages.
+                    </p>
+                </div>
+            </div>
+
+            <form onSubmit={submit} className="space-y-6">
+                {/* Clinic Logo */}
+                <div>
+                    <GlassLabel>Clinic Logo</GlassLabel>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 mt-2">
+                        <div className="w-20 h-20 rounded-2xl bg-white/60 dark:bg-white/10 border border-slate-200/80 dark:border-white/15 flex items-center justify-center overflow-hidden shrink-0 shadow-xs">
                             {data.logo ? (
                                 <img src={URL.createObjectURL(data.logo)} alt="Logo preview" className="w-full h-full object-cover" />
                             ) : tenant.logo_url ? (
                                 <img src={tenant.logo_url} alt="Current logo" className="w-full h-full object-cover" />
                             ) : (
-                                <Building2 className="w-6 h-6 text-slate-300" />
+                                <Building2 className="w-8 h-8 text-slate-400" />
                             )}
                         </div>
-                        <label className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-50 border border-slate-200 hover:border-violet-500 rounded-lg text-sm font-medium text-slate-800 cursor-pointer transition-colors">
-                            <Upload className="w-4 h-4" />
-                            Upload Image
-                            <input type="file" accept="image/*" className="hidden" onChange={(e) => setData('logo', e.target.files[0] ?? null)} />
-                        </label>
+                        <div className="space-y-1.5">
+                            <label className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/60 dark:bg-white/10 border border-slate-200/80 dark:border-white/15 hover:border-purple-500 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 cursor-pointer transition-colors shadow-xs">
+                                <Upload className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                                Choose New Logo
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => setData('logo', e.target.files[0] ?? null)}
+                                />
+                            </label>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                Recommended: Square or wide PNG/SVG with transparent background (min 250×250px).
+                            </p>
+                        </div>
                     </div>
-                    {errors.logo && <p className="text-xs text-rose-600 mt-1">{errors.logo}</p>}
+                    <GlassError message={errors.logo} />
                 </div>
 
-                <div>
-                    <label className={labelClass}>Brand Colour</label>
-                    <div className="flex items-center gap-3">
-                        <input type="color" value={data.brand_color} onChange={(e) => setData('brand_color', e.target.value)} className="w-11 h-11 rounded-lg border border-slate-200 cursor-pointer" />
-                        <input type="text" value={data.brand_color} onChange={(e) => setData('brand_color', e.target.value)} className={`${inputClass} flex-1`} />
+                {/* Brand Color & Live Preview */}
+                <div className="pt-2">
+                    <GlassLabel>Brand Accent Colour</GlassLabel>
+                    <div className="flex items-center gap-3 mt-1.5 max-w-sm">
+                        <input
+                            type="color"
+                            value={data.brand_color}
+                            onChange={(e) => setData('brand_color', e.target.value)}
+                            className="w-12 h-11 rounded-xl border border-slate-200 dark:border-white/15 cursor-pointer bg-transparent shrink-0"
+                        />
+                        <GlassInput
+                            type="text"
+                            value={data.brand_color}
+                            onChange={(e) => setData('brand_color', e.target.value)}
+                            className="flex-1 font-mono uppercase"
+                        />
                     </div>
-                    {errors.brand_color && <p className="text-xs text-rose-600 mt-1">{errors.brand_color}</p>}
+                    <GlassError message={errors.brand_color} />
+
+                    {/* Live Accent Preview Box */}
+                    <div className="mt-4 p-4 rounded-2xl border border-white/40 dark:border-white/10 bg-white/40 dark:bg-white/[0.03] space-y-2.5">
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                            Live Color Preview:
+                        </span>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <button
+                                type="button"
+                                style={{ backgroundColor: data.brand_color }}
+                                className="px-4 py-2 rounded-xl text-xs font-bold text-white shadow-sm transition-opacity hover:opacity-95 pointer-events-none"
+                            >
+                                Primary Button
+                            </button>
+                            <span
+                                style={{
+                                    backgroundColor: `${data.brand_color}18`,
+                                    borderColor: `${data.brand_color}40`,
+                                    color: data.brand_color,
+                                }}
+                                className="px-3 py-1 rounded-full text-xs font-bold border"
+                            >
+                                Active Pill Badge
+                            </span>
+                            <span
+                                style={{ color: data.brand_color }}
+                                className="text-xs font-extrabold"
+                            >
+                                Active Link Preview
+                            </span>
+                        </div>
+                    </div>
                 </div>
 
-                <div className="pt-1"><SaveButton processing={processing} /></div>
+                {/* Sticky Save Bar */}
+                <div className="pt-4 border-t border-slate-200/50 dark:border-white/10 flex items-center justify-end">
+                    <GlassButton
+                        type="submit"
+                        variant="primary"
+                        disabled={processing}
+                        icon={<Save className="w-4 h-4" />}
+                    >
+                        Save Branding
+                    </GlassButton>
+                </div>
             </form>
-        </Card>
+        </GlassCard>
     );
 }
 
-export default function ClinicSettings({ tenant, timezones, currencies, provinces = [], countries = [], cities = [], allDisciplines = [], customDisciplines = [], disciplineLabels = {} }) {
+/* ---------------------------- Public Page Section ---------------------------- */
+
+function PublicPageSection() {
+    return (
+        <GlassCard className="p-6 sm:p-8">
+            <div className="flex items-center gap-3.5 mb-6 pb-5 border-b border-slate-200/50 dark:border-white/10">
+                <div className="w-11 h-11 rounded-2xl bg-purple-500/10 dark:bg-purple-400/15 border border-purple-500/20 text-[#8200db] dark:text-purple-300 flex items-center justify-center shrink-0 shadow-xs">
+                    <Globe className="w-5 h-5" />
+                </div>
+                <div>
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">Public Clinic Home Page</h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Configure what patients see when visiting your clinic subdomain.
+                    </p>
+                </div>
+            </div>
+
+            <div className="space-y-4">
+                {/* Action Row 1: Simple Settings */}
+                <div className="p-5 rounded-2xl border border-white/40 dark:border-white/10 bg-white/40 dark:bg-white/[0.03] flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:bg-white/60 dark:hover:bg-white/[0.06]">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-slate-900 dark:text-white">Standard Home Page Settings</span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200/60 dark:bg-white/10 text-slate-600 dark:text-slate-400">
+                                Default
+                            </span>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 max-w-lg leading-relaxed">
+                            Configure clinic tagline, introductory narrative, business operating hours, social media links, and call-to-action buttons.
+                        </p>
+                    </div>
+                    <Link href="/app/settings/homepage" className="shrink-0">
+                        <GlassButton variant="secondary" size="sm" icon={<ArrowRight className="w-3.5 h-3.5" />}>
+                            Configure Settings
+                        </GlassButton>
+                    </Link>
+                </div>
+
+                {/* Action Row 2: Visual Page Builder */}
+                <div className="p-5 rounded-2xl border border-purple-500/30 bg-purple-500/[0.06] dark:bg-purple-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:bg-purple-500/10">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                <Sparkles className="w-4 h-4 text-[#8200db] dark:text-purple-300" />
+                                Visual Drag-and-Drop Page Builder
+                            </span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-800 dark:text-purple-300">
+                                Advanced
+                            </span>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 max-w-lg leading-relaxed">
+                            Build a custom marketing site with interactive blocks, treatment carousels, practitioner profiles, and Google reviews.
+                        </p>
+                    </div>
+                    <Link href="/app/settings/page-builder" className="shrink-0">
+                        <GlassButton variant="primary" size="sm" icon={<ArrowRight className="w-3.5 h-3.5" />}>
+                            Launch Page Builder
+                        </GlassButton>
+                    </Link>
+                </div>
+            </div>
+        </GlassCard>
+    );
+}
+
+/* ---------------------------- Compliance Section ---------------------------- */
+
+function ComplianceSection() {
+    return (
+        <GlassCard className="p-6 sm:p-8">
+            <div className="flex items-center gap-3.5 mb-6 pb-5 border-b border-slate-200/50 dark:border-white/10">
+                <div className="w-11 h-11 rounded-2xl bg-purple-500/10 dark:bg-purple-400/15 border border-purple-500/20 text-[#8200db] dark:text-purple-300 flex items-center justify-center shrink-0 shadow-xs">
+                    <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">Compliance & Clinical Intake</h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Manage patient legal consents, terms of service, and health-history intake templates.
+                    </p>
+                </div>
+            </div>
+
+            <div className="space-y-4">
+                {/* Action Row 1: Consents */}
+                <div className="p-5 rounded-2xl border border-white/40 dark:border-white/10 bg-white/40 dark:bg-white/[0.03] flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:bg-white/60 dark:hover:bg-white/[0.06]">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-slate-900 dark:text-white">Informed Consent Agreements</span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                                Legal Mandatory
+                            </span>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 max-w-lg leading-relaxed">
+                            Configure required legal terms, treatment agreements, and sensitive-area consent forms with digital signatures prior to booking.
+                        </p>
+                    </div>
+                    <Link href="/app/settings/consents" className="shrink-0">
+                        <GlassButton variant="secondary" size="sm" icon={<ArrowRight className="w-3.5 h-3.5" />}>
+                            Configure Consents
+                        </GlassButton>
+                    </Link>
+                </div>
+
+                {/* Action Row 2: Intake Questionnaires */}
+                <div className="p-5 rounded-2xl border border-white/40 dark:border-white/10 bg-white/40 dark:bg-white/[0.03] flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:bg-white/60 dark:hover:bg-white/[0.06]">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-slate-900 dark:text-white">Discipline Intake Questionnaires</span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300">
+                                Clinical Screening
+                            </span>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 max-w-lg leading-relaxed">
+                            Customize health-history templates and automated red-flag contraindication screening across all clinic disciplines.
+                        </p>
+                    </div>
+                    <Link href="/app/settings/intake-forms" className="shrink-0">
+                        <GlassButton variant="secondary" size="sm" icon={<ArrowRight className="w-3.5 h-3.5" />}>
+                            Manage Intake Forms
+                        </GlassButton>
+                    </Link>
+                </div>
+            </div>
+        </GlassCard>
+    );
+}
+
+/* -------------------------- Clinical Docs Section -------------------------- */
+
+function ClinicalDocsSection() {
+    return (
+        <GlassCard className="p-6 sm:p-8">
+            <div className="flex items-center gap-3.5 mb-6 pb-5 border-b border-slate-200/50 dark:border-white/10">
+                <div className="w-11 h-11 rounded-2xl bg-purple-500/10 dark:bg-purple-400/15 border border-purple-500/20 text-[#8200db] dark:text-purple-300 flex items-center justify-center shrink-0 shadow-xs">
+                    <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">Clinical Documentation</h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Configure customized clinical charting, SOAP note structures, and encounter templates.
+                    </p>
+                </div>
+            </div>
+
+            <div className="p-5 rounded-2xl border border-white/40 dark:border-white/10 bg-white/40 dark:bg-white/[0.03] flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:bg-white/60 dark:hover:bg-white/[0.06]">
+                <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-slate-900 dark:text-white">Clinical Note & Charting Templates</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300">
+                            Customizable
+                        </span>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 max-w-lg leading-relaxed">
+                        Customize versioned encounter note templates for practitioners across all offered disciplines. Supports SOAP notes, TCM tongue/pulse observations, personal training progression, and nutrition assessments.
+                    </p>
+                </div>
+                <Link href="/app/settings/clinical-note-templates" className="shrink-0">
+                    <GlassButton variant="secondary" size="sm" icon={<ArrowRight className="w-3.5 h-3.5" />}>
+                        Configure Templates
+                    </GlassButton>
+                </Link>
+            </div>
+        </GlassCard>
+    );
+}
+
+/* ------------------------------- Main Page ------------------------------- */
+
+export default function ClinicSettings({
+    tenant,
+    timezones = [],
+    currencies = [],
+    provinces = [],
+    countries = [],
+    cities = [],
+    allDisciplines = [],
+    customDisciplines = [],
+    disciplineLabels = {},
+}) {
     const { flash } = usePage().props;
+    const shouldReduceMotion = useReducedMotion();
+
+    // Deep-linked active tab state from URL query param
+    const getInitialTab = () => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const tabParam = params.get('tab');
+            if (tabParam && SETTINGS_TABS.some((t) => t.id === tabParam)) {
+                return tabParam;
+            }
+        }
+        return 'profile';
+    };
+
+    const [activeTab, setActiveTab] = useState(getInitialTab);
+
+    const handleTabChange = (tabId) => {
+        setActiveTab(tabId);
+        if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            url.searchParams.set('tab', tabId);
+            window.history.replaceState({}, '', url.toString());
+        }
+    };
 
     return (
         <AuthenticatedLayout title="Clinic Settings">
             <Head title="Clinic Settings" />
 
-            {flash?.success && (
-                <div className="mb-6 p-3 text-sm font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg">
-                    {flash.success}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+                <PageHeader
+                    eyebrow="Administration"
+                    title="Clinic Settings"
+                    subtitle="Configure clinic profile details, offered disciplines, branding, and clinical documentation."
+                />
+
+                {flash?.success && (
+                    <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 text-sm font-semibold flex items-center gap-2.5">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span>{flash.success}</span>
+                    </div>
+                )}
+
+                {/* Mobile / Tablet Horizontal Scrollable Tab Bar */}
+                <div className="lg:hidden p-1.5 rounded-2xl bg-white/40 dark:bg-white/[0.04] border border-white/40 dark:border-white/10 flex items-center gap-1.5 overflow-x-auto no-scrollbar shadow-xs">
+                    {SETTINGS_TABS.map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                type="button"
+                                onClick={() => handleTabChange(tab.id)}
+                                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                                    isActive
+                                        ? 'bg-white dark:bg-white/15 text-[#8200db] dark:text-white shadow-sm border border-slate-200/50 dark:border-white/10'
+                                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                                }`}
+                            >
+                                <Icon className={`w-4 h-4 ${isActive ? 'text-[#8200db] dark:text-purple-300' : ''}`} />
+                                <span>{tab.label}</span>
+                            </button>
+                        );
+                    })}
                 </div>
-            )}
 
-            <div className="max-w-3xl space-y-6">
-                <ProfileSection tenant={tenant} timezones={timezones} currencies={currencies} provinces={provinces} countries={countries} cities={cities} />
-                <DisciplinesSection tenant={tenant} allDisciplines={allDisciplines} customDisciplines={customDisciplines} disciplineLabels={disciplineLabels} />
-                <BrandingSection tenant={tenant} />
+                {/* Desktop 2-Column Layout: Left Tab Rail + Right Section Panel */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    {/* Left Sub-Navigation Rail */}
+                    <div className="hidden lg:block lg:col-span-4 sticky top-24">
+                        <GlassCard className="p-3 space-y-1">
+                            {SETTINGS_TABS.map((tab) => {
+                                const Icon = tab.icon;
+                                const isActive = activeTab === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        type="button"
+                                        onClick={() => handleTabChange(tab.id)}
+                                        className={`w-full text-left p-3.5 rounded-2xl transition-all duration-200 flex items-center justify-between group ${
+                                            isActive
+                                                ? 'bg-white/80 dark:bg-white/15 shadow-sm border border-slate-200/60 dark:border-white/15'
+                                                : 'hover:bg-white/40 dark:hover:bg-white/[0.05] border border-transparent'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-3.5 min-w-0">
+                                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                                                isActive
+                                                    ? 'bg-[#8200db] text-white shadow-xs'
+                                                    : 'bg-purple-500/10 dark:bg-purple-400/10 text-slate-600 dark:text-slate-400 group-hover:text-[#8200db] dark:group-hover:text-purple-300'
+                                            }`}>
+                                                <Icon className="w-4 h-4" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <span className={`text-xs font-bold block truncate transition-colors ${
+                                                    isActive
+                                                        ? 'text-slate-900 dark:text-white font-extrabold'
+                                                        : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'
+                                                }`}>
+                                                    {tab.label}
+                                                </span>
+                                                <span className="text-[11px] text-slate-400 dark:text-slate-500 block truncate">
+                                                    {tab.description}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${
+                                            isActive
+                                                ? 'text-[#8200db] dark:text-purple-300 translate-x-0.5'
+                                                : 'text-slate-300 dark:text-slate-600 group-hover:translate-x-0.5'
+                                        }`} />
+                                    </button>
+                                );
+                            })}
+                        </GlassCard>
+                    </div>
 
-                <Card icon={Globe} title="Public Home Page" subtitle="Customize what patients see when they visit your clinic's public URL.">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <p className="text-xs text-slate-600 dark:text-slate-400 max-w-lg leading-relaxed">
-                            Add your tagline, clinic description, cover photo, social media links, and custom
-                            call-to-action buttons. Patients will see Pay Invoices and Staff Login by default.
-                        </p>
-                        <div className="flex items-center gap-2 shrink-0">
-                            <Link
-                                href="/app/settings/homepage"
-                                className="inline-flex items-center px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 transition"
+                    {/* Right Active Section Content */}
+                    <div className="lg:col-span-8">
+                        <AnimatePresence mode="wait">
+                            <motion.div
+                                key={activeTab}
+                                initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: -8 }}
+                                transition={{ duration: 0.22, ease: 'easeOut' }}
                             >
-                                Simple Settings
-                            </Link>
-                            <Link
-                                href="/app/settings/page-builder"
-                                className="inline-flex items-center px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold rounded-xl shadow-sm transition"
-                            >
-                                Visual Page Builder ✨
-                            </Link>
-                        </div>
-                    </div>
-                </Card>
+                                {activeTab === 'profile' && (
+                                    <ProfileSection
+                                        tenant={tenant}
+                                        timezones={timezones}
+                                        currencies={currencies}
+                                        provinces={provinces}
+                                        countries={countries}
+                                        cities={cities}
+                                    />
+                                )}
 
-                <Card icon={ShieldCheck} title="Informed Consent Agreements" subtitle="Configure legal agreement texts and consent forms for your clinic.">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <p className="text-xs text-slate-600 dark:text-slate-400 max-w-lg leading-relaxed">
-                            Set up the required consent agreements that patients must sign prior to treatment, including general treatment and sensitive-area agreements.
-                        </p>
-                        <Link
-                            href="/app/settings/consents"
-                            className="inline-flex items-center px-4 py-2 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 text-violet-700 dark:text-violet-400 text-xs font-semibold rounded-xl border border-violet-200 dark:border-violet-800 transition shrink-0"
-                        >
-                            Configure Consents &rarr;
-                        </Link>
-                    </div>
-                </Card>
+                                {activeTab === 'disciplines' && (
+                                    <DisciplinesSection
+                                        tenant={tenant}
+                                        allDisciplines={allDisciplines}
+                                        customDisciplines={customDisciplines}
+                                        disciplineLabels={disciplineLabels}
+                                    />
+                                )}
 
-                <Card icon={ClipboardList} title="Discipline Intake Questionnaires" subtitle="Customize health-history templates and contraindication screening flags.">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <p className="text-xs text-slate-600 dark:text-slate-400 max-w-lg leading-relaxed">
-                            Configure profession-specific intake forms for the disciplines your clinic offers (Massage, TCM, Personal Training, Nutrition, Colon Hydrotherapy). Define questions and contraindication warnings.
-                        </p>
-                        <Link
-                            href="/app/settings/intake-forms"
-                            className="inline-flex items-center px-4 py-2 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 text-violet-700 dark:text-violet-400 text-xs font-semibold rounded-xl border border-violet-200 dark:border-violet-800 transition shrink-0"
-                        >
-                            Manage Intake Forms &rarr;
-                        </Link>
-                    </div>
-                </Card>
+                                {activeTab === 'branding' && (
+                                    <BrandingSection tenant={tenant} />
+                                )}
 
-                <Card icon={Stethoscope} title="Clinical Documentation Templates" subtitle="Configure profession-specific SOAP, TCM, and encounter note templates.">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <p className="text-xs text-slate-600 dark:text-slate-400 max-w-lg leading-relaxed">
-                            Customize versioned encounter note templates for practitioners across all offered disciplines. Supports SOAP notes, TCM pulse/tongue observations, training programming, and nutrition assessments.
-                        </p>
-                        <Link
-                            href="/app/settings/clinical-note-templates"
-                            className="inline-flex items-center px-4 py-2 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 text-violet-700 dark:text-violet-400 text-xs font-semibold rounded-xl border border-violet-200 dark:border-violet-800 transition shrink-0"
-                        >
-                            Configure Note Templates &rarr;
-                        </Link>
+                                {activeTab === 'public_page' && (
+                                    <PublicPageSection />
+                                )}
+
+                                {activeTab === 'compliance' && (
+                                    <ComplianceSection />
+                                )}
+
+                                {activeTab === 'clinical_docs' && (
+                                    <ClinicalDocsSection />
+                                )}
+                            </motion.div>
+                        </AnimatePresence>
                     </div>
-                </Card>
+                </div>
             </div>
         </AuthenticatedLayout>
     );
