@@ -20,6 +20,8 @@ class IntakeFormTemplate extends Model
     public const DISCIPLINE_PERSONAL_TRAINING = PractitionerProfile::PROFESSION_PERSONAL_TRAINING;
     public const DISCIPLINE_NUTRITION = PractitionerProfile::PROFESSION_NUTRITION;
     public const DISCIPLINE_COLON_HYDROTHERAPY = PractitionerProfile::PROFESSION_COLON_HYDROTHERAPY;
+    public const DISCIPLINE_PHYSIOTHERAPY = PractitionerProfile::PROFESSION_PHYSIOTHERAPY;
+    public const DISCIPLINE_CHIROPRACTOR = PractitionerProfile::PROFESSION_CHIROPRACTOR;
 
     public const APPLIES_TO_ALL = 'all';
     public const APPLIES_TO_FEMALE = 'female_only';
@@ -506,6 +508,201 @@ class IntakeFormTemplate extends Model
                                     'is_contraindication' => true,
                                     'flag_trigger' => 'yes',
                                     'flag_warning' => 'Active rectal bleeding or severe fissures. Requires physician clearance and symptom resolution prior to treatment.',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+
+            self::DISCIPLINE_PHYSIOTHERAPY => [
+                'name' => 'Physiotherapy Health History & Intake',
+                'description' => 'Musculoskeletal assessment, injury onset, range of motion, functional limitations, and safety screening. (Editable placeholder template).',
+                'schema' => [
+                    'disclaimer' => $disclaimer,
+                    'sections' => [
+                        [
+                            'title' => 'Chief Complaint & Injury Details',
+                            'fields' => [
+                                [
+                                    'id' => 'chief_complaint',
+                                    'label' => 'Primary reason for visit / Affected area(s) and symptoms',
+                                    'type' => 'textarea',
+                                    'required' => true,
+                                    'placeholder' => 'Describe your primary injury, areas of pain, or movement limitations...',
+                                ],
+                                [
+                                    'id' => 'symptom_onset',
+                                    'label' => 'Onset of symptoms',
+                                    'type' => 'select',
+                                    'required' => true,
+                                    'options' => ['Sudden / Acute injury', 'Gradual / Chronic onset', 'Post-operative recovery', 'Workplace or motor vehicle incident'],
+                                ],
+                                [
+                                    'id' => 'pain_severity',
+                                    'label' => 'Current Pain Severity (1-10)',
+                                    'type' => 'select',
+                                    'required' => true,
+                                    'options' => ['1-3 (Mild)', '4-6 (Moderate)', '7-8 (Severe)', '9-10 (Extremely Severe)'],
+                                ],
+                                [
+                                    'id' => 'functional_limitations',
+                                    'label' => 'Daily activities or movements currently limited',
+                                    'type' => 'textarea',
+                                    'required' => false,
+                                    'placeholder' => 'e.g. Walking, stairs, lifting, sitting at desk, sports participation...',
+                                ],
+                            ],
+                        ],
+                        [
+                            'title' => 'Medical History & Prior Treatments',
+                            'fields' => [
+                                [
+                                    'id' => 'medical_conditions',
+                                    'label' => 'Relevant medical history, prior surgeries, or diagnostic imaging (X-ray, MRI, CT)',
+                                    'type' => 'textarea',
+                                    'required' => false,
+                                    'placeholder' => 'List any past surgeries, fractures, cardiac history, or recent scans...',
+                                ],
+                                [
+                                    'id' => 'current_medications',
+                                    'label' => 'Current Medications & Supplements',
+                                    'type' => 'textarea',
+                                    'required' => false,
+                                    'placeholder' => 'e.g. NSAIDs, anticoagulants, muscle relaxants...',
+                                ],
+                            ],
+                        ],
+                        [
+                            'title' => 'Safety & Contraindication Screening',
+                            'fields' => [
+                                [
+                                    'id' => 'unexplained_numbness_weakness',
+                                    'label' => 'Are you experiencing progressive muscle weakness, numbness, or loss of bowel/bladder control?',
+                                    'type' => 'radio',
+                                    'options' => ['no', 'yes'],
+                                    'required' => true,
+                                    'is_contraindication' => true,
+                                    'flag_trigger' => 'yes',
+                                    'flag_warning' => 'RED FLAG: Progressive neurological deficit or bowel/bladder changes. Requires immediate medical evaluation for cauda equina / neurological compromise.',
+                                ],
+                                [
+                                    'id' => 'recent_unexplained_fracture',
+                                    'label' => 'Do you have a recent unhealed fracture or severe untreated bone/joint trauma?',
+                                    'type' => 'radio',
+                                    'options' => ['no', 'yes'],
+                                    'required' => true,
+                                    'is_contraindication' => true,
+                                    'flag_trigger' => 'yes',
+                                    'flag_warning' => 'Unhealed fracture indicated. High-load resistance or passive mobilization contraindicated until radiographic union confirmed.',
+                                ],
+                                [
+                                    'id' => 'is_pregnant',
+                                    'label' => 'Are you currently pregnant?',
+                                    'type' => 'radio',
+                                    'options' => ['no', 'yes'],
+                                    'required' => true,
+                                    'applies_to' => self::APPLIES_TO_FEMALE,
+                                    'is_contraindication' => true,
+                                    'flag_trigger' => 'yes',
+                                    'flag_warning' => 'Pregnancy indicated. Modalities such as deep heat, electrical stimulation, and specific lumbar traction techniques may be contraindicated.',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+
+            self::DISCIPLINE_CHIROPRACTOR => [
+                'name' => 'Chiropractic Health History & Intake',
+                'description' => 'Spinal and musculoskeletal assessment, postural history, neurological symptoms, and safety screening. (Editable placeholder template).',
+                'schema' => [
+                    'disclaimer' => $disclaimer,
+                    'sections' => [
+                        [
+                            'title' => 'Chief Complaint & Spinal Symptoms',
+                            'fields' => [
+                                [
+                                    'id' => 'chief_complaint',
+                                    'label' => 'Primary area(s) of pain, stiffness, or dysfunction',
+                                    'type' => 'textarea',
+                                    'required' => true,
+                                    'placeholder' => 'Describe where you are experiencing spinal or joint pain, stiffness, or restricted movement...',
+                                ],
+                                [
+                                    'id' => 'symptom_duration',
+                                    'label' => 'How long have you had this condition?',
+                                    'type' => 'select',
+                                    'required' => true,
+                                    'options' => ['Less than 1 week', '1-4 weeks', '1-6 months', 'Longer than 6 months (chronic)'],
+                                ],
+                                [
+                                    'id' => 'pain_character',
+                                    'label' => 'Quality of discomfort',
+                                    'type' => 'select',
+                                    'required' => true,
+                                    'options' => ['Dull / Achy', 'Sharp / Stabbing', 'Burning / Tingling', 'Throbbing / Stiffness only'],
+                                ],
+                                [
+                                    'id' => 'prior_chiropractic_care',
+                                    'label' => 'Have you received chiropractic care in the past?',
+                                    'type' => 'radio',
+                                    'options' => ['no', 'yes'],
+                                    'required' => true,
+                                ],
+                            ],
+                        ],
+                        [
+                            'title' => 'Postural & Work Habits',
+                            'fields' => [
+                                [
+                                    'id' => 'work_posture',
+                                    'label' => 'Primary daily posture / work demand',
+                                    'type' => 'select',
+                                    'required' => false,
+                                    'options' => ['Prolonged desk sitting', 'Standing for long periods', 'Repetitive heavy lifting / physical labor', 'Active / Variable mobility'],
+                                ],
+                                [
+                                    'id' => 'medical_conditions',
+                                    'label' => 'Medical history, spinal surgeries, or past motor vehicle collisions',
+                                    'type' => 'textarea',
+                                    'required' => false,
+                                    'placeholder' => 'List any spinal surgery, fusion, disc herniation, or significant trauma...',
+                                ],
+                            ],
+                        ],
+                        [
+                            'title' => 'Safety & Red Flag Screening',
+                            'fields' => [
+                                [
+                                    'id' => 'radiating_numbness_tingling',
+                                    'label' => 'Do you experience radiating pain, numbness, or tingling traveling down your arms or legs?',
+                                    'type' => 'radio',
+                                    'options' => ['no', 'yes'],
+                                    'required' => true,
+                                    'is_contraindication' => true,
+                                    'flag_trigger' => 'yes',
+                                    'flag_warning' => 'Radiculopathy / radiating paresthesia reported. Focused neurological examination (reflexes, dermatomes, myotomes) required before spinal manipulation.',
+                                ],
+                                [
+                                    'id' => 'osteoporosis_bone_density',
+                                    'label' => 'Have you been diagnosed with osteoporosis, osteopenia, or pathological bone fragility?',
+                                    'type' => 'radio',
+                                    'options' => ['no', 'yes'],
+                                    'required' => true,
+                                    'is_contraindication' => true,
+                                    'flag_trigger' => 'yes',
+                                    'flag_warning' => 'Compromised bone density indicated. High-velocity low-amplitude (HVLA) manual thrust adjustments contraindicated; use low-force instrument or mobilization techniques.',
+                                ],
+                                [
+                                    'id' => 'dizziness_visual_disturbances',
+                                    'label' => 'Do you experience dizziness, lightheadedness, or visual disturbances when extending or rotating your neck?',
+                                    'type' => 'radio',
+                                    'options' => ['no', 'yes'],
+                                    'required' => true,
+                                    'is_contraindication' => true,
+                                    'flag_trigger' => 'yes',
+                                    'flag_warning' => 'Vertebrobasilar artery insufficiency risk. Detailed vascular and cervical screening mandatory prior to cervical spinal manipulation.',
                                 ],
                             ],
                         ],

@@ -12,6 +12,8 @@ const DISCIPLINE_LABELS = {
     personal_training: 'Personal Training & Fitness',
     nutrition: 'Dietetics & Holistic Nutrition',
     colon_hydrotherapy: 'Colon Hydrotherapy',
+    physiotherapy: 'Physiotherapy',
+    chiropractor: 'Chiropractor',
 };
 
 export default function PublicIntakeForm({

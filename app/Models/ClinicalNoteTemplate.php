@@ -19,6 +19,8 @@ class ClinicalNoteTemplate extends Model
     public const DISCIPLINE_PERSONAL_TRAINING = PractitionerProfile::PROFESSION_PERSONAL_TRAINING;
     public const DISCIPLINE_NUTRITION = PractitionerProfile::PROFESSION_NUTRITION;
     public const DISCIPLINE_COLON_HYDROTHERAPY = PractitionerProfile::PROFESSION_COLON_HYDROTHERAPY;
+    public const DISCIPLINE_PHYSIOTHERAPY = PractitionerProfile::PROFESSION_PHYSIOTHERAPY;
+    public const DISCIPLINE_CHIROPRACTOR = PractitionerProfile::PROFESSION_CHIROPRACTOR;
 
     protected $fillable = [
         'tenant_id',
@@ -501,6 +503,199 @@ class ClinicalNoteTemplate extends Model
                                     'label' => 'Recommended Return Schedule',
                                     'type' => 'select',
                                     'options' => ['1 week', '2 weeks', 'Series complete / As needed (PRN)'],
+                                    'required' => true,
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+
+            self::DISCIPLINE_PHYSIOTHERAPY => [
+                'name' => 'Physiotherapy Clinical SOAP Note',
+                'description' => 'Standard Physiotherapy SOAP note (Subjective, Objective, Assessment, Plan & Home Exercises). Editable placeholder for clinic customization.',
+                'schema' => [
+                    'sections' => [
+                        [
+                            'id' => 'subjective',
+                            'title' => 'Subjective (Client Report)',
+                            'description' => 'Patient symptoms, functional status changes, pain rating, and response to previous session.',
+                            'fields' => [
+                                [
+                                    'id' => 'chief_complaint',
+                                    'label' => 'Current Symptoms & Functional Status',
+                                    'type' => 'long_text',
+                                    'placeholder' => 'Patient report of symptoms, location, aggravating/easing factors since last visit...',
+                                    'required' => true,
+                                ],
+                                [
+                                    'id' => 'pain_score',
+                                    'label' => 'Current Pain Scale (0-10)',
+                                    'type' => 'select',
+                                    'options' => ['0 - No pain', '1-3 - Mild pain', '4-6 - Moderate pain', '7-8 - Severe pain', '9-10 - Worst imaginable'],
+                                    'required' => true,
+                                ],
+                            ],
+                        ],
+                        [
+                            'id' => 'objective',
+                            'title' => 'Objective (Physical Examination)',
+                            'description' => 'Range of motion, strength/MMT, special tests, neurological screen, and palpation findings.',
+                            'fields' => [
+                                [
+                                    'id' => 'range_of_motion',
+                                    'label' => 'Range of Motion (ROM) & Movement Analysis',
+                                    'type' => 'long_text',
+                                    'placeholder' => 'Active/Passive ROM measurements, end-feel, and movement patterns...',
+                                    'required' => true,
+                                ],
+                                [
+                                    'id' => 'strength_and_palpation',
+                                    'label' => 'Strength (MMT), Palpation & Soft Tissue',
+                                    'type' => 'long_text',
+                                    'placeholder' => 'Manual muscle testing scores (0-5), tissue tone, swelling/effusion...',
+                                    'required' => false,
+                                ],
+                                [
+                                    'id' => 'special_tests',
+                                    'label' => 'Special Tests & Neurological Screen',
+                                    'type' => 'long_text',
+                                    'placeholder' => 'Orthopedic tests, reflexes, dermatome/myotome checks...',
+                                    'required' => false,
+                                ],
+                            ],
+                        ],
+                        [
+                            'id' => 'assessment',
+                            'title' => 'Assessment & Clinical Analysis',
+                            'description' => 'Functional diagnosis, clinical progression, and treatment tolerance.',
+                            'fields' => [
+                                [
+                                    'id' => 'clinical_assessment',
+                                    'label' => 'Clinical Impression & Progress Toward Goals',
+                                    'type' => 'long_text',
+                                    'placeholder' => 'Response to care, functional status change, barriers to rehabilitation...',
+                                    'required' => true,
+                                ],
+                            ],
+                        ],
+                        [
+                            'id' => 'plan',
+                            'title' => 'Plan & Treatment Administered',
+                            'description' => 'Interventions performed today, home exercise program (HEP), and follow-up frequency.',
+                            'fields' => [
+                                [
+                                    'id' => 'treatment_administered',
+                                    'label' => 'Treatment & Modalities Administered Today',
+                                    'type' => 'long_text',
+                                    'placeholder' => 'Manual therapy, therapeutic exercise, modalities, patient education...',
+                                    'required' => true,
+                                ],
+                                [
+                                    'id' => 'home_exercise_program',
+                                    'label' => 'Home Exercise Program (HEP) & Recommendations',
+                                    'type' => 'long_text',
+                                    'placeholder' => 'Prescribed exercises, sets/reps, ergonomic modifications...',
+                                    'required' => false,
+                                ],
+                                [
+                                    'id' => 'return_schedule',
+                                    'label' => 'Recommended Return Schedule',
+                                    'type' => 'select',
+                                    'options' => ['1-2 days', '1 week', '2 weeks', 'Discharge / Independent HEP'],
+                                    'required' => true,
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+
+            self::DISCIPLINE_CHIROPRACTOR => [
+                'name' => 'Chiropractic Clinical SOAP Note',
+                'description' => 'Standard Chiropractic SOAP note (Subjective, Objective, Assessment, Plan & Adjustments). Editable placeholder for clinic customization.',
+                'schema' => [
+                    'sections' => [
+                        [
+                            'id' => 'subjective',
+                            'title' => 'Subjective (Patient Encounter)',
+                            'description' => 'Presenting complaints, symptom changes, activities of daily living, and pain scale.',
+                            'fields' => [
+                                [
+                                    'id' => 'chief_complaint',
+                                    'label' => 'Current Symptoms & Functional Changes',
+                                    'type' => 'long_text',
+                                    'placeholder' => 'Patient subjective report, pain locations, changes since last adjustment...',
+                                    'required' => true,
+                                ],
+                                [
+                                    'id' => 'pain_score',
+                                    'label' => 'Current Pain Scale (0-10)',
+                                    'type' => 'select',
+                                    'options' => ['0 - No pain', '1-3 - Mild pain', '4-6 - Moderate pain', '7-8 - Severe pain', '9-10 - Worst imaginable'],
+                                    'required' => true,
+                                ],
+                            ],
+                        ],
+                        [
+                            'id' => 'objective',
+                            'title' => 'Objective (Spinal & Neuro Examination)',
+                            'description' => 'Postural assessment, spinal segmental motion, palpation, and orthopedic findings.',
+                            'fields' => [
+                                [
+                                    'id' => 'segmental_findings',
+                                    'label' => 'Segmental Motion Restriction / Subluxation Findings',
+                                    'type' => 'long_text',
+                                    'placeholder' => 'Levels with motion restriction or tenderness (Cervical, Thoracic, Lumbar, Pelvis/SIJ)...',
+                                    'required' => true,
+                                ],
+                                [
+                                    'id' => 'palpation_posture',
+                                    'label' => 'Palpation, Muscle Spasm & Posture',
+                                    'type' => 'long_text',
+                                    'placeholder' => 'Hypertonicity, trigger points, postural asymmetries...',
+                                    'required' => false,
+                                ],
+                            ],
+                        ],
+                        [
+                            'id' => 'assessment',
+                            'title' => 'Assessment',
+                            'description' => 'Patient response to prior care, spinal biomechanical status, and prognosis.',
+                            'fields' => [
+                                [
+                                    'id' => 'clinical_assessment',
+                                    'label' => 'Clinical Impression & Response to Adjustments',
+                                    'type' => 'long_text',
+                                    'placeholder' => 'Biomechanical response, changes in spinal mobility, treatment tolerance...',
+                                    'required' => true,
+                                ],
+                            ],
+                        ],
+                        [
+                            'id' => 'plan',
+                            'title' => 'Plan & Spinal Adjustments',
+                            'description' => 'Segments adjusted, techniques utilized, adjunct therapies, and recommended follow-up.',
+                            'fields' => [
+                                [
+                                    'id' => 'adjustments_performed',
+                                    'label' => 'Adjustments & Techniques Delivered',
+                                    'type' => 'long_text',
+                                    'placeholder' => 'Segments adjusted (e.g. C2, T4, L5, R-SIJ), technique (Diversified, Drop, Activator, Mobilization)...',
+                                    'required' => true,
+                                ],
+                                [
+                                    'id' => 'patient_recommendations',
+                                    'label' => 'Patient Recommendations & Exercises',
+                                    'type' => 'long_text',
+                                    'placeholder' => 'Postural exercises, ergonomic guidance, cryotherapy/heat...',
+                                    'required' => false,
+                                ],
+                                [
+                                    'id' => 'return_schedule',
+                                    'label' => 'Recommended Return Schedule',
+                                    'type' => 'select',
+                                    'options' => ['2-3 times this week', '1 week', '2 weeks', 'Maintenance / PRN'],
                                     'required' => true,
                                 ],
                             ],

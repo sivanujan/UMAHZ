@@ -25,6 +25,8 @@ const DISCIPLINE_LABELS = {
     personal_training: 'Personal Training',
     nutrition: 'Nutrition',
     colon_hydrotherapy: 'Colon Hydrotherapy',
+    physiotherapy: 'Physiotherapy',
+    chiropractor: 'Chiropractor',
 };
 
 export default function ClinicsIndex({ tenants, status, statuses }) {

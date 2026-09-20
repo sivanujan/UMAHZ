@@ -17,6 +17,8 @@ class PractitionerProfile extends Model
     public const PROFESSION_PERSONAL_TRAINING = 'personal_training';
     public const PROFESSION_NUTRITION = 'nutrition';
     public const PROFESSION_COLON_HYDROTHERAPY = 'colon_hydrotherapy';
+    public const PROFESSION_PHYSIOTHERAPY = 'physiotherapy';
+    public const PROFESSION_CHIROPRACTOR = 'chiropractor';
 
     public const VERIFICATION_PENDING = 'pending';
     public const VERIFICATION_VERIFIED = 'verified';

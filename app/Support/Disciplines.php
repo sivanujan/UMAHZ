@@ -14,10 +14,12 @@ class Disciplines
         PractitionerProfile::PROFESSION_PERSONAL_TRAINING => 'Personal Training',
         PractitionerProfile::PROFESSION_NUTRITION => 'Dietetics & Nutrition',
         PractitionerProfile::PROFESSION_COLON_HYDROTHERAPY => 'Colon Hydrotherapy',
+        PractitionerProfile::PROFESSION_PHYSIOTHERAPY => 'Physiotherapy',
+        PractitionerProfile::PROFESSION_CHIROPRACTOR => 'Chiropractor',
     ];
 
     /**
-     * The fixed 5 discipline codes supported by the platform.
+     * The fixed default discipline codes supported by the platform.
      *
      * @return array<int, string>
      */

@@ -41,6 +41,8 @@ class ClinicRegistrationController extends Controller
         PractitionerProfile::PROFESSION_PERSONAL_TRAINING,
         PractitionerProfile::PROFESSION_NUTRITION,
         PractitionerProfile::PROFESSION_COLON_HYDROTHERAPY,
+        PractitionerProfile::PROFESSION_PHYSIOTHERAPY,
+        PractitionerProfile::PROFESSION_CHIROPRACTOR,
     ];
 
     /**

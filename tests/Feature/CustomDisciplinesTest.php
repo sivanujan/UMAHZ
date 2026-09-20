@@ -73,13 +73,16 @@ class CustomDisciplinesTest extends TestCase
             'primary_contact_email' => $email,
             'primary_contact_phone' => '4165551234',
             'custom_disciplines' => [
-                ['label' => 'Physiotherapy'],
+                ['label' => 'Kinesiology'],
                 ['label' => 'Reiki Energy Therapy'],
             ],
-            'requested_disciplines' => ['physiotherapy', 'reiki_energy_therapy', 'massage_therapy'],
+            'requested_disciplines' => ['kinesiology', 'reiki_energy_therapy', 'massage_therapy'],
+            'plan_tier' => 'practice',
+            'full_time_practitioners_count' => 3,
+            'part_time_practitioners_count' => 2,
             'estimated_practitioner_count' => 5,
-            'license_number' => 'PT-98765',
-            'licensing_body' => 'College of Physiotherapists',
+            'license_number' => 'KIN-98765',
+            'licensing_body' => 'College of Kinesiologists',
             'license_document' => UploadedFile::fake()->create('license.pdf', 500, 'application/pdf'),
         ];
 
@@ -91,30 +94,30 @@ class CustomDisciplinesTest extends TestCase
 
         // Check custom_disciplines stored
         $this->assertCount(2, $tenant->custom_disciplines);
-        $this->assertEquals('physiotherapy', $tenant->custom_disciplines[0]['slug']);
-        $this->assertEquals('Physiotherapy', $tenant->custom_disciplines[0]['label']);
+        $this->assertEquals('kinesiology', $tenant->custom_disciplines[0]['slug']);
+        $this->assertEquals('Kinesiology', $tenant->custom_disciplines[0]['label']);
         $this->assertEquals('reiki_energy_therapy', $tenant->custom_disciplines[1]['slug']);
 
         // Check requested_disciplines stored
-        $this->assertEquals(['physiotherapy', 'reiki_energy_therapy', 'massage_therapy'], $tenant->requested_disciplines);
+        $this->assertEquals(['kinesiology', 'reiki_energy_therapy', 'massage_therapy'], $tenant->requested_disciplines);
 
         // Check primary practitioner profession
         $primaryProfile = PractitionerProfile::whereHas('staffMembership', fn ($q) => $q->where('tenant_id', $tenant->id))
             ->where('is_primary_contact', true)
             ->first();
         $this->assertNotNull($primaryProfile);
-        $this->assertEquals('physiotherapy', $primaryProfile->profession);
-        $this->assertEquals('Physiotherapy', $primaryProfile->professionLabel());
+        $this->assertEquals('kinesiology', $primaryProfile->profession);
+        $this->assertEquals('Kinesiology', $primaryProfile->professionLabel());
 
         // Check templates seeded: massage_therapy has starter questions, custom disciplines have empty schema
         $massageTemplate = IntakeFormTemplate::where('tenant_id', $tenant->id)->where('discipline', 'massage_therapy')->first();
         $this->assertNotNull($massageTemplate);
         $this->assertNotEmpty($massageTemplate->schema['sections']);
 
-        $ptTemplate = IntakeFormTemplate::where('tenant_id', $tenant->id)->where('discipline', 'physiotherapy')->first();
-        $this->assertNotNull($ptTemplate);
-        $this->assertEquals('Physiotherapy Health History & Intake', $ptTemplate->name);
-        $this->assertEquals(['sections' => []], $ptTemplate->schema);
+        $kinTemplate = IntakeFormTemplate::where('tenant_id', $tenant->id)->where('discipline', 'kinesiology')->first();
+        $this->assertNotNull($kinTemplate);
+        $this->assertEquals('Kinesiology Health History & Intake', $kinTemplate->name);
+        $this->assertEquals(['sections' => []], $kinTemplate->schema);
     }
 
     public function test_registration_rejects_custom_discipline_colliding_with_fixed_5(): void
@@ -137,7 +140,10 @@ class CustomDisciplinesTest extends TestCase
                 ['label' => 'Massage Therapy'], // Standard platform discipline
             ],
             'requested_disciplines' => ['massage_therapy'],
-            'estimated_practitioner_count' => 2,
+            'plan_tier' => 'balance',
+            'full_time_practitioners_count' => 1,
+            'part_time_practitioners_count' => 0,
+            'estimated_practitioner_count' => 1,
             'license_number' => 'MT-12345',
             'licensing_body' => 'CMTO',
             'license_document' => UploadedFile::fake()->create('license.pdf', 500, 'application/pdf'),
@@ -146,6 +152,19 @@ class CustomDisciplinesTest extends TestCase
         $response = $this->from('http://umahz.test/clinics/register')
             ->post('http://umahz.test/clinics/register/prepare', $payload);
         $response->assertSessionHasErrors('custom_disciplines');
+
+        // Also test colliding with new standard disciplines Physiotherapy and Chiropractor
+        $payload['custom_disciplines'] = [['label' => 'Physiotherapy']];
+        $payload['requested_disciplines'] = ['physiotherapy'];
+        $this->from('http://umahz.test/clinics/register')
+            ->post('http://umahz.test/clinics/register/prepare', $payload)
+            ->assertSessionHasErrors('custom_disciplines');
+
+        $payload['custom_disciplines'] = [['label' => 'Chiropractor']];
+        $payload['requested_disciplines'] = ['chiropractor'];
+        $this->from('http://umahz.test/clinics/register')
+            ->post('http://umahz.test/clinics/register/prepare', $payload)
+            ->assertSessionHasErrors('custom_disciplines');
     }
 
     public function test_registration_rejects_custom_discipline_exceeding_length(): void
@@ -168,7 +187,10 @@ class CustomDisciplinesTest extends TestCase
                 ['label' => str_repeat('A', 55)],
             ],
             'requested_disciplines' => ['massage_therapy'],
-            'estimated_practitioner_count' => 2,
+            'plan_tier' => 'balance',
+            'full_time_practitioners_count' => 1,
+            'part_time_practitioners_count' => 0,
+            'estimated_practitioner_count' => 1,
             'license_number' => 'MT-12345',
             'licensing_body' => 'CMTO',
             'license_document' => UploadedFile::fake()->create('license.pdf', 500, 'application/pdf'),
@@ -262,9 +284,9 @@ class CustomDisciplinesTest extends TestCase
     {
         $tenant = $this->clinic('intaketest', [
             'custom_disciplines' => [
-                ['slug' => 'physiotherapy', 'label' => 'Physiotherapy'],
+                ['slug' => 'reiki_therapy', 'label' => 'Reiki Therapy'],
             ],
-            'requested_disciplines' => ['physiotherapy'],
+            'requested_disciplines' => ['reiki_therapy'],
         ]);
         $owner = $this->member($tenant);
 
@@ -280,14 +302,14 @@ class CustomDisciplinesTest extends TestCase
         // Generate magic link
         $url = "http://intaketest.umahz.test/app/clients/{$client->id}/intakes/link";
         $response = $this->actingAs($owner)->post($url, [
-            'discipline' => 'physiotherapy',
+            'discipline' => 'reiki_therapy',
         ]);
         $response->assertRedirect();
 
         $intake = ClientIntake::where('client_id', $client->id)->first();
         $this->assertNotNull($intake);
-        $this->assertEquals('physiotherapy', $intake->discipline);
-        $this->assertEquals('Physiotherapy Health History & Intake', $intake->template_name);
+        $this->assertEquals('reiki_therapy', $intake->discipline);
+        $this->assertEquals('Reiki Therapy Health History & Intake', $intake->template_name);
 
         // Public patient visits link (should render successfully with empty schema without 500)
         $publicUrl = "/intake/{$intake->token}";
@@ -297,20 +319,20 @@ class CustomDisciplinesTest extends TestCase
         // Submit responses
         $submit = $this->post("/intake/{$intake->token}", [
             'responses' => [
-                'chief_complaint' => 'Shoulder pain after tennis',
+                'chief_complaint' => 'Stress and tension',
             ],
         ]);
         $submit->assertRedirect($publicUrl);
 
         $intake->refresh();
         $this->assertTrue($intake->isCompleted());
-        $this->assertEquals('Shoulder pain after tennis', $intake->responses['chief_complaint']);
+        $this->assertEquals('Stress and tension', $intake->responses['chief_complaint']);
 
         // Staff views intake details JSON
         $viewUrl = "http://intaketest.umahz.test/app/clients/{$client->id}/intakes/{$intake->id}";
         $viewRes = $this->actingAs($owner)->getJson($viewUrl);
         $viewRes->assertOk();
-        $viewRes->assertJsonPath('intake.discipline_label', 'Physiotherapy');
+        $viewRes->assertJsonPath('intake.discipline_label', 'Reiki Therapy');
         $this->assertNotEquals('unknown', strtolower($viewRes->json('intake.discipline_label')));
     }
 

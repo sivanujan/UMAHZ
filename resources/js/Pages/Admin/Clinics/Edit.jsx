@@ -10,6 +10,8 @@ const DISCIPLINE_LABELS = {
     personal_training: 'Personal Training',
     nutrition: 'Dietitian / Nutrition',
     colon_hydrotherapy: 'Colon Hydrotherapy',
+    physiotherapy: 'Physiotherapy',
+    chiropractor: 'Chiropractor',
 };
 
 const labelClass = 'block text-[11px] uppercase tracking-wider text-slate-500 font-semibold mb-1.5';

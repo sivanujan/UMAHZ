@@ -1,4 +1,4 @@
-import { Hand, Zap, Dumbbell, Apple, Droplets } from 'lucide-react';
+import { Hand, Zap, Dumbbell, Apple, Droplets, Activity, Stethoscope } from 'lucide-react';
 
 export const PROFESSIONS = [
     {
@@ -89,6 +89,42 @@ export const PROFESSIONS = [
             { title: 'Equipment Sterilization Log', description: 'Track sterilization cycles and equipment maintenance for compliance.' },
             { title: 'Post-Session Notes', description: 'Record client response and practitioner observations after each session.' },
             { title: 'Package & Visit Tracking', description: 'Manage prepaid visit packages and renewal reminders.' },
+        ],
+    },
+    {
+        slug: 'physiotherapy',
+        name: 'Physiotherapy',
+        tagline: 'ROM Tracking & Home Exercise Programs',
+        description: 'Comprehensive physical therapy documentation, objective ROM tracking, and prescribed home exercise programs.',
+        heroDescription: 'Purpose-built documentation for physical therapists and clinics — track joint mobility, functional recovery, and rehabilitation exercise programs.',
+        icon: Activity,
+        bg: '#ecfdf5',
+        stroke: '#059669',
+        modules: [
+            { title: 'Physiotherapy SOAP Note', description: 'Detailed Subjective, Objective, Assessment, and Plan charting tailored for physical therapy.' },
+            { title: 'Range of Motion (ROM) Analysis', description: 'Objective tracking of active and passive joint mobility.' },
+            { title: 'Functional Assessment', description: 'Document movement limitations and milestones across rehab phases.' },
+            { title: 'Home Exercise Program (HEP)', description: 'Assign customized therapeutic exercise regimens and instructions.' },
+            { title: 'Modalities & Treatment Log', description: 'Log manual therapy, ultrasound, electrotherapy, and exercise interventions.' },
+            { title: 'Re-evaluation & Discharge Summary', description: 'Track clinical outcome measures and prepare formal discharge reports.' },
+        ],
+    },
+    {
+        slug: 'chiropractor',
+        name: 'Chiropractor',
+        tagline: 'Spinal Motion & Segmental Adjustment Records',
+        description: 'Spinal listings, subluxation tracking, postural findings, and rapid encounter documentation for chiropractors.',
+        heroDescription: 'Streamlined chiropractic charting — record segmental findings, adjustment techniques, postural analysis, and care plans with minimal clicks.',
+        icon: Stethoscope,
+        bg: '#eff6ff',
+        stroke: '#2563eb',
+        modules: [
+            { title: 'Chiropractic SOAP Note', description: 'Fast, structured SOAP encounter notes tailored to chiropractic adjustments.' },
+            { title: 'Segmental Motion & Subluxation Record', description: 'Chart spinal levels, listings, and adjustments delivered.' },
+            { title: 'Postural & Orthopedic Screening', description: 'Log postural analysis, neuro-orthopedic checks, and spinal biomechanics.' },
+            { title: 'Care Plan & Visit Schedules', description: 'Manage adjustment visit frequencies and progression towards maintenance.' },
+            { title: 'Ergonomic & Home Care Guidance', description: 'Provide and document posture, icing, and stretching recommendations.' },
+            { title: 'Re-examination & Outcome Measures', description: 'Track disability index scores and objective improvements.' },
         ],
     },
 ];

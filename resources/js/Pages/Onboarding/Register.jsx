@@ -5,7 +5,7 @@ import {
     User, Mail, Lock, Building2, Check, Eye, EyeOff, AlertCircle, Loader2,
     MapPin, Phone, IdCard, Upload, FileText, X, Hand, Flame, Dumbbell, Apple,
     Droplets, ShieldCheck, Clock, Stethoscope, Globe, Plus, Sparkles, Trash2,
-    ArrowRight,
+    ArrowRight, Activity,
 } from 'lucide-react';
 import Logo from '@/Components/Common/Logo';
 import ThemeToggle from '@/Components/Common/ThemeToggle';
@@ -28,6 +28,8 @@ const DISCIPLINE_LABELS = {
     personal_training: 'Personal Training',
     nutrition: 'Dietitian / Nutrition',
     colon_hydrotherapy: 'Colon Hydrotherapy',
+    physiotherapy: 'Physiotherapy',
+    chiropractor: 'Chiropractor',
 };
 
 const DISCIPLINE_ICONS = {
@@ -36,6 +38,8 @@ const DISCIPLINE_ICONS = {
     personal_training: Dumbbell,
     nutrition: Apple,
     colon_hydrotherapy: Droplets,
+    physiotherapy: Activity,
+    chiropractor: Stethoscope,
 };
 
 const STEP_FIELDS = {

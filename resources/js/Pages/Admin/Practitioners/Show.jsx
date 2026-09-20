@@ -9,6 +9,8 @@ const DISCIPLINE_LABELS = {
     personal_training: 'Personal Training',
     nutrition: 'Dietitian / Nutrition',
     colon_hydrotherapy: 'Colon Hydrotherapy',
+    physiotherapy: 'Physiotherapy',
+    chiropractor: 'Chiropractor',
 };
 
 function InfoRow({ icon: Icon, label, value }) {
