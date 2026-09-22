@@ -96,37 +96,45 @@ export const PROFESSIONS = [
         name: 'Physiotherapy',
         tagline: 'ROM Tracking & Home Exercise Programs',
         description: 'Comprehensive physical therapy documentation, objective ROM tracking, and prescribed home exercise programs.',
-        heroDescription: 'Purpose-built documentation for physical therapists and clinics — track joint mobility, functional recovery, and rehabilitation exercise programs.',
+        heroDescription: 'Purpose-built documentation and scheduling for physical therapy clinics — chart joint mobility, track functional recovery milestones, and manage home exercise programs in one seamless workflow.',
         icon: Activity,
         bg: '#ecfdf5',
         stroke: '#059669',
         modules: [
-            { title: 'Physiotherapy SOAP Note', description: 'Detailed Subjective, Objective, Assessment, and Plan charting tailored for physical therapy.' },
-            { title: 'Range of Motion (ROM) Analysis', description: 'Objective tracking of active and passive joint mobility.' },
-            { title: 'Functional Assessment', description: 'Document movement limitations and milestones across rehab phases.' },
-            { title: 'Home Exercise Program (HEP)', description: 'Assign customized therapeutic exercise regimens and instructions.' },
+            { title: 'Physiotherapy SOAP Note', description: 'Structured Subjective, Objective, Assessment, and Plan charting tailored for physical therapy encounters.' },
+            { title: 'Range of Motion (ROM) Analysis', description: 'Objective tracking of active and passive joint mobility session over session.' },
+            { title: 'Functional Assessment', description: 'Document movement limitations, gait analysis, and milestones across rehabilitation phases.' },
+            { title: 'Home Exercise Program (HEP)', description: 'Assign customized therapeutic exercise regimens and printable instructions.' },
             { title: 'Modalities & Treatment Log', description: 'Log manual therapy, ultrasound, electrotherapy, and exercise interventions.' },
             { title: 'Re-evaluation & Discharge Summary', description: 'Track clinical outcome measures and prepare formal discharge reports.' },
         ],
     },
     {
-        slug: 'chiropractor',
-        name: 'Chiropractor',
-        tagline: 'Spinal Motion & Segmental Adjustment Records',
+        slug: 'chiropractic',
+        name: 'Chiropractic',
+        tagline: 'Spinal Listings & Segmental Adjustment Records',
         description: 'Spinal listings, subluxation tracking, postural findings, and rapid encounter documentation for chiropractors.',
-        heroDescription: 'Streamlined chiropractic charting — record segmental findings, adjustment techniques, postural analysis, and care plans with minimal clicks.',
+        heroDescription: 'Streamlined practice management for chiropractic clinics — record spinal listings, adjustive techniques, postural screenings, and care plan visit schedules with minimal clicks.',
         icon: Stethoscope,
         bg: '#eff6ff',
         stroke: '#2563eb',
         modules: [
-            { title: 'Chiropractic SOAP Note', description: 'Fast, structured SOAP encounter notes tailored to chiropractic adjustments.' },
-            { title: 'Segmental Motion & Subluxation Record', description: 'Chart spinal levels, listings, and adjustments delivered.' },
+            { title: 'Chiropractic SOAP Note', description: 'Fast, structured SOAP encounter notes tailored to chiropractic adjustments and routine visits.' },
+            { title: 'Segmental Motion & Subluxation Record', description: 'Chart spinal levels, listings, and adjustments delivered across vertebrae.' },
             { title: 'Postural & Orthopedic Screening', description: 'Log postural analysis, neuro-orthopedic checks, and spinal biomechanics.' },
-            { title: 'Care Plan & Visit Schedules', description: 'Manage adjustment visit frequencies and progression towards maintenance.' },
-            { title: 'Ergonomic & Home Care Guidance', description: 'Provide and document posture, icing, and stretching recommendations.' },
-            { title: 'Re-examination & Outcome Measures', description: 'Track disability index scores and objective improvements.' },
+            { title: 'Care Plan & Visit Schedules', description: 'Manage adjustment visit frequencies and progression towards maintenance care.' },
+            { title: 'Ergonomic & Home Care Guidance', description: 'Document lifestyle posture, icing, and stretching recommendations.' },
+            { title: 'Re-examination & Outcome Measures', description: 'Track functional improvement scores and objective progress over time.' },
         ],
     },
 ];
 
-export const getProfessionBySlug = (slug) => PROFESSIONS.find((p) => p.slug === slug);
+export const getProfessionBySlug = (slug) => {
+    if (!slug) return undefined;
+    const normalized = slug.toLowerCase();
+    return PROFESSIONS.find((p) =>
+        p.slug === normalized ||
+        (normalized === 'chiropractor' && p.slug === 'chiropractic') ||
+        (normalized === 'chiropractic' && p.slug === 'chiropractor')
+    );
+};

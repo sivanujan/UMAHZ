@@ -106,7 +106,16 @@ Route::domain($central)->group(function () {
     })->name('professions.index');
 
     Route::get('/professions/{slug}', function (string $slug) {
-        $validSlugs = ['massage-therapy', 'acupuncture-tcm', 'personal-training', 'nutrition-dietetics', 'colon-hydrotherapy'];
+        $validSlugs = [
+            'massage-therapy',
+            'acupuncture-tcm',
+            'personal-training',
+            'nutrition-dietetics',
+            'colon-hydrotherapy',
+            'physiotherapy',
+            'chiropractic',
+            'chiropractor',
+        ];
         abort_unless(in_array($slug, $validSlugs), 404);
 
         return Inertia::render('Professions/Show', ['slug' => $slug]);
