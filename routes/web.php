@@ -33,6 +33,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RoomController;
+use App\Http\Controllers\ScribeSessionController;
 use App\Http\Controllers\Settings\StaffInvitationController;
 use App\Http\Controllers\StripeWebhookController;
 use App\Models\Client;
@@ -335,6 +336,24 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
         Route::post('/notes/{note}/addenda', [ClinicalNoteController::class, 'addAddendum'])->name('notes.addenda.store');
         Route::delete('/notes/{note}', [ClinicalNoteController::class, 'destroy'])->name('notes.destroy');
 
+        // AI Scribe (Phase 1: consent gate + capture + transcription). JSON API
+        // for the Scribe panel. Receptionists are excluded at the route AND by
+        // ScribeSessionPolicy; the consent gate is enforced in the service.
+        Route::middleware('staff.role:practitioner,clinic_owner')->prefix('scribe')->name('scribe.')->group(function () {
+            Route::post('/sessions', [ScribeSessionController::class, 'store'])->name('sessions.store');
+            Route::get('/sessions/{scribeSession}', [ScribeSessionController::class, 'show'])->name('sessions.show');
+            Route::post('/sessions/{scribeSession}/consent', [ScribeSessionController::class, 'captureConsent'])->name('sessions.consent');
+            Route::post('/sessions/{scribeSession}/consent/withdraw', [ScribeSessionController::class, 'withdrawConsent'])->name('sessions.consent.withdraw');
+            Route::post('/sessions/{scribeSession}/start', [ScribeSessionController::class, 'start'])->name('sessions.start');
+            Route::post('/sessions/{scribeSession}/pause', [ScribeSessionController::class, 'pause'])->name('sessions.pause');
+            Route::post('/sessions/{scribeSession}/resume', [ScribeSessionController::class, 'resume'])->name('sessions.resume');
+            Route::post('/sessions/{scribeSession}/stop', [ScribeSessionController::class, 'stop'])->name('sessions.stop');
+            Route::post('/sessions/{scribeSession}/chunks', [ScribeSessionController::class, 'uploadChunk'])->middleware('throttle:60,1')->name('sessions.chunks');
+            Route::post('/sessions/{scribeSession}/chunks/retry', [ScribeSessionController::class, 'retryFailed'])->name('sessions.chunks.retry');
+            Route::post('/sessions/{scribeSession}/draft', [ScribeSessionController::class, 'generateDraft'])->middleware('throttle:10,1')->name('sessions.draft');
+            Route::post('/sessions/{scribeSession}/handoff', [ScribeSessionController::class, 'handoff'])->name('sessions.handoff');
+        });
+
         // Calendar & booking — available to any active workspace role
         // (owner, practitioner, receptionist). Every action is tenant-scoped
         // by the Appointment global scope + BookingService boundary checks.
@@ -396,6 +415,7 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
             Route::patch('/settings/profile', [ClinicSettingsController::class, 'updateProfile'])->name('settings.profile');
             Route::patch('/settings/disciplines', [ClinicSettingsController::class, 'updateDisciplines'])->name('settings.disciplines');
             Route::post('/settings/branding', [ClinicSettingsController::class, 'updateBranding'])->name('settings.branding');
+            Route::patch('/settings/scribe', [ClinicSettingsController::class, 'updateScribe'])->name('settings.scribe');
 
             // Public home page content — owner customises tagline, description,
             // cover image, social links, hours/address visibility.

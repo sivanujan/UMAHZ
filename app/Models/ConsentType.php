@@ -17,6 +17,9 @@ class ConsentType extends Model
 
     public const CODE_SENSITIVE_AREA = 'sensitive_area';
 
+    /** Per-encounter consent to be audio-recorded and AI-transcribed (AI Scribe). */
+    public const CODE_AI_SCRIBE_RECORDING = 'ai_scribe_recording';
+
     public const SOURCE_TEXT = 'text';
 
     public const SOURCE_PDF = 'pdf';
@@ -106,5 +109,26 @@ class ConsentType extends Model
                 ]
             );
         }
+    }
+
+    /**
+     * Ensure the AI Scribe recording consent type exists. Like the other
+     * defaults, the wording is NOT fabricated: the clinic must supply the
+     * text (Settings -> Consents) before Scribe can record anyone.
+     */
+    public static function ensureScribeTypeForTenant(string $tenantId): self
+    {
+        return static::withoutGlobalScopes()->firstOrCreate(
+            [
+                'tenant_id' => $tenantId,
+                'code' => self::CODE_AI_SCRIBE_RECORDING,
+            ],
+            [
+                'name' => 'Recording & AI Transcription Consent',
+                'description' => 'Client consent for this encounter to be audio-recorded and transcribed by AI Scribe. Required before any recording starts.',
+                'body' => null, // Placeholder: must be supplied by clinic administration
+                'is_active' => true,
+            ]
+        );
     }
 }

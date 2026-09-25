@@ -103,6 +103,7 @@ class Tenant extends Model
         'stripe_connect_charges_enabled',
         'stripe_connect_payouts_enabled',
         'stripe_connect_details_submitted',
+        'scribe_settings',
     ];
 
     protected function casts(): array
@@ -112,6 +113,7 @@ class Tenant extends Model
             'address' => 'array',
             'business_hours' => 'array',
             'homepage_settings' => 'array',
+            'scribe_settings' => 'array',
             'onboarding_completed_at' => 'datetime',
             'requested_disciplines' => 'array',
             'custom_disciplines' => 'array',
@@ -180,6 +182,29 @@ class Tenant extends Model
     public function monthlyBillableTotal(): float
     {
         return $this->monthlyBillableBreakdown()['total_monthly'];
+    }
+
+    /**
+     * Effective AI Scribe settings (clinic overrides on top of config defaults).
+     *
+     * @return array{enabled: bool, audio_retention_mode: string, audio_retention_hours: int}
+     */
+    public function scribeSettings(): array
+    {
+        $settings = array_merge(config('scribe.defaults'), $this->scribe_settings ?? []);
+
+        return [
+            'enabled' => (bool) $settings['enabled'],
+            'audio_retention_mode' => in_array($settings['audio_retention_mode'], ['delete_after_transcription', 'retain_window'], true)
+                ? $settings['audio_retention_mode']
+                : 'delete_after_transcription',
+            'audio_retention_hours' => max(1, min((int) $settings['audio_retention_hours'], (int) config('scribe.max_retention_hours'))),
+        ];
+    }
+
+    public function scribeEnabled(): bool
+    {
+        return $this->scribeSettings()['enabled'];
     }
 
     public function hasCompletedOnboarding(): bool

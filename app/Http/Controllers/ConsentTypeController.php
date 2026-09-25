@@ -22,6 +22,7 @@ class ConsentTypeController extends Controller
     {
         $tenantId = TenantScope::getTenantId();
         ConsentType::ensureDefaultsForTenant($tenantId);
+        ConsentType::ensureScribeTypeForTenant($tenantId);
 
         $consentTypes = ConsentType::where('tenant_id', $tenantId)
             ->withCount('consents')

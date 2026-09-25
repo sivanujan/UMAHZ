@@ -11,3 +11,6 @@ Artisan::command('inspire', function () {
 // Release abandoned clinic registrations (card never saved) so their reserved
 // subdomain frees up and no junk/orphan records linger.
 Schedule::command('registrations:prune-expired')->everyTenMinutes();
+
+// Enforce each clinic's AI Scribe raw-audio retention (transcripts are kept).
+Schedule::command('scribe:purge-audio')->hourly()->withoutOverlapping();

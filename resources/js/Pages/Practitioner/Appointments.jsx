@@ -10,8 +10,9 @@ import {
     Calendar as CalendarIcon, Clock, User, MapPin, DoorOpen,
     CheckCircle2, XCircle, AlertCircle, ChevronLeft, ChevronRight,
     Sparkles, FileText, Check, ArrowRight, UserCheck, Phone, Mail,
-    CalendarDays, ListOrdered
+    CalendarDays, ListOrdered, Mic
 } from 'lucide-react';
+import ScribePanel from '@/Components/Scribe/ScribePanel';
 
 const STATUS_STYLES = {
     scheduled: {
@@ -88,9 +89,10 @@ function zonedDateKey(iso, tz) {
 }
 
 export default function PractitionerAppointments({
-    view, anchorDate, weekStart, todayDate, timezone, appointments = [], stats = {}, practitioner = {},
+    view, anchorDate, weekStart, todayDate, timezone, appointments = [], stats = {}, practitioner = {}, canUseScribe = false,
 }) {
     const [selectedAppt, setSelectedAppt] = useState(null);
+    const [scribeAppt, setScribeAppt] = useState(null);
     const [toastMessage, setToastMessage] = useState(null);
 
     const now = new Date();
@@ -421,6 +423,17 @@ export default function PractitionerAppointments({
                                                                 </a>
                                                             ) : null}
 
+                                                            {canUseScribe && appt.client_id && appt.status !== 'completed' && appt.status !== 'no_show' && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setScribeAppt(appt)}
+                                                                    className="inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/25 transition shadow-2xs"
+                                                                >
+                                                                    <Mic className="w-3 h-3" />
+                                                                    <span>Start Scribe</span>
+                                                                </button>
+                                                            )}
+
                                                             {appt.status !== 'checked_in' && appt.status !== 'completed' && (
                                                                 <button
                                                                     type="button"
@@ -610,6 +623,16 @@ export default function PractitionerAppointments({
                     onClose={() => setSelectedAppt(null)}
                     onStatusUpdate={handleStatusUpdate}
                     onToast={(msg) => setToastMessage(msg)}
+                />
+            )}
+
+            {/* AI Scribe (consent-gated recording + transcription) */}
+            {scribeAppt && (
+                <ScribePanel
+                    clientId={scribeAppt.client_id}
+                    clientName={scribeAppt.client_name}
+                    appointmentId={scribeAppt.id}
+                    onClose={() => setScribeAppt(null)}
                 />
             )}
 

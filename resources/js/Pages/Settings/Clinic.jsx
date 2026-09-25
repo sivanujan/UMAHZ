@@ -10,7 +10,7 @@ import { GlassInput, GlassSelect, GlassLabel, GlassError } from '@/Components/UI
 import {
     Building2, Mail, Phone, MapPin, Stethoscope, Palette, Upload,
     Check, ShieldCheck, ClipboardList, Plus, Trash2, Globe, ArrowRight,
-    Sparkles, Save, FileText, CheckCircle2, ChevronRight, Sliders
+    Sparkles, Save, FileText, CheckCircle2, ChevronRight, Sliders, Mic, AlertTriangle
 } from 'lucide-react';
 
 const DISCIPLINE_LABELS = {
@@ -59,6 +59,12 @@ const SETTINGS_TABS = [
         label: 'Clinical Docs',
         description: 'Encounter & SOAP note templates',
         icon: FileText,
+    },
+    {
+        id: 'ai_scribe',
+        label: 'AI Scribe',
+        description: 'Encounter recording & audio retention',
+        icon: Mic,
     },
 ];
 
@@ -765,6 +771,141 @@ function ClinicalDocsSection() {
     );
 }
 
+/* ----------------------------- AI Scribe Section ----------------------------- */
+
+function ScribeSection({ settings, consentConfigured, provider, maxHours = 168 }) {
+    const { data, setData, patch, processing, errors } = useForm({
+        enabled: Boolean(settings?.enabled),
+        audio_retention_mode: settings?.audio_retention_mode || 'delete_after_transcription',
+        audio_retention_hours: settings?.audio_retention_hours || 24,
+    });
+
+    const submit = (e) => {
+        e.preventDefault();
+        patch('/app/settings/scribe', { preserveScroll: true });
+    };
+
+    const retentionOptions = [
+        {
+            value: 'delete_after_transcription',
+            title: 'Delete right after transcription (recommended)',
+            body: 'Raw audio is deleted the moment each part is transcribed. Audio that could not be transcribed is kept only for the safety window below so it can be retried, then deleted.',
+        },
+        {
+            value: 'retain_window',
+            title: 'Keep for a short window',
+            body: 'All raw audio is kept for the window below (e.g. for quality checks), then deleted automatically.',
+        },
+    ];
+
+    return (
+        <GlassCard className="p-6 sm:p-8">
+            <div className="flex items-center gap-3.5 mb-6 pb-5 border-b border-slate-200/50 dark:border-white/10">
+                <div className="w-11 h-11 rounded-2xl bg-purple-500/10 dark:bg-purple-400/15 border border-purple-500/20 text-[#8200db] dark:text-purple-300 flex items-center justify-center shrink-0 shadow-xs">
+                    <Mic className="w-5 h-5" />
+                </div>
+                <div>
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">AI Scribe</h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Record a consented encounter and get a transcript to help write the clinical note. Scribe never finalizes or signs anything.
+                    </p>
+                </div>
+            </div>
+
+            <form onSubmit={submit} className="space-y-6">
+                <div className="p-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs leading-relaxed flex gap-2.5">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <div>
+                        <p className="font-bold mb-1">Privacy &amp; data residency</p>
+                        <p>
+                            Encounter audio is sent to the transcription provider ({provider === 'fake' ? 'test provider: no audio leaves UMAHZ' : 'AssemblyAI, hosted outside Canada'}) to be transcribed.
+                            Confirm this meets your privacy obligations (e.g. PHIPA / PIPEDA) before recording real clients.
+                        </p>
+                    </div>
+                </div>
+
+                <label className="flex items-start justify-between gap-4 p-4 rounded-2xl border border-white/40 dark:border-white/10 bg-white/40 dark:bg-white/[0.03] cursor-pointer">
+                    <div>
+                        <span className="text-sm font-bold text-slate-900 dark:text-white block">Enable AI Scribe for this clinic</span>
+                        <span className="text-xs text-slate-600 dark:text-slate-400">Practitioners and owners see "Start Scribe" on appointments and client profiles. Receptionists never have access.</span>
+                    </div>
+                    <input
+                        type="checkbox"
+                        checked={data.enabled}
+                        onChange={(e) => setData('enabled', e.target.checked)}
+                        className="mt-1 w-5 h-5 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                    />
+                </label>
+
+                {!consentConfigured && (
+                    <div className="p-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 text-rose-800 dark:text-rose-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <span>
+                            <strong>Recording consent text is missing.</strong> Enter your clinic's own
+                            "Recording &amp; AI Transcription Consent" wording before anyone can be recorded.
+                        </span>
+                        <Link href="/app/settings/consents" className="shrink-0">
+                            <GlassButton variant="secondary" size="sm" icon={<ArrowRight className="w-3.5 h-3.5" />}>
+                                Configure consent
+                            </GlassButton>
+                        </Link>
+                    </div>
+                )}
+
+                <fieldset className="space-y-3">
+                    <legend className="text-sm font-bold text-slate-900 dark:text-white mb-2">Raw audio retention</legend>
+                    {retentionOptions.map((opt) => (
+                        <label
+                            key={opt.value}
+                            className={`flex items-start gap-3 p-4 rounded-2xl border cursor-pointer transition ${
+                                data.audio_retention_mode === opt.value
+                                    ? 'border-purple-500/50 bg-purple-500/5'
+                                    : 'border-white/40 dark:border-white/10 bg-white/40 dark:bg-white/[0.03]'
+                            }`}
+                        >
+                            <input
+                                type="radio"
+                                name="audio_retention_mode"
+                                value={opt.value}
+                                checked={data.audio_retention_mode === opt.value}
+                                onChange={() => setData('audio_retention_mode', opt.value)}
+                                className="mt-0.5 text-purple-600 focus:ring-purple-500"
+                            />
+                            <span>
+                                <span className="text-sm font-bold text-slate-900 dark:text-white block">{opt.title}</span>
+                                <span className="text-xs text-slate-600 dark:text-slate-400">{opt.body}</span>
+                            </span>
+                        </label>
+                    ))}
+
+                    <div className="max-w-xs">
+                        <GlassLabel htmlFor="audio_retention_hours">
+                            {data.audio_retention_mode === 'retain_window' ? 'Keep raw audio for (hours)' : 'Safety window for untranscribed audio (hours)'}
+                        </GlassLabel>
+                        <GlassInput
+                            id="audio_retention_hours"
+                            type="number"
+                            min={1}
+                            max={maxHours}
+                            value={data.audio_retention_hours}
+                            onChange={(e) => setData('audio_retention_hours', e.target.value)}
+                        />
+                        <GlassError message={errors.audio_retention_hours} />
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Transcripts are part of the clinical record and follow your clinical-record retention rules; this setting only affects raw audio.
+                    </p>
+                </fieldset>
+
+                <div className="pt-4 border-t border-slate-200/50 dark:border-white/10 flex items-center justify-end">
+                    <GlassButton type="submit" variant="primary" disabled={processing} icon={<Save className="w-4 h-4" />}>
+                        Save AI Scribe Settings
+                    </GlassButton>
+                </div>
+            </form>
+        </GlassCard>
+    );
+}
+
 /* ------------------------------- Main Page ------------------------------- */
 
 export default function ClinicSettings({
@@ -777,6 +918,10 @@ export default function ClinicSettings({
     allDisciplines = [],
     customDisciplines = [],
     disciplineLabels = {},
+    scribeSettings = {},
+    scribeConsentConfigured = false,
+    scribeProvider = 'assemblyai',
+    scribeMaxRetentionHours = 168,
 }) {
     const { flash } = usePage().props;
     const shouldReduceMotion = useReducedMotion();
@@ -940,6 +1085,15 @@ export default function ClinicSettings({
 
                                 {activeTab === 'clinical_docs' && (
                                     <ClinicalDocsSection />
+                                )}
+
+                                {activeTab === 'ai_scribe' && (
+                                    <ScribeSection
+                                        settings={scribeSettings}
+                                        consentConfigured={scribeConsentConfigured}
+                                        provider={scribeProvider}
+                                        maxHours={scribeMaxRetentionHours}
+                                    />
                                 )}
                             </motion.div>
                         </AnimatePresence>

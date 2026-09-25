@@ -11,6 +11,7 @@ use App\Models\ClinicalNoteTemplate;
 use App\Models\Consent;
 use App\Models\IntakeFormTemplate;
 use App\Models\PractitionerProfile;
+use App\Models\ScribeSession;
 use App\Models\Tenant;
 use App\PatientBilling\Contracts\PaymentProvider;
 use App\PatientBilling\StripePaymentProvider;
@@ -21,7 +22,16 @@ use App\Policies\ClinicalNoteTemplatePolicy;
 use App\Policies\ConsentPolicy;
 use App\Policies\IntakeFormTemplatePolicy;
 use App\Policies\PractitionerProfilePolicy;
+use App\Policies\ScribeSessionPolicy;
 use App\Policies\TenantPolicy;
+use App\Scribe\AssemblyAiTranscriptionProvider;
+use App\Scribe\Contracts\DraftingProvider;
+use App\Scribe\Contracts\ObjectiveMeasurementSource;
+use App\Scribe\Contracts\TranscriptionProvider;
+use App\Scribe\Drafting\FakeDraftingProvider;
+use App\Scribe\Drafting\NullObjectiveMeasurementSource;
+use App\Scribe\Drafting\OpenRouterDraftingProvider;
+use App\Scribe\FakeTranscriptionProvider;
 use GuzzleHttp\Client as GuzzleClient;
 use Illuminate\Mail\Transport\ResendTransport;
 use Illuminate\Support\Facades\Gate;
@@ -61,6 +71,23 @@ class AppServiceProvider extends ServiceProvider
             PaymentProvider::class,
             StripePaymentProvider::class,
         );
+
+        // AI Scribe providers. Scribe depends only on these contracts, so a
+        // provider (e.g. a Canadian-hosted one that passes privacy review) is
+        // swapped here via config/scribe.php — no Scribe code changes.
+        $this->app->singleton(TranscriptionProvider::class, fn () => match (config('scribe.transcription.driver')) {
+            'fake' => new FakeTranscriptionProvider,
+            default => new AssemblyAiTranscriptionProvider,
+        });
+
+        // Phase 2: profession-specific AI draft (Claude Haiku 4.5 via OpenRouter by default).
+        $this->app->singleton(DraftingProvider::class, fn () => match (config('scribe.drafting.driver')) {
+            'fake' => new FakeDraftingProvider,
+            default => new OpenRouterDraftingProvider,
+        });
+
+        // Phase 4 placeholder (approved UMAHZ Motion results plug in here).
+        $this->app->singleton(ObjectiveMeasurementSource::class, NullObjectiveMeasurementSource::class);
     }
 
     /**
@@ -80,6 +107,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(ClientIntake::class, ClientIntakePolicy::class);
         Gate::policy(ClinicalNote::class, ClinicalNotePolicy::class);
         Gate::policy(ClinicalNoteTemplate::class, ClinicalNoteTemplatePolicy::class);
+        Gate::policy(ScribeSession::class, ScribeSessionPolicy::class);
 
         // The CLINIC -> UMAHZ platform subscription bills the Tenant as the
         // Stripe customer (our own Stripe account, not Connect).

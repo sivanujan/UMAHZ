@@ -9,6 +9,8 @@ use App\Models\ClinicalNote;
 use App\Models\ClinicalNoteAddendum;
 use App\Models\ClinicalNoteTemplate;
 use App\Models\ClientIntake;
+use App\Models\ScribeDraftItem;
+use App\Models\ScribeSession;
 use App\Models\StaffMembership;
 use App\Models\Tenant;
 use App\Scopes\TenantScope;
@@ -257,7 +259,38 @@ class ClinicalNoteController extends Controller
                 'schema' => $latestIntake->schema_snapshot,
                 'flags' => $latestIntake->contraindication_flags,
             ] : null,
+            'scribeHandoff' => $user->can('viewBody', $note) ? $this->scribeHandoff($note) : null,
         ]);
+    }
+
+    /**
+     * Which fields of this draft were pre-filled by AI Scribe, and from which
+     * sources, so the editor can label them for review.
+     */
+    private function scribeHandoff(ClinicalNote $note): ?array
+    {
+        $session = ScribeSession::where('clinical_note_id', $note->id)->latest('handed_off_at')->first();
+
+        if (! $session || ! $session->handed_off_at) {
+            return null;
+        }
+
+        $meta = $session->handoff_fields ?? [];
+        $filled = $meta['filled'] ?? [];
+
+        $provenance = ScribeDraftItem::where('scribe_session_id', $session->id)
+            ->where('draft_version', $meta['draft_version'] ?? $session->draft_version)
+            ->whereIn('section_key', $filled)
+            ->get(['section_key', 'provenance'])
+            ->groupBy('section_key')
+            ->map(fn ($items) => $items->pluck('provenance')->unique()->values());
+
+        return [
+            'session_id' => $session->id,
+            'handed_off_at' => $session->handed_off_at->toIso8601String(),
+            'fields' => collect($filled)->mapWithKeys(fn ($id) => [$id => $provenance[$id] ?? ['ai_generated']]),
+            'skipped' => $meta['skipped'] ?? [],
+        ];
     }
 
     /**

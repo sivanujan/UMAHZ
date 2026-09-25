@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Appointment;
+use App\Models\ScribeSession;
 use App\Models\AuditEvent;
 use App\Models\StaffMembership;
 use App\Models\Tenant;
@@ -105,6 +106,7 @@ class PractitionerAppointmentController extends Controller
             'todayDate' => $todayStr,
             'timezone' => $tz,
             'appointments' => $appointments,
+            'canUseScribe' => $request->user()->can('create', ScribeSession::class),
             'stats' => [
                 'todayCount' => $todayCount,
                 'completedToday' => $completedToday,
