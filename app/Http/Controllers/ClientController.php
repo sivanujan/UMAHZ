@@ -9,6 +9,7 @@ use App\Models\ClientIntake;
 use App\Models\ClinicalNote;
 use App\Models\Consent;
 use App\Models\ConsentType;
+use App\Models\ScribeSession;
 use App\Models\IntakeFormTemplate;
 use App\Models\Invoice;
 use App\Models\StaffMembership;
@@ -139,8 +140,11 @@ class ClientController extends Controller
                 'withdrawal_reason' => $c->withdrawal_reason,
             ]);
 
+        // The AI Scribe recording consent is captured per encounter from the
+        // Scribe panel, not from the general "Record Consent" dialog.
         $consentTypes = ConsentType::where('tenant_id', $tenantId)
             ->where('is_active', true)
+            ->where('code', '!=', ConsentType::CODE_AI_SCRIBE_RECORDING)
             ->orderBy('name')
             ->get()
             ->map(fn (ConsentType $t) => [
@@ -272,6 +276,7 @@ class ClientController extends Controller
             'invoices' => $invoices,
             'canBill' => $canBill,
             'canAcceptCards' => $tenant?->canAcceptCardPayments() ?? false,
+            'canUseScribe' => $user->can('create', ScribeSession::class),
         ]);
     }
 

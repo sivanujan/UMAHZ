@@ -5,8 +5,9 @@ import {
     ArrowLeft, Users, Mail, Phone, Calendar, HeartHandshake,
     Pencil, Power, Trash2, CheckCircle2, AlertCircle, Clock, ShieldCheck,
     FileCheck2, Plus, Eye, ShieldAlert, AlertTriangle, ClipboardList,
-    Link2, Copy, Send, ClipboardEdit, Stethoscope, Lock, FileSignature
+    Link2, Copy, Send, ClipboardEdit, Stethoscope, Lock, FileSignature, Mic
 } from 'lucide-react';
+import ScribePanel from '@/Components/Scribe/ScribePanel';
 import RecordConsentModal from '@/Components/Consent/RecordConsentModal';
 import ViewConsentModal from '@/Components/Consent/ViewConsentModal';
 import WithdrawConsentModal from '@/Components/Consent/WithdrawConsentModal';
@@ -275,6 +276,7 @@ export default function ClientsShow({
     invoices = [],
     canBill = false,
     canAcceptCards = false,
+    canUseScribe = false,
 }) {
     const [editing, setEditing] = useState(false);
     const [recordingConsent, setRecordingConsent] = useState(false);
@@ -287,6 +289,7 @@ export default function ClientsShow({
     const [copiedIntakeId, setCopiedIntakeId] = useState(null);
 
     const [creatingNote, setCreatingNote] = useState(false);
+    const [scribeOpen, setScribeOpen] = useState(false);
 
     const { errors } = usePage().props;
 
@@ -870,6 +873,17 @@ export default function ClientsShow({
                         </div>
                     </div>
 
+                    <div className="flex items-center gap-2">
+                    {canUseScribe && (
+                        <button
+                            type="button"
+                            onClick={() => setScribeOpen(true)}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-bold transition"
+                        >
+                            <Mic className="w-3.5 h-3.5" />
+                            <span>Start Scribe</span>
+                        </button>
+                    )}
                     {canCreateNote && (
                         <button
                             type="button"
@@ -880,6 +894,7 @@ export default function ClientsShow({
                             <span>New Clinical Note</span>
                         </button>
                     )}
+                    </div>
                 </div>
 
                 {clinicalNotes.length === 0 ? (
@@ -1034,6 +1049,15 @@ export default function ClientsShow({
                         label: disciplineLabels[code] || code,
                     }))}
                     onClose={() => setCreatingNote(false)}
+                />
+            )}
+
+            {/* AI Scribe (client-level encounter, not tied to an appointment) */}
+            {scribeOpen && (
+                <ScribePanel
+                    clientId={client.id}
+                    clientName={client.name || `${client.first_name} ${client.last_name}`}
+                    onClose={() => setScribeOpen(false)}
                 />
             )}
 

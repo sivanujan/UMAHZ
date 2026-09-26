@@ -24,6 +24,7 @@ class Consent extends Model
     protected $fillable = [
         'tenant_id',
         'client_id',
+        'appointment_id',
         'consent_type_id',
         'consent_type_name',
         'agreement_source',
@@ -74,6 +75,7 @@ class Consent extends Model
             $immutableAttributes = [
                 'tenant_id',
                 'client_id',
+                'appointment_id',
                 'consent_type_name',
                 'agreement_source',
                 'consent_body',
@@ -103,6 +105,11 @@ class Consent extends Model
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    public function appointment(): BelongsTo
+    {
+        return $this->belongsTo(Appointment::class);
     }
 
     public function consentType(): BelongsTo

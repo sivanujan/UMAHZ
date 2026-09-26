@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Onboarding\ClinicRegistrationController;
+use App\Models\AuditEvent;
+use App\Models\ConsentType;
 use App\Models\IntakeFormTemplate;
 use App\Models\Tenant;
 use App\Scopes\TenantScope;
@@ -43,7 +45,47 @@ class ClinicSettingsController extends Controller
             'allDisciplines' => ClinicOptions::disciplines(),
             'customDisciplines' => $tenant->customDisciplinesList(),
             'disciplineLabels' => $tenant->allDisciplineLabels(),
+            'scribeSettings' => $tenant->scribeSettings(),
+            'scribeConsentConfigured' => ConsentType::ensureScribeTypeForTenant($tenant->id)->isConfigured(),
+            'scribeProvider' => config('scribe.transcription.driver'),
+            'scribeMaxRetentionHours' => (int) config('scribe.max_retention_hours'),
         ]);
+    }
+
+    /**
+     * AI Scribe: enable/disable for the clinic and set raw-audio retention.
+     */
+    public function updateScribe(Request $request): RedirectResponse
+    {
+        $tenant = $this->currentTenant($request);
+
+        $data = $request->validate([
+            'enabled' => ['required', 'boolean'],
+            'audio_retention_mode' => ['required', Rule::in(['delete_after_transcription', 'retain_window'])],
+            'audio_retention_hours' => ['required', 'integer', 'min:1', 'max:'.config('scribe.max_retention_hours')],
+        ]);
+
+        DB::transaction(function () use ($tenant, $data, $request) {
+            $before = $tenant->scribeSettings();
+
+            $tenant->update(['scribe_settings' => [
+                'enabled' => (bool) $data['enabled'],
+                'audio_retention_mode' => $data['audio_retention_mode'],
+                'audio_retention_hours' => (int) $data['audio_retention_hours'],
+            ]]);
+
+            AuditEvent::create([
+                'tenant_id' => $tenant->id,
+                'user_id' => $request->user()->id,
+                'action' => 'scribe.settings_updated',
+                'resource_type' => Tenant::class,
+                'resource_id' => $tenant->id,
+                'ip_address' => $request->ip(),
+                'metadata' => ['before' => $before, 'after' => $tenant->scribeSettings()],
+            ]);
+        });
+
+        return back()->with('success', 'AI Scribe settings updated.');
     }
 
     public function updateProfile(Request $request): RedirectResponse

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Head, router, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { PROVENANCE } from '@/Components/Scribe/ScribeDraft';
 import {
     FileText, Save, CheckCircle2, Shield, AlertTriangle, ArrowLeft,
     Clock, User, Calendar, Stethoscope, ChevronRight, Lock, Eye, EyeOff,
@@ -14,6 +15,7 @@ export default function ClinicalNoteEditor({
     template,
     practitioner,
     referenceIntake,
+    scribeHandoff = null,
 }) {
     const isEditingExisting = !!note?.id;
     const [noteId, setNoteId] = useState(note?.id || null);
@@ -247,6 +249,20 @@ export default function ClinicalNoteEditor({
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                     {/* Note Sections & Form Fields */}
                     <div className={`${showIntakeDrawer ? 'lg:col-span-7' : 'lg:col-span-12'} space-y-5 transition-all duration-200`}>
+                        {scribeHandoff && (
+                            <div role="status" className="flex items-start gap-3 p-4 rounded-2xl border border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-amber-900 dark:text-amber-200">
+                                <Sparkles className="w-5 h-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                                <div className="text-xs leading-relaxed">
+                                    <p className="font-bold text-sm mb-0.5">Pre-filled from AI Scribe — review every field before signing</p>
+                                    <p>
+                                        {Object.keys(scribeHandoff.fields || {}).length} field(s) were filled from the AI draft and are labelled below with where they came from.
+                                        Fields marked <strong>AI wrote</strong> are the AI's own wording or interpretation — check them most carefully.
+                                        {scribeHandoff.skipped?.length > 0 && ` ${scribeHandoff.skipped.length} field(s) you had already written were left unchanged.`}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
                         {(schema.sections || []).map((sec, sIdx) => (
                             <div
                                 key={sec.id || sIdx}
@@ -273,6 +289,19 @@ export default function ClinicalNoteEditor({
                                                         {field.label}
                                                         {field.required && <span className="text-rose-500 ml-1">*</span>}
                                                     </label>
+                                                    {scribeHandoff?.fields?.[field.id] && (
+                                                        <div className="flex flex-wrap items-center justify-end gap-1" title="Pre-filled from the AI Scribe draft">
+                                                            {scribeHandoff.fields[field.id].map((key) => {
+                                                                const p = PROVENANCE[key] || PROVENANCE.ai_generated;
+                                                                const Icon = p.icon;
+                                                                return (
+                                                                    <span key={key} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[10px] font-bold ${p.className}`}>
+                                                                        <Icon className="w-3 h-3" /> {p.label}
+                                                                    </span>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 {field.type === 'long_text' && (
