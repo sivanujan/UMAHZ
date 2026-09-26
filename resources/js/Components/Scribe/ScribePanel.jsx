@@ -430,9 +430,9 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
     const readyToStart = status === 'consent_pending' && session?.has_valid_consent;
     const isRecording = status === 'recording';
     const isPaused = status === 'paused';
-    const canUseDraft = canRecord && status === 'draft_ready' && session?.draft?.status === 'ready';
     const micDetached = isRecording && recorder.micState !== 'live' && recorder.micState !== 'requesting';
     const canRecord = session?.can_record;
+    const canUseDraft = canRecord && status === 'draft_ready' && session?.draft?.status === 'ready';
     const failed = session?.chunks?.failed || 0;
     const pendingTranscription = (session?.chunks?.pending || 0) + recorder.pendingUploads;
     const elapsed = recorder.micState === 'idle' ? (session?.recorded_ms || 0) : recorder.elapsedMs;
