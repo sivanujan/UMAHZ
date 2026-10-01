@@ -35,28 +35,38 @@ class ScribeSessionService
     /**
      * Open (or resume) a session for an encounter.
      */
-    public function open(Tenant $tenant, StaffMembership $membership, User $user, Client $client, ?Appointment $appointment, ?string $ip): ScribeSession
-    {
-        return DB::transaction(function () use ($tenant, $membership, $user, $client, $appointment, $ip) {
-            $existing = ScribeSession::where('tenant_id', $tenant->id)
-                ->where('client_id', $client->id)
-                ->where('staff_membership_id', $membership->id)
-                ->where('appointment_id', $appointment?->id)
-                ->whereIn('status', [
-                    ScribeSession::STATUS_CONSENT_PENDING,
-                    ScribeSession::STATUS_RECORDING,
-                    ScribeSession::STATUS_PAUSED,
-                    ScribeSession::STATUS_TRANSCRIBING,
-                    // Reopening Scribe after the transcript/draft is ready returns to it
-                    // instead of starting over (until it is handed to Clinical Notes).
-                    ScribeSession::STATUS_TRANSCRIPT_READY,
-                    ScribeSession::STATUS_DRAFT_READY,
-                ])
-                ->latest()
-                ->first();
+    public function open(
+        Tenant $tenant,
+        StaffMembership $membership,
+        User $user,
+        Client $client,
+        ?Appointment $appointment,
+        ?string $ip,
+        bool $forceNew = false,
+        ?string $language = null
+    ): ScribeSession {
+        return DB::transaction(function () use ($tenant, $membership, $user, $client, $appointment, $ip, $forceNew, $language) {
+            if (! $forceNew) {
+                $existing = ScribeSession::where('tenant_id', $tenant->id)
+                    ->where('client_id', $client->id)
+                    ->where('staff_membership_id', $membership->id)
+                    ->where('appointment_id', $appointment?->id)
+                    ->whereIn('status', [
+                        ScribeSession::STATUS_CONSENT_PENDING,
+                        ScribeSession::STATUS_RECORDING,
+                        ScribeSession::STATUS_PAUSED,
+                        ScribeSession::STATUS_TRANSCRIBING,
+                        // Reopening Scribe after the transcript/draft is ready returns to it
+                        // instead of starting over (until it is handed to Clinical Notes).
+                        ScribeSession::STATUS_TRANSCRIPT_READY,
+                        ScribeSession::STATUS_DRAFT_READY,
+                    ])
+                    ->latest()
+                    ->first();
 
-            if ($existing) {
-                return $existing;
+                if ($existing) {
+                    return $existing;
+                }
             }
 
             ConsentType::ensureScribeTypeForTenant($tenant->id);
@@ -64,6 +74,11 @@ class ScribeSessionService
             $membership->loadMissing('practitionerProfile');
             $offered = $tenant->offeredDisciplineCodes();
             $discipline = $membership->practitionerProfile?->profession ?? $offered[0] ?? null;
+
+            $enabledLanguages = $tenant->scribeSettings()['enabled_languages'] ?? ['en'];
+            $selectedLanguage = ($language && in_array($language, $enabledLanguages, true))
+                ? $language
+                : ($enabledLanguages[0] ?? 'en');
 
             $session = ScribeSession::create([
                 'tenant_id' => $tenant->id,
@@ -73,14 +88,44 @@ class ScribeSessionService
                 'created_by_user_id' => $user->id,
                 'discipline' => $discipline,
                 'discipline_label' => $discipline ? $tenant->disciplineLabel($discipline) : null,
+                'language' => $selectedLanguage,
                 'status' => ScribeSession::STATUS_CONSENT_PENDING,
                 'transcription_provider' => $this->transcription->name(),
             ]);
 
-            $this->audit($session, $user, 'scribe.session_created', $ip);
+            $this->audit($session, $user, 'scribe.session_created', $ip, ['language' => $selectedLanguage]);
 
             return $session;
         });
+    }
+
+    /**
+     * Change the session language before recording begins.
+     */
+    public function updateLanguage(ScribeSession $session, string $language, User $user, ?string $ip): ScribeSession
+    {
+        if ($session->status !== ScribeSession::STATUS_CONSENT_PENDING) {
+            throw new ScribeStateException('Session language can only be changed before recording starts.');
+        }
+
+        $tenant = Tenant::findOrFail($session->tenant_id);
+        $enabled = $tenant->scribeSettings()['enabled_languages'] ?? ['en'];
+
+        if (! in_array($language, $enabled, true)) {
+            throw new \InvalidArgumentException("Language \"{$language}\" is not enabled for this clinic.");
+        }
+
+        $oldLanguage = $session->language;
+
+        DB::transaction(function () use ($session, $language, $oldLanguage, $user, $ip) {
+            $session->forceFill(['language' => $language])->save();
+            $this->audit($session, $user, 'scribe.language_updated', $ip, [
+                'from' => $oldLanguage,
+                'to' => $language,
+            ]);
+        });
+
+        return $session->refresh();
     }
 
     /**
@@ -114,13 +159,17 @@ class ScribeSessionService
         return $session->refresh();
     }
 
-    public function start(ScribeSession $session, User $user, ?string $ip): ScribeSession
+    public function start(ScribeSession $session, User $user, ?string $ip, ?string $language = null): ScribeSession
     {
         $this->assertConsent($session, $user, $ip);
 
+        if ($language && $session->status === ScribeSession::STATUS_CONSENT_PENDING) {
+            $this->updateLanguage($session, $language, $user, $ip);
+        }
+
         DB::transaction(function () use ($session, $user, $ip) {
             $session->transitionTo(ScribeSession::STATUS_RECORDING, ['started_at' => $session->started_at ?? now()]);
-            $this->audit($session, $user, 'scribe.session_started', $ip);
+            $this->audit($session, $user, 'scribe.session_started', $ip, ['language' => $session->language]);
         });
 
         return $session;
@@ -192,7 +241,13 @@ class ScribeSessionService
             return $existing;
         }
 
-        $mime = self::normaliseMime($file->getMimeType() ?: $file->getClientMimeType());
+        $detectedMime = null;
+        if (extension_loaded('fileinfo')) {
+            try {
+                $detectedMime = $file->getMimeType();
+            } catch (\Throwable) {}
+        }
+        $mime = self::normaliseMime($detectedMime ?: $file->getClientMimeType(), $file->getClientOriginalExtension());
         $path = sprintf('scribe/%s/%s/%06d-%s.%s.enc', $session->tenant_id, $session->id, $sequence, Str::random(12), self::extensionFor($mime));
 
         // Encrypt at rest before it touches disk.
@@ -358,9 +413,23 @@ class ScribeSessionService
         'audio/x-m4a', 'audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/flac',
     ];
 
-    private static function normaliseMime(string $mime): string
+    public static function normaliseMime(?string $mime, ?string $fallbackExtension = null): string
     {
-        return strtolower(trim(explode(';', $mime)[0]));
+        if ($mime) {
+            $cleaned = strtolower(trim(explode(';', $mime)[0]));
+            if (in_array($cleaned, self::ACCEPTED_MIME_TYPES, true)) {
+                return $cleaned;
+            }
+        }
+
+        return match (strtolower((string) $fallbackExtension)) {
+            'ogg' => 'audio/ogg',
+            'm4a', 'mp4' => 'audio/mp4',
+            'mp3' => 'audio/mpeg',
+            'wav' => 'audio/wav',
+            'flac' => 'audio/flac',
+            default => 'audio/webm',
+        };
     }
 
     public static function extensionFor(string $mime): string

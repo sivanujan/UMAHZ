@@ -66,7 +66,29 @@ return [
         ],
     ],
 
-    // Queue used for transcription jobs. The worker must listen on it.
+    /*
+    | Supported encounter languages.
+    | Adding a new language only needs a new entry in this array.
+    | Code must match ISO-639-1 / provider language code.
+    */
+    'languages' => [
+        'en' => [
+            'code' => 'en',
+            'label' => 'English',
+            'native' => 'English',
+        ],
+        'zh' => [
+            'code' => 'zh',
+            'label' => 'Mandarin (Chinese)',
+            'native' => '中文 (普通话)',
+        ],
+    ],
+
+    'default_language' => 'en',
+
+    /*
+    | Queue used for transcription and drafting jobs.
+    */
     'queue' => env('SCRIBE_QUEUE', 'default'),
 
     // Private disk for raw audio. Never a public disk.
@@ -91,6 +113,7 @@ return [
         'enabled' => false,
         'audio_retention_mode' => 'delete_after_transcription',
         'audio_retention_hours' => 24,
+        'enabled_languages' => ['en'],
     ],
 
     'max_retention_hours' => 168,

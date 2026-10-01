@@ -67,6 +67,9 @@ class ScribeHandoffService
                     'draft_version' => $session->draft_version,
                     'filled' => $filled,
                     'skipped' => $skipped,
+                    'language' => $session->language ?? 'en',
+                    'source_language_label' => $session->languageLabel(),
+                    'is_translated' => (bool) $session->is_translated,
                 ],
             ]);
 

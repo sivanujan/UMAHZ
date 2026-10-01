@@ -42,9 +42,14 @@ class FakeTranscriptionProvider implements TranscriptionProvider
             throw $next;
         }
 
+        $defaultText = match ($request->language) {
+            'zh' => '患者主诉右侧肩颈部酸痛两周，伏案工作后明显加重。触诊发现右侧斜方肌及肩胛提肌明显紧张伴压痛点。',
+            default => 'Patient reports persistent tightness and aching in the right neck and shoulder area for two weeks, worsening after desk work.',
+        };
+
         return new TranscriptionResult(
-            text: $next ?? 'Fake transcript for '.$request->filename.'.',
-            language: 'en',
+            text: $next ?? $defaultText,
+            language: $request->language ?? 'en',
             model: 'fake-1',
         );
     }

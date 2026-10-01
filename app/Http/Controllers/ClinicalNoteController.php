@@ -290,6 +290,9 @@ class ClinicalNoteController extends Controller
             'handed_off_at' => $session->handed_off_at->toIso8601String(),
             'fields' => collect($filled)->mapWithKeys(fn ($id) => [$id => $provenance[$id] ?? ['ai_generated']]),
             'skipped' => $meta['skipped'] ?? [],
+            'language' => $meta['language'] ?? $session->language ?? 'en',
+            'source_language_label' => $meta['source_language_label'] ?? $session->languageLabel(),
+            'is_translated' => (bool) ($meta['is_translated'] ?? $session->is_translated),
         ];
     }
 

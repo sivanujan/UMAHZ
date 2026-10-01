@@ -61,6 +61,7 @@ class ScribeSession extends Model
         'created_by_user_id',
         'discipline',
         'discipline_label',
+        'language',
         'status',
         'consent_id',
         'clinical_note_id',
@@ -78,6 +79,9 @@ class ScribeSession extends Model
         'draft_generated_at',
         'clinical_note_template_id',
         'draft_template_snapshot',
+        'is_translated',
+        'translated_at',
+        'translation_provider',
         'handed_off_at',
         'handed_off_by_user_id',
         'handoff_fields',
@@ -101,9 +105,21 @@ class ScribeSession extends Model
             'draft_version' => 'integer',
             'draft_generated_at' => 'datetime',
             'draft_template_snapshot' => 'array',
+            'is_translated' => 'boolean',
+            'translated_at' => 'datetime',
             'handed_off_at' => 'datetime',
             'handoff_fields' => 'array',
         ];
+    }
+
+    public function languageLabel(): string
+    {
+        return config("scribe.languages.{$this->language}.label") ?? strtoupper($this->language ?? 'en');
+    }
+
+    public function isNonEnglish(): bool
+    {
+        return ($this->language ?? 'en') !== 'en';
     }
 
     public function client(): BelongsTo

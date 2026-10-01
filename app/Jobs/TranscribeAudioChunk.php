@@ -82,6 +82,7 @@ class TranscribeAudioChunk implements ShouldQueue
                 audio: $chunk->readAudio(),
                 mimeType: $chunk->mime_type,
                 filename: sprintf('chunk-%06d.%s', $chunk->sequence, ScribeSessionService::extensionFor($chunk->mime_type)),
+                language: $session->language ?? 'en',
                 prompt: $previousText,
             ));
         } catch (TranscriptionException $e) {
@@ -108,7 +109,7 @@ class TranscribeAudioChunk implements ShouldQueue
                         'source' => ScribeTranscriptSegment::SOURCE_AI_TRANSCRIPTION,
                         'provider' => $provider->name(),
                         'provider_model' => $result->model,
-                        'language' => $result->language,
+                        'language' => $result->language ?: ($session->language ?? 'en'),
                     ]
                 );
             }

@@ -47,6 +47,8 @@ class ScribeSessionController extends Controller
         $data = $request->validate([
             'client_id' => ['required', 'uuid', Rule::exists('clients', 'id')->where('tenant_id', $tenantId)],
             'appointment_id' => ['nullable', 'uuid'],
+            'force_new' => ['nullable', 'boolean'],
+            'language' => ['nullable', 'string', Rule::in(array_keys(config('scribe.languages', [])))],
         ]);
 
         $client = Client::where('tenant_id', $tenantId)->findOrFail($data['client_id']);
@@ -60,7 +62,16 @@ class ScribeSessionController extends Controller
 
         $membership = $this->membership($request, $tenantId);
 
-        $session = $this->scribe->open(Tenant::findOrFail($tenantId), $membership, $request->user(), $client, $appointment, $request->ip());
+        $session = $this->scribe->open(
+            Tenant::findOrFail($tenantId),
+            $membership,
+            $request->user(),
+            $client,
+            $appointment,
+            $request->ip(),
+            (bool) ($data['force_new'] ?? false),
+            $data['language'] ?? null
+        );
 
         return response()->json(['session' => $this->payload($session, $request)], 201);
     }
@@ -117,11 +128,40 @@ class ScribeSessionController extends Controller
         return $this->run($request, $scribeSession, fn () => $this->scribe->withdrawConsent($scribeSession, $request->user(), $data['reason'], $request->ip()));
     }
 
+    public function updateLanguage(Request $request, ScribeSession $scribeSession): JsonResponse
+    {
+        $this->authorizeSession($scribeSession, 'record');
+
+        $enabledLanguages = $scribeSession->tenant->scribeEnabledLanguages();
+
+        $data = $request->validate([
+            'language' => ['required', 'string', Rule::in($enabledLanguages)],
+        ]);
+
+        return $this->run($request, $scribeSession, fn () => $this->scribe->updateLanguage($scribeSession, $data['language'], $request->user(), $request->ip()));
+    }
+
     public function start(Request $request, ScribeSession $scribeSession): JsonResponse
     {
         $this->authorizeSession($scribeSession, 'record');
 
+        $language = $request->input('language');
+        if ($language && in_array($language, array_keys(config('scribe.languages', [])), true)) {
+            $this->scribe->updateLanguage($scribeSession, $language, $request->user(), $request->ip());
+        }
+
         return $this->run($request, $scribeSession, fn () => $this->scribe->start($scribeSession, $request->user(), $request->ip()));
+    }
+
+    public function translate(Request $request, ScribeSession $scribeSession): JsonResponse
+    {
+        $this->authorizeSession($scribeSession, 'record');
+
+        return $this->run($request, $scribeSession, function () use ($request, $scribeSession) {
+            app(\App\Scribe\Translation\ScribeTranslationService::class)->translate($scribeSession, $request->user(), $request->ip());
+
+            return ['translated' => true];
+        });
     }
 
     public function pause(Request $request, ScribeSession $scribeSession): JsonResponse
@@ -153,12 +193,26 @@ class ScribeSessionController extends Controller
             'audio' => [
                 'required', 'file',
                 'max:'.config('scribe.max_chunk_kb'),
-                'mimetypes:'.implode(',', ScribeSessionService::ACCEPTED_MIME_TYPES),
             ],
             'sequence' => ['required', 'integer', 'min:0', 'max:100000'],
             'duration_ms' => ['required', 'integer', 'min:0', 'max:120000'],
             'offset_ms' => ['required', 'integer', 'min:0'],
         ]);
+
+        $file = $request->file('audio');
+        $detectedMime = null;
+        if (extension_loaded('fileinfo')) {
+            try {
+                $detectedMime = $file->getMimeType();
+            } catch (\Throwable) {}
+        }
+        $mime = ScribeSessionService::normaliseMime($detectedMime ?: $file->getClientMimeType(), $file->getClientOriginalExtension());
+
+        if (! in_array($mime, ScribeSessionService::ACCEPTED_MIME_TYPES, true)) {
+            throw ValidationException::withMessages([
+                'audio' => ['The uploaded audio must be an accepted format (e.g. webm, ogg, mp4).'],
+            ]);
+        }
 
         return $this->run($request, $scribeSession, function () use ($request, $scribeSession, $data) {
             $chunk = $this->scribe->acceptChunk(
@@ -268,6 +322,8 @@ class ScribeSessionController extends Controller
                 'id' => $s->id,
                 'sequence' => $s->sequence,
                 'text' => $s->text,
+                'translated_text' => $s->translated_text,
+                'language' => $s->language,
                 'start_ms' => $s->start_ms,
                 'end_ms' => $s->end_ms,
                 'source' => $s->source,
@@ -292,6 +348,14 @@ class ScribeSessionController extends Controller
             ] : null,
             'discipline' => $session->discipline,
             'discipline_label' => $session->discipline_label,
+            'language' => $session->language ?? 'en',
+            'language_label' => $session->languageLabel(),
+            'is_non_english' => $session->isNonEnglish(),
+            'is_translated' => (bool) $session->is_translated,
+            'translated_at' => $session->translated_at?->toIso8601String(),
+            'translation_provider' => $session->translation_provider,
+            'enabled_languages' => $settings['enabled_languages'] ?? ['en'],
+            'supported_languages' => config('scribe.languages', []),
             'has_valid_consent' => $session->hasValidConsent(),
             'consent' => $consent ? [
                 'id' => $consent->id,

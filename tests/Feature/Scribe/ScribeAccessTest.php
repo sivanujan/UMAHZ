@@ -88,7 +88,7 @@ class ScribeAccessTest extends ScribeTestCase
         $this->actingAs($practitioner)->patch('http://lotus.umahz.test/app/settings/scribe', $payload)->assertForbidden();
 
         $this->actingAs($owner)->patch('http://lotus.umahz.test/app/settings/scribe', $payload)->assertRedirect();
-        $this->assertSame(['enabled' => true, 'audio_retention_mode' => 'retain_window', 'audio_retention_hours' => 6], $clinic->fresh()->scribeSettings());
+        $this->assertSame(['enabled' => true, 'audio_retention_mode' => 'retain_window', 'audio_retention_hours' => 6, 'enabled_languages' => ['en']], $clinic->fresh()->scribeSettings());
         $this->assertTrue(AuditEvent::where('action', 'scribe.settings_updated')->exists());
 
         $this->actingAs($owner)->patch('http://lotus.umahz.test/app/settings/scribe', array_merge($payload, ['audio_retention_hours' => 9999]))

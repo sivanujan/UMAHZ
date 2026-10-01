@@ -24,6 +24,7 @@ class ScribeTranscriptSegment extends Model
         'scribe_audio_chunk_id',
         'sequence',
         'text',
+        'translated_text',
         'start_ms',
         'end_ms',
         'source',
@@ -37,6 +38,7 @@ class ScribeTranscriptSegment extends Model
     {
         return [
             'text' => 'encrypted',
+            'translated_text' => 'encrypted',
             'sequence' => 'integer',
             'start_ms' => 'integer',
             'end_ms' => 'integer',

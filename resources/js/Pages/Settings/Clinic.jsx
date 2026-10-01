@@ -773,16 +773,26 @@ function ClinicalDocsSection() {
 
 /* ----------------------------- AI Scribe Section ----------------------------- */
 
-function ScribeSection({ settings, consentConfigured, provider, maxHours = 168 }) {
+function ScribeSection({ settings, consentConfigured, provider, maxHours = 168, allLanguages = {} }) {
     const { data, setData, patch, processing, errors } = useForm({
         enabled: Boolean(settings?.enabled),
         audio_retention_mode: settings?.audio_retention_mode || 'delete_after_transcription',
         audio_retention_hours: settings?.audio_retention_hours || 24,
+        enabled_languages: settings?.enabled_languages || ['en'],
     });
 
     const submit = (e) => {
         e.preventDefault();
         patch('/app/settings/scribe', { preserveScroll: true });
+    };
+
+    const toggleLanguage = (code) => {
+        if (code === 'en') return;
+        const current = data.enabled_languages || ['en'];
+        const next = current.includes(code)
+            ? current.filter((c) => c !== code)
+            : [...current, code];
+        setData('enabled_languages', next);
     };
 
     const retentionOptions = [
@@ -850,6 +860,51 @@ function ScribeSection({ settings, consentConfigured, provider, maxHours = 168 }
                         </Link>
                     </div>
                 )}
+
+                <fieldset className="space-y-3">
+                    <div>
+                        <legend className="text-sm font-bold text-slate-900 dark:text-white">Supported encounter languages</legend>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            Practitioners choose from these languages before starting an encounter. Notes are always drafted in English.
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {Object.values(allLanguages).map((lang) => {
+                            const isEn = lang.code === 'en';
+                            const isChecked = isEn || (data.enabled_languages || []).includes(lang.code);
+                            return (
+                                <label
+                                    key={lang.code}
+                                    className={`flex items-start gap-3 p-3.5 rounded-2xl border transition ${
+                                        isChecked
+                                            ? 'border-purple-500/50 bg-purple-500/5'
+                                            : 'border-white/40 dark:border-white/10 bg-white/40 dark:bg-white/[0.03]'
+                                    } ${isEn ? 'opacity-90 cursor-default' : 'cursor-pointer'}`}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        disabled={isEn}
+                                        onChange={() => toggleLanguage(lang.code)}
+                                        className="mt-0.5 rounded border-slate-300 text-purple-600 focus:ring-purple-500 disabled:opacity-60"
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-sm font-bold text-slate-900 dark:text-white">{lang.label}</span>
+                                            {isEn && (
+                                                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-700 dark:text-purple-300">
+                                                    Required
+                                                </span>
+                                            )}
+                                        </div>
+                                        <span className="text-xs text-slate-500 dark:text-slate-400 block">{lang.native}</span>
+                                    </div>
+                                </label>
+                            );
+                        })}
+                    </div>
+                </fieldset>
 
                 <fieldset className="space-y-3">
                     <legend className="text-sm font-bold text-slate-900 dark:text-white mb-2">Raw audio retention</legend>
@@ -922,6 +977,7 @@ export default function ClinicSettings({
     scribeConsentConfigured = false,
     scribeProvider = 'assemblyai',
     scribeMaxRetentionHours = 168,
+    allScribeLanguages = {},
 }) {
     const { flash } = usePage().props;
     const shouldReduceMotion = useReducedMotion();
@@ -1093,6 +1149,7 @@ export default function ClinicSettings({
                                         consentConfigured={scribeConsentConfigured}
                                         provider={scribeProvider}
                                         maxHours={scribeMaxRetentionHours}
+                                        allLanguages={allScribeLanguages}
                                     />
                                 )}
                             </motion.div>
