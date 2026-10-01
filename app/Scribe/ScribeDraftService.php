@@ -29,6 +29,7 @@ class ScribeDraftService
     public function __construct(
         private readonly DraftingProvider $drafting,
         private readonly ObjectiveMeasurementSource $measurements,
+        private readonly \App\Scribe\Translation\ScribeTranslationService $translation = new \App\Scribe\Translation\ScribeTranslationService,
     ) {}
 
     /**
@@ -81,6 +82,12 @@ class ScribeDraftService
             return;
         }
 
+        // If recorded in a non-English language, ensure segments are translated to English first.
+        if ($session->isNonEnglish()) {
+            $user = $userId ? User::find($userId) : null;
+            $this->translation->translate($session, $user);
+        }
+
         $tenant = Tenant::findOrFail($session->tenant_id);
         $template = $this->templateFor($session, $tenant);
         $schema = $template->schema ?? ['sections' => []];
@@ -97,7 +104,7 @@ class ScribeDraftService
             transcript: $segments->map(fn (ScribeTranscriptSegment $s) => [
                 'id' => $s->id,
                 'sequence' => $s->sequence,
-                'text' => $s->text,
+                'text' => ($session->isNonEnglish() && ! empty($s->translated_text)) ? $s->translated_text : $s->text,
                 'start_ms' => $s->start_ms,
                 'end_ms' => $s->end_ms,
                 'speaker_role' => $s->speaker_role,

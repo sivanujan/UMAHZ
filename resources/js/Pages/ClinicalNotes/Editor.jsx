@@ -252,13 +252,19 @@ export default function ClinicalNoteEditor({
                         {scribeHandoff && (
                             <div role="status" className="flex items-start gap-3 p-4 rounded-2xl border border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-amber-900 dark:text-amber-200">
                                 <Sparkles className="w-5 h-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
-                                <div className="text-xs leading-relaxed">
+                                <div className="text-xs leading-relaxed flex-1">
                                     <p className="font-bold text-sm mb-0.5">Pre-filled from AI Scribe — review every field before signing</p>
                                     <p>
                                         {Object.keys(scribeHandoff.fields || {}).length} field(s) were filled from the AI draft and are labelled below with where they came from.
                                         Fields marked <strong>AI wrote</strong> are the AI's own wording or interpretation — check them most carefully.
                                         {scribeHandoff.skipped?.length > 0 && ` ${scribeHandoff.skipped.length} field(s) you had already written were left unchanged.`}
                                     </p>
+                                    {scribeHandoff.is_translated && (
+                                        <div className="mt-2.5 pt-2 border-t border-amber-500/20 flex items-center gap-2 text-amber-950 dark:text-amber-100 font-bold">
+                                            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                                            <span>This note was translated from {scribeHandoff.source_language_label || 'Mandarin (Chinese)'} by AI — please verify before signing.</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}

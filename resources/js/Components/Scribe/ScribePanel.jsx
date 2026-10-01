@@ -8,6 +8,7 @@ import ScribeDraft from '@/Components/Scribe/ScribeDraft';
 import {
     Mic, Pause, Play, Square, ShieldCheck, ShieldOff, AlertTriangle, Loader2,
     RotateCcw, FileText, Copy, Check, PenLine, Type, ExternalLink, Info,
+    Globe, Plus, Languages,
 } from 'lucide-react';
 
 /**
@@ -230,12 +231,68 @@ function WithdrawConsent({ session, onWithdrawn, beforeWithdraw }) {
     );
 }
 
+function SessionLanguageSelector({ session, onSelect, disabled, isOwner }) {
+    const enabled = session?.enabled_languages || ['en'];
+    const supported = session?.supported_languages || {
+        en: { code: 'en', label: 'English' },
+        zh: { code: 'zh', label: 'Mandarin (Chinese)' },
+    };
+    const current = session?.language || 'en';
+
+    return (
+        <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
+                <Globe className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                Session language:
+            </span>
+            <div className="inline-flex items-center gap-1 p-0.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/10">
+                {enabled.map((code) => {
+                    const lang = supported[code] || { code, label: code };
+                    const isSelected = current === code;
+                    return (
+                        <button
+                            key={code}
+                            type="button"
+                            disabled={disabled}
+                            onClick={() => onSelect(code)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition disabled:opacity-50 ${
+                                isSelected
+                                    ? 'bg-white dark:bg-white/20 text-[#8200db] dark:text-white shadow-xs'
+                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                            }`}
+                        >
+                            {lang.label}
+                        </button>
+                    );
+                })}
+            </div>
+            {current !== 'en' && (
+                <span className="text-[11px] text-purple-700 dark:text-purple-300 font-medium">
+                    (Final note drafted in English)
+                </span>
+            )}
+            {enabled.length === 1 && (
+                <a
+                    href="/app/settings"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] text-[#8200db] dark:text-purple-300 font-semibold hover:underline"
+                    title="Enable Mandarin (Chinese) in Clinic Settings"
+                >
+                    Enable Mandarin in Settings <ExternalLink className="w-3 h-3" />
+                </a>
+            )}
+        </div>
+    );
+}
+
 export default function ScribePanel({ clientId, clientName, appointmentId = null, onClose }) {
     const { auth } = usePage().props;
     const isOwner = auth?.user?.role === 'clinic_owner';
 
     const [session, setSession] = useState(null);
     const [segments, setSegments] = useState([]);
+    const [transcriptTab, setTranscriptTab] = useState('original');
     const [loadError, setLoadError] = useState(null);
     const [actionError, setActionError] = useState(null);
     const [busy, setBusy] = useState(false);
@@ -418,9 +475,71 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
         onClose();
     };
 
+    const handleLanguageChange = async (newLanguage) => {
+        if (!session || session.language === newLanguage) return;
+        setBusy(true);
+        setActionError(null);
+        try {
+            const { data } = await axios.patch(`/app/scribe/sessions/${session.id}/language`, { language: newLanguage });
+            applySession(data.session);
+        } catch (err) {
+            setActionError(err?.response?.data?.message || 'Could not update session language.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleNewSession = async () => {
+        if (['live', 'paused'].includes(recorder.micState)) {
+            if (!window.confirm('Recording is currently active. Stop and discard it to start a new session?')) return;
+            recorder.halt();
+        } else if (segments.length > 0 && !window.confirm('Start a fresh Scribe session for this encounter? Any existing transcript stays saved on the previous session.')) {
+            return;
+        }
+
+        setBusy(true);
+        setActionError(null);
+        setNotice(null);
+        try {
+            const { data } = await axios.post('/app/scribe/sessions', {
+                client_id: clientId,
+                appointment_id: appointmentId,
+                force_new: true,
+                language: session?.language || 'en',
+            });
+            applySession(data.session, { replaceSegments: true });
+            setTranscriptTab('original');
+        } catch (err) {
+            setActionError(err?.response?.data?.message || 'Could not create a new Scribe session.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleTranslate = async () => {
+        if (!session) return;
+        setBusy(true);
+        setActionError(null);
+        try {
+            const { data } = await axios.post(`/app/scribe/sessions/${session.id}/translate`);
+            applySession(data.session, { replaceSegments: true });
+            setTranscriptTab('translated');
+        } catch (err) {
+            setActionError(err?.response?.data?.message || 'Translation failed.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
     const copyTranscript = async () => {
         try {
-            await navigator.clipboard.writeText(segments.map((s) => s.text).join('\n'));
+            const text = segments.map((s) => {
+                if (transcriptTab === 'translated' && s.translated_text) {
+                    return s.translated_text;
+                }
+                return s.text;
+            }).join('\n');
+            await navigator.clipboard.writeText(text);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch { /* clipboard blocked */ }
@@ -458,6 +577,37 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
 
                 {session && (
                     <>
+                        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200/70 dark:border-white/10">
+                            <div>
+                                {status === 'consent_pending' ? (
+                                    <SessionLanguageSelector
+                                        session={session}
+                                        disabled={busy}
+                                        onSelect={handleLanguageChange}
+                                    />
+                                ) : (
+                                    <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+                                        <Globe className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                                        <span>Language: <strong>{session.language_label || 'English'}</strong></span>
+                                        {session.is_non_english && (
+                                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-500/10 text-purple-700 dark:text-purple-300">
+                                                Note drafted in English
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={handleNewSession}
+                                disabled={busy}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-xs font-bold text-slate-700 dark:text-slate-200 transition shadow-2xs disabled:opacity-50"
+                            >
+                                <Plus className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" /> Start new session
+                            </button>
+                        </div>
+
                         {notice && <Banner tone="warn" icon={ShieldOff}>{notice}</Banner>}
                         {recorder.micError && <Banner tone="error" icon={Mic}>{recorder.micError}</Banner>}
                         {actionError && <Banner tone="error" icon={AlertTriangle}>{actionError}</Banner>}
@@ -568,28 +718,78 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
 
                         {!needsConsent && (
                             <div>
-                                <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 inline-flex items-center gap-1.5">
-                                        <FileText className="w-3.5 h-3.5" /> Transcript
-                                        <span className="normal-case tracking-normal font-semibold text-[10px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-700 dark:text-purple-300">AI transcription · unreviewed</span>
-                                    </h3>
-                                    {segments.length > 0 && (
-                                        <button type="button" onClick={copyTranscript} className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:text-[#8200db]">
-                                            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} {copied ? 'Copied' : 'Copy'}
-                                        </button>
-                                    )}
+                                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 inline-flex items-center gap-1.5">
+                                            <FileText className="w-3.5 h-3.5" /> Transcript
+                                            <span className="normal-case tracking-normal font-semibold text-[10px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-700 dark:text-purple-300">
+                                                {transcriptTab === 'translated' ? 'AI translated to English' : 'Original audio transcript'}
+                                            </span>
+                                        </h3>
+
+                                        {session.is_non_english && (
+                                            <div className="inline-flex items-center gap-1 p-0.5 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 text-xs">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setTranscriptTab('original')}
+                                                    className={`px-2 py-0.5 rounded font-bold transition ${
+                                                        transcriptTab === 'original'
+                                                            ? 'bg-white dark:bg-white/20 text-[#8200db] dark:text-white shadow-xs'
+                                                            : 'text-slate-600 dark:text-slate-400'
+                                                    }`}
+                                                >
+                                                    {session.language_label || 'Original'}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setTranscriptTab('translated')}
+                                                    className={`px-2 py-0.5 rounded font-bold transition ${
+                                                        transcriptTab === 'translated'
+                                                            ? 'bg-white dark:bg-white/20 text-[#8200db] dark:text-white shadow-xs'
+                                                            : 'text-slate-600 dark:text-slate-400'
+                                                    }`}
+                                                >
+                                                    English Translation
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        {session.is_non_english && !session.is_translated && segments.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={handleTranslate}
+                                                disabled={busy}
+                                                className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 dark:text-purple-300 hover:underline disabled:opacity-50"
+                                            >
+                                                <Languages className="w-3.5 h-3.5" /> Translate now
+                                            </button>
+                                        )}
+                                        {segments.length > 0 && (
+                                            <button type="button" onClick={copyTranscript} className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:text-[#8200db]">
+                                                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} {copied ? 'Copied' : 'Copy'}
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
+
                                 <div ref={transcriptRef} className="h-64 overflow-y-auto rounded-2xl border border-slate-200/70 dark:border-white/10 bg-white/70 dark:bg-black/20 p-4 space-y-3" aria-live="polite">
                                     {segments.length === 0 ? (
                                         <p className="text-xs text-slate-400 dark:text-slate-500 text-center pt-20">
                                             {isRecording ? 'Listening… the first words appear about 15 seconds after you start.' : 'No transcript yet.'}
                                         </p>
-                                    ) : segments.map((s) => (
-                                        <div key={s.sequence} data-seq={s.sequence} className={`flex gap-3 rounded-lg transition-colors ${highlightSeq === s.sequence ? 'bg-purple-500/15' : ''}`}>
-                                            <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 pt-0.5 shrink-0 tabular-nums">{formatClock(s.start_ms)}</span>
-                                            <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">{s.text}</p>
-                                        </div>
-                                    ))}
+                                    ) : segments.map((s) => {
+                                        const text = transcriptTab === 'translated'
+                                            ? (s.translated_text || (session.is_translated ? s.text : `${s.text} (translating...)`))
+                                            : s.text;
+                                        return (
+                                            <div key={s.sequence} data-seq={s.sequence} className={`flex gap-3 rounded-lg transition-colors ${highlightSeq === s.sequence ? 'bg-purple-500/15' : ''}`}>
+                                                <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 pt-0.5 shrink-0 tabular-nums">{formatClock(s.start_ms)}</span>
+                                                <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">{text}</p>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
@@ -602,6 +802,8 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                                 onGenerate={handleGenerateDraft}
                                 segmentsBySequence={Object.fromEntries(segments.map((s) => [s.sequence, s]))}
                                 onJumpToSegment={jumpToSegment}
+                                isTranslated={session.is_translated}
+                                sourceLanguageLabel={session.language_label}
                             />
                         )}
 

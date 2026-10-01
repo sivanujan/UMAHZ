@@ -350,6 +350,8 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
             Route::post('/sessions/{scribeSession}/stop', [ScribeSessionController::class, 'stop'])->name('sessions.stop');
             Route::post('/sessions/{scribeSession}/chunks', [ScribeSessionController::class, 'uploadChunk'])->middleware('throttle:60,1')->name('sessions.chunks');
             Route::post('/sessions/{scribeSession}/chunks/retry', [ScribeSessionController::class, 'retryFailed'])->name('sessions.chunks.retry');
+            Route::patch('/sessions/{scribeSession}/language', [ScribeSessionController::class, 'updateLanguage'])->name('sessions.language');
+            Route::post('/sessions/{scribeSession}/translate', [ScribeSessionController::class, 'translate'])->name('sessions.translate');
             Route::post('/sessions/{scribeSession}/draft', [ScribeSessionController::class, 'generateDraft'])->middleware('throttle:10,1')->name('sessions.draft');
             Route::post('/sessions/{scribeSession}/handoff', [ScribeSessionController::class, 'handoff'])->name('sessions.handoff');
         });

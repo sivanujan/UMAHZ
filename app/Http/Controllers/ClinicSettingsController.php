@@ -49,29 +49,37 @@ class ClinicSettingsController extends Controller
             'scribeConsentConfigured' => ConsentType::ensureScribeTypeForTenant($tenant->id)->isConfigured(),
             'scribeProvider' => config('scribe.transcription.driver'),
             'scribeMaxRetentionHours' => (int) config('scribe.max_retention_hours'),
+            'allScribeLanguages' => config('scribe.languages', []),
         ]);
     }
 
     /**
-     * AI Scribe: enable/disable for the clinic and set raw-audio retention.
+     * AI Scribe: enable/disable for the clinic, set raw-audio retention and enabled languages.
      */
     public function updateScribe(Request $request): RedirectResponse
     {
         $tenant = $this->currentTenant($request);
 
+        $configuredLanguages = array_keys(config('scribe.languages', []));
+
         $data = $request->validate([
             'enabled' => ['required', 'boolean'],
             'audio_retention_mode' => ['required', Rule::in(['delete_after_transcription', 'retain_window'])],
             'audio_retention_hours' => ['required', 'integer', 'min:1', 'max:'.config('scribe.max_retention_hours')],
+            'enabled_languages' => ['nullable', 'array'],
+            'enabled_languages.*' => ['string', Rule::in($configuredLanguages)],
         ]);
 
-        DB::transaction(function () use ($tenant, $data, $request) {
+        $enabledLanguages = array_values(array_unique(array_merge(['en'], $data['enabled_languages'] ?? ['en'])));
+
+        DB::transaction(function () use ($tenant, $data, $enabledLanguages, $request) {
             $before = $tenant->scribeSettings();
 
             $tenant->update(['scribe_settings' => [
                 'enabled' => (bool) $data['enabled'],
                 'audio_retention_mode' => $data['audio_retention_mode'],
                 'audio_retention_hours' => (int) $data['audio_retention_hours'],
+                'enabled_languages' => $enabledLanguages,
             ]]);
 
             AuditEvent::create([

@@ -187,11 +187,21 @@ class Tenant extends Model
     /**
      * Effective AI Scribe settings (clinic overrides on top of config defaults).
      *
-     * @return array{enabled: bool, audio_retention_mode: string, audio_retention_hours: int}
+     * @return array{enabled: bool, audio_retention_mode: string, audio_retention_hours: int, enabled_languages: array<int, string>}
      */
     public function scribeSettings(): array
     {
         $settings = array_merge(config('scribe.defaults'), $this->scribe_settings ?? []);
+
+        $supportedLanguages = array_keys(config('scribe.languages', ['en' => []]));
+        $enabled = array_values(array_unique(array_filter(
+            (array) ($settings['enabled_languages'] ?? ['en']),
+            fn ($lang) => is_string($lang) && in_array($lang, $supportedLanguages, true)
+        )));
+
+        if (! in_array('en', $enabled, true)) {
+            array_unshift($enabled, 'en');
+        }
 
         return [
             'enabled' => (bool) $settings['enabled'],
@@ -199,7 +209,22 @@ class Tenant extends Model
                 ? $settings['audio_retention_mode']
                 : 'delete_after_transcription',
             'audio_retention_hours' => max(1, min((int) $settings['audio_retention_hours'], (int) config('scribe.max_retention_hours'))),
+            'enabled_languages' => $enabled,
         ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function scribeEnabledLanguages(): array
+    {
+        return $this->scribeSettings()['enabled_languages'];
+    }
+
+    public function updateScribeSettings(array $settings): void
+    {
+        $current = $this->scribe_settings ?? [];
+        $this->update(['scribe_settings' => array_merge($current, $settings)]);
     }
 
     public function scribeEnabled(): bool

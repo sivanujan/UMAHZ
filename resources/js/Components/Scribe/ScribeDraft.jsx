@@ -42,7 +42,16 @@ function formatClock(ms) {
     return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
-export default function ScribeDraft({ draft, canGenerate, busy, onGenerate, segmentsBySequence = {}, onJumpToSegment }) {
+export default function ScribeDraft({
+    draft,
+    canGenerate,
+    busy,
+    onGenerate,
+    segmentsBySequence = {},
+    onJumpToSegment,
+    isTranslated = false,
+    sourceLanguageLabel = '',
+}) {
     const [copied, setCopied] = useState(false);
     const status = draft?.status;
     const hasDraft = (draft?.version || 0) > 0 && status !== 'generating';
@@ -100,6 +109,15 @@ export default function ScribeDraft({ draft, canGenerate, busy, onGenerate, segm
                     )}
                 </div>
             </div>
+
+            {isTranslated && hasDraft && (
+                <div role="status" className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-500/35 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs font-medium">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                    <div className="leading-relaxed">
+                        <strong>Translation review:</strong> This note was translated from {sourceLanguageLabel || 'Mandarin (Chinese)'} by AI — please verify before signing.
+                    </div>
+                </div>
+            )}
 
             {status === 'generating' && (
                 <p className="text-xs text-slate-600 dark:text-slate-300 inline-flex items-center gap-2">
