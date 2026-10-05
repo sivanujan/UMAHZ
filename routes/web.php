@@ -210,6 +210,13 @@ Route::domain($central)->group(function () {
             Route::post('/', [PlatformSettingsController::class, 'update'])->name('update');
             Route::post('/clear-cache', [PlatformSettingsController::class, 'clearCache'])->name('clear-cache');
         });
+
+        Route::prefix('scribe-languages')->name('scribe-languages.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Admin\ScribeLanguageController::class, 'index'])->name('index');
+            Route::post('/', [\App\Http\Controllers\Admin\ScribeLanguageController::class, 'store'])->name('store');
+            Route::patch('/reorder', [\App\Http\Controllers\Admin\ScribeLanguageController::class, 'reorder'])->name('reorder');
+            Route::patch('/{scribeLanguage}', [\App\Http\Controllers\Admin\ScribeLanguageController::class, 'update'])->name('update');
+        });
     });
 });
 

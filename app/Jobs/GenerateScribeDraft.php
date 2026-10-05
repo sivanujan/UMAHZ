@@ -17,14 +17,14 @@ class GenerateScribeDraft implements ShouldQueue
 
     public int $tries = 2;
 
-    // Below the database queue retry_after (90s); OPENROUTER_TIMEOUT (60s) sits inside it.
-    public int $timeout = 80;
+    // Below the database queue retry_after (300s); OPENROUTER_TIMEOUT (60s) sits inside it.
+    public int $timeout = 180;
 
     public function __construct(
         public readonly string $sessionId,
         public readonly ?string $userId = null,
     ) {
-        $this->onQueue(config('scribe.queue', 'default'));
+        $this->onQueue(config('scribe.queue', 'scribe'));
     }
 
     public function handle(ScribeDraftService $drafts): void

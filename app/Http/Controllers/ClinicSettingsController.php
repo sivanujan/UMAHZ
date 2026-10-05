@@ -49,7 +49,7 @@ class ClinicSettingsController extends Controller
             'scribeConsentConfigured' => ConsentType::ensureScribeTypeForTenant($tenant->id)->isConfigured(),
             'scribeProvider' => config('scribe.transcription.driver'),
             'scribeMaxRetentionHours' => (int) config('scribe.max_retention_hours'),
-            'allScribeLanguages' => config('scribe.languages', []),
+            'allScribeLanguages' => app(\App\Scribe\LanguageRegistry::class)->forEncounter()->keyBy('code')->toArray() ?: config('scribe.languages', []),
         ]);
     }
 
@@ -60,7 +60,8 @@ class ClinicSettingsController extends Controller
     {
         $tenant = $this->currentTenant($request);
 
-        $configuredLanguages = array_keys(config('scribe.languages', []));
+        $registryLanguages = app(\App\Scribe\LanguageRegistry::class)->forEncounter()->pluck('code')->all();
+        $configuredLanguages = ! empty($registryLanguages) ? $registryLanguages : array_keys(config('scribe.languages', []));
 
         $data = $request->validate([
             'enabled' => ['required', 'boolean'],

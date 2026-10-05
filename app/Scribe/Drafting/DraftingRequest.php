@@ -21,5 +21,7 @@ final class DraftingRequest
         public readonly array $transcript,
         public readonly array $practitionerEntered = [],
         public readonly array $objectiveMeasurements = [],
+        public readonly string $outputLanguage = 'en',
+        public readonly string $outputLanguageLabel = 'English',
     ) {}
 }

@@ -60,16 +60,15 @@ return [
             'base_url' => env('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
             // Low-cost default. Switch model with one env line (e.g. anthropic/claude-sonnet-5).
             'model' => env('OPENROUTER_MODEL', 'anthropic/claude-haiku-4.5'),
-            'max_tokens' => (int) env('OPENROUTER_MAX_TOKENS', 3000),
-            // Must stay below the job timeout (80s).
+            'max_tokens' => (int) env('OPENROUTER_MAX_TOKENS', 4000),
+            // Must stay below the job timeout (180s).
             'timeout' => (int) env('OPENROUTER_TIMEOUT', 60),
         ],
     ],
 
     /*
-    | Supported encounter languages.
-    | Adding a new language only needs a new entry in this array.
-    | Code must match ISO-639-1 / provider language code.
+    | Supported encounter languages fallback (the dynamic registry in scribe_languages
+    | is the authoritative source).
     */
     'languages' => [
         'en' => [
@@ -82,14 +81,25 @@ return [
             'label' => 'Mandarin (Chinese)',
             'native' => '中文 (普通话)',
         ],
+        'fr' => [
+            'code' => 'fr',
+            'label' => 'French',
+            'native' => 'Français',
+        ],
     ],
 
     'default_language' => 'en',
 
     /*
-    | Queue used for transcription and drafting jobs.
+    | Queue used for transcription, translation and drafting jobs.
     */
-    'queue' => env('SCRIBE_QUEUE', 'default'),
+    'queue' => env('SCRIBE_QUEUE', 'scribe'),
+
+    // Capture duration per slice in milliseconds.
+    'chunk_ms' => (int) env('SCRIBE_CHUNK_MS', 12000),
+
+    // Translation batch size (segments per LLM request).
+    'translation_batch_size' => (int) env('SCRIBE_TRANSLATION_BATCH_SIZE', 12),
 
     // Private disk for raw audio. Never a public disk.
     'audio_disk' => env('SCRIBE_AUDIO_DISK', 'local'),

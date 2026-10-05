@@ -48,12 +48,13 @@ export function describeMicError(err) {
     }
 }
 
-export default function useScribeRecorder({ sessionId, onConsentRevoked, onSessionUpdate }) {
+export default function useScribeRecorder({ sessionId, onConsentRevoked, onSessionUpdate, chunkMs = CHUNK_MS }) {
     const [micState, setMicState] = useState('idle'); // idle | requesting | live | paused | stopped
     const [micError, setMicError] = useState(null);
     const [uploadError, setUploadError] = useState(null);
     const [pendingUploads, setPendingUploads] = useState(0);
     const [elapsedMs, setElapsedMs] = useState(0);
+    const [stream, setStream] = useState(null);
 
     const streamRef = useRef(null);
     const recorderRef = useRef(null);
@@ -77,6 +78,7 @@ export default function useScribeRecorder({ sessionId, onConsentRevoked, onSessi
         runningRef.current = false;
         streamRef.current?.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
+        setStream(null);
     }, []);
 
     /** Hard stop (consent revoked / unmount): drop everything not yet sent. */
@@ -183,8 +185,8 @@ export default function useScribeRecorder({ sessionId, onConsentRevoked, onSessi
         recorder.start();
         timerRef.current = setTimeout(() => {
             if (recorder.state !== 'inactive') recorder.stop();
-        }, CHUNK_MS);
-    }, [drain]);
+        }, chunkMs);
+    }, [drain, chunkMs]);
 
     /** Stop the current recorder and wait until its audio is queued. */
     const flushSegment = useCallback(() => new Promise((resolve) => {
@@ -218,14 +220,17 @@ export default function useScribeRecorder({ sessionId, onConsentRevoked, onSessi
         }
         setMicState('requesting');
         try {
-            streamRef.current = await navigator.mediaDevices.getUserMedia({
+            const micStream = await navigator.mediaDevices.getUserMedia({
                 audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
             });
+            streamRef.current = micStream;
+            setStream(micStream);
             mimeRef.current = pickMimeType() ?? '';
             setMicState('idle');
             return true;
         } catch (err) {
             setMicError(describeMicError(err));
+            setStream(null);
             setMicState('idle');
             return false;
         }
@@ -276,6 +281,7 @@ export default function useScribeRecorder({ sessionId, onConsentRevoked, onSessi
         uploadError,
         pendingUploads,
         elapsedMs,
+        stream,
         acquireMic,
         begin,
         pause,

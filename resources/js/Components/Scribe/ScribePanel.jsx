@@ -5,6 +5,7 @@ import { GlassModal } from '@/Components/UI/GlassModal';
 import SignaturePad from '@/Components/SignaturePad';
 import useScribeRecorder from '@/Components/Scribe/useScribeRecorder';
 import ScribeDraft from '@/Components/Scribe/ScribeDraft';
+import VoiceWaveVisualizer from '@/Components/Scribe/VoiceWaveVisualizer';
 import {
     Mic, Pause, Play, Square, ShieldCheck, ShieldOff, AlertTriangle, Loader2,
     RotateCcw, FileText, Copy, Check, PenLine, Type, ExternalLink, Info,
@@ -231,57 +232,43 @@ function WithdrawConsent({ session, onWithdrawn, beforeWithdraw }) {
     );
 }
 
-function SessionLanguageSelector({ session, onSelect, disabled, isOwner }) {
-    const enabled = session?.enabled_languages || ['en'];
-    const supported = session?.supported_languages || {
-        en: { code: 'en', label: 'English' },
-        zh: { code: 'zh', label: 'Mandarin (Chinese)' },
-    };
-    const current = session?.language || 'en';
+function SessionLanguageSelector({ session, onSelectLanguage, disabled }) {
+    const enabledCodes = session?.enabled_languages || ['en'];
+    const supportedList = Array.isArray(session?.supported_languages) ? session.supported_languages : [];
+    const availableEncounter = supportedList.filter((l) => enabledCodes.includes(l.code));
+    const currentLang = session?.language || 'en';
 
     return (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
                 <Globe className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
-                Session language:
+                Spoken:
             </span>
             <div className="inline-flex items-center gap-1 p-0.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/10">
-                {enabled.map((code) => {
-                    const lang = supported[code] || { code, label: code };
-                    const isSelected = current === code;
+                {availableEncounter.map((lang) => {
+                    const isSelected = currentLang === lang.code;
                     return (
                         <button
-                            key={code}
+                            key={lang.code}
                             type="button"
                             disabled={disabled}
-                            onClick={() => onSelect(code)}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition disabled:opacity-50 ${
+                            onClick={() => onSelectLanguage(lang.code)}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition disabled:opacity-50 ${
                                 isSelected
                                     ? 'bg-white dark:bg-white/20 text-[#8200db] dark:text-white shadow-xs'
                                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                             }`}
                         >
-                            {lang.label}
+                            <span>{lang.native_name || lang.label}</span>
+                            {lang.is_beta && (
+                                <span className="px-1 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                                    Beta
+                                </span>
+                            )}
                         </button>
                     );
                 })}
             </div>
-            {current !== 'en' && (
-                <span className="text-[11px] text-purple-700 dark:text-purple-300 font-medium">
-                    (Final note drafted in English)
-                </span>
-            )}
-            {enabled.length === 1 && (
-                <a
-                    href="/app/settings"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-[11px] text-[#8200db] dark:text-purple-300 font-semibold hover:underline"
-                    title="Enable Mandarin (Chinese) in Clinic Settings"
-                >
-                    Enable Mandarin in Settings <ExternalLink className="w-3 h-3" />
-                </a>
-            )}
         </div>
     );
 }
@@ -314,6 +301,7 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
 
     const recorder = useScribeRecorder({
         sessionId: session?.id,
+        chunkMs: session?.chunk_ms,
         onSessionUpdate: (s) => applySession(s),
         onConsentRevoked: (message) => setNotice(message || 'Consent is no longer valid. Recording has stopped.'),
     });
@@ -332,8 +320,11 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
 
     const lastSequence = segments.length ? segments[segments.length - 1].sequence : -1;
     const status = session?.status;
-    // Poll while capture/transcription runs, and while an AI draft is being written.
-    const shouldPoll = ACTIVE_STATUSES.includes(status) || session?.draft?.status === 'generating';
+    // Poll while capture/transcription runs, while draft generates, and while translation runs.
+    const shouldPoll = ACTIVE_STATUSES.includes(status)
+        || session?.draft?.status === 'generating'
+        || session?.translation_status === 'pending'
+        || session?.translation_status === 'translating';
 
     // Near-live transcript: poll for new segments while work is in flight.
     useEffect(() => {
@@ -506,6 +497,7 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                 appointment_id: appointmentId,
                 force_new: true,
                 language: session?.language || 'en',
+                note_output_language: 'en',
             });
             applySession(data.session, { replaceSegments: true });
             setTranscriptTab('original');
@@ -522,10 +514,10 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
         setActionError(null);
         try {
             const { data } = await axios.post(`/app/scribe/sessions/${session.id}/translate`);
-            applySession(data.session, { replaceSegments: true });
+            applySession(data.session);
             setTranscriptTab('translated');
         } catch (err) {
-            setActionError(err?.response?.data?.message || 'Translation failed.');
+            setActionError(err?.response?.data?.message || 'Translation failed to dispatch.');
         } finally {
             setBusy(false);
         }
@@ -583,17 +575,12 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                                     <SessionLanguageSelector
                                         session={session}
                                         disabled={busy}
-                                        onSelect={handleLanguageChange}
+                                        onSelectLanguage={handleLanguageChange}
                                     />
                                 ) : (
-                                    <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+                                    <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
                                         <Globe className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
-                                        <span>Language: <strong>{session.language_label || 'English'}</strong></span>
-                                        {session.is_non_english && (
-                                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-500/10 text-purple-700 dark:text-purple-300">
-                                                Note drafted in English
-                                            </span>
-                                        )}
+                                        <span>Spoken: <strong>{session.language_label || 'English'}</strong></span>
                                     </div>
                                 )}
                             </div>
@@ -648,56 +635,71 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                         )}
 
                         {(readyToStart || isRecording || isPaused) && canRecord && (
-                            <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-white/60 dark:bg-white/[0.03]">
-                                <div className="flex items-center gap-3">
-                                    {isRecording ? (
-                                        <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-rose-600 text-white text-[11px] font-extrabold uppercase tracking-wider" aria-live="polite">
-                                            <span className="w-2 h-2 rounded-full bg-white animate-pulse" /> Recording
-                                        </span>
-                                    ) : isPaused ? (
-                                        <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-500 text-white text-[11px] font-extrabold uppercase tracking-wider">
-                                            <Pause className="w-3 h-3" /> Paused
-                                        </span>
-                                    ) : (
-                                        <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-200 text-[11px] font-extrabold uppercase tracking-wider">
-                                            Ready
-                                        </span>
-                                    )}
-                                    <span className="font-mono text-lg font-bold text-slate-900 dark:text-white tabular-nums">{formatClock(elapsed)}</span>
+                            <div className="p-4 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-white/60 dark:bg-white/[0.03] space-y-3 shadow-2xs">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <div className="flex items-center gap-3">
+                                        {isRecording ? (
+                                            <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-rose-600 text-white text-[11px] font-extrabold uppercase tracking-wider" aria-live="polite">
+                                                <span className="w-2 h-2 rounded-full bg-white animate-pulse" /> Recording
+                                            </span>
+                                        ) : isPaused ? (
+                                            <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-500 text-white text-[11px] font-extrabold uppercase tracking-wider">
+                                                <Pause className="w-3 h-3" /> Paused
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-200 text-[11px] font-extrabold uppercase tracking-wider">
+                                                Ready
+                                            </span>
+                                        )}
+                                        <span className="font-mono text-lg font-bold text-slate-900 dark:text-white tabular-nums">{formatClock(elapsed)}</span>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        {readyToStart && (
+                                            <button type="button" onClick={handleStart} disabled={busy} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold shadow-sm disabled:opacity-50">
+                                                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />} Start recording
+                                            </button>
+                                        )}
+                                        {micDetached && (
+                                            <button type="button" onClick={handleReconnect} disabled={busy} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold disabled:opacity-50">
+                                                <Mic className="w-4 h-4" /> Reconnect microphone
+                                            </button>
+                                        )}
+                                        {isRecording && !micDetached && (
+                                            <button type="button" onClick={handlePause} disabled={busy} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-white/15 text-slate-800 dark:text-slate-100 text-sm font-bold hover:bg-white/70 dark:hover:bg-white/10 disabled:opacity-50">
+                                                <Pause className="w-4 h-4" /> Pause
+                                            </button>
+                                        )}
+                                        {isPaused && (
+                                            <button type="button" onClick={handleResume} disabled={busy} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#8200db] hover:opacity-90 text-white text-sm font-bold disabled:opacity-50">
+                                                <Play className="w-4 h-4" /> Resume
+                                            </button>
+                                        )}
+                                        {(isRecording || isPaused) && (
+                                            <button type="button" onClick={handleStop} disabled={busy} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold hover:opacity-90 disabled:opacity-50">
+                                                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Square className="w-4 h-4" />} Stop
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
 
-                                <div className="flex items-center gap-2">
-                                    {readyToStart && (
-                                        <button type="button" onClick={handleStart} disabled={busy} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold shadow-sm disabled:opacity-50">
-                                            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />} Start recording
-                                        </button>
-                                    )}
-                                    {micDetached && (
-                                        <button type="button" onClick={handleReconnect} disabled={busy} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold disabled:opacity-50">
-                                            <Mic className="w-4 h-4" /> Reconnect microphone
-                                        </button>
-                                    )}
-                                    {isRecording && !micDetached && (
-                                        <button type="button" onClick={handlePause} disabled={busy} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-white/15 text-slate-800 dark:text-slate-100 text-sm font-bold hover:bg-white/70 dark:hover:bg-white/10 disabled:opacity-50">
-                                            <Pause className="w-4 h-4" /> Pause
-                                        </button>
-                                    )}
-                                    {isPaused && (
-                                        <button type="button" onClick={handleResume} disabled={busy} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#8200db] hover:opacity-90 text-white text-sm font-bold disabled:opacity-50">
-                                            <Play className="w-4 h-4" /> Resume
-                                        </button>
-                                    )}
-                                    {(isRecording || isPaused) && (
-                                        <button type="button" onClick={handleStop} disabled={busy} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold hover:opacity-90 disabled:opacity-50">
-                                            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Square className="w-4 h-4" />} Stop
-                                        </button>
-                                    )}
-                                </div>
+                                {(isRecording || isPaused) && (
+                                    <div className="pt-2 border-t border-slate-200/50 dark:border-white/5">
+                                        <VoiceWaveVisualizer
+                                            stream={recorder.stream}
+                                            isRecording={isRecording && !micDetached}
+                                            isPaused={isPaused}
+                                            barCount={32}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         )}
 
                         {status === 'transcribing' && (
-                            <Banner icon={Loader2}>Finishing transcription of the last {pendingTranscription || ''} part{pendingTranscription === 1 ? '' : 's'}…</Banner>
+                            <Banner icon={Loader2}>
+                                Transcribing audio: {session.chunks?.transcribed ?? 0} of {session.chunks?.total || ((session.chunks?.transcribed ?? 0) + (session.chunks?.pending ?? 0))} parts completed…
+                            </Banner>
                         )}
                         {failed > 0 && ['transcribing', 'transcript_ready', 'recording', 'paused'].includes(status) && (
                             <Banner
@@ -756,15 +758,34 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                                     </div>
 
                                     <div className="flex items-center gap-2">
-                                        {session.is_non_english && !session.is_translated && segments.length > 0 && (
-                                            <button
-                                                type="button"
-                                                onClick={handleTranslate}
-                                                disabled={busy}
-                                                className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 dark:text-purple-300 hover:underline disabled:opacity-50"
-                                            >
-                                                <Languages className="w-3.5 h-3.5" /> Translate now
-                                            </button>
+                                        {session.is_non_english && (
+                                            <>
+                                                {session.translation_status === 'translating' && (
+                                                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-purple-700 dark:text-purple-300">
+                                                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Translating transcript to English…
+                                                    </span>
+                                                )}
+                                                {session.translation_status === 'failed' && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleTranslate}
+                                                        disabled={busy}
+                                                        className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline disabled:opacity-50"
+                                                    >
+                                                        <RotateCcw className="w-3.5 h-3.5" /> Translation failed – Retry
+                                                    </button>
+                                                )}
+                                                {(!session.translation_status || session.translation_status === 'pending') && !session.is_translated && segments.length > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleTranslate}
+                                                        disabled={busy || session.translation_status === 'pending'}
+                                                        className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 dark:text-purple-300 hover:underline disabled:opacity-50"
+                                                    >
+                                                        <Languages className="w-3.5 h-3.5" /> {session.translation_status === 'pending' ? 'Translation queued…' : 'Translate now'}
+                                                    </button>
+                                                )}
+                                            </>
                                         )}
                                         {segments.length > 0 && (
                                             <button type="button" onClick={copyTranscript} className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:text-[#8200db]">
@@ -780,13 +801,39 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                                             {isRecording ? 'Listening… the first words appear about 15 seconds after you start.' : 'No transcript yet.'}
                                         </p>
                                     ) : segments.map((s) => {
-                                        const text = transcriptTab === 'translated'
-                                            ? (s.translated_text || (session.is_translated ? s.text : `${s.text} (translating...)`))
-                                            : s.text;
+                                        let text = s.text;
+                                        let isPendingTranslation = false;
+                                        let isFailedTranslation = false;
+
+                                        if (transcriptTab === 'translated') {
+                                            if (s.translated_text) {
+                                                text = s.translated_text;
+                                            } else if (session.translation_status === 'translating') {
+                                                text = 'Translating…';
+                                                isPendingTranslation = true;
+                                            } else if (s.translation_status === 'failed' || session.translation_status === 'failed') {
+                                                text = s.text;
+                                                isFailedTranslation = true;
+                                            } else {
+                                                text = s.text;
+                                            }
+                                        }
+
                                         return (
                                             <div key={s.sequence} data-seq={s.sequence} className={`flex gap-3 rounded-lg transition-colors ${highlightSeq === s.sequence ? 'bg-purple-500/15' : ''}`}>
                                                 <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 pt-0.5 shrink-0 tabular-nums">{formatClock(s.start_ms)}</span>
-                                                <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">{text}</p>
+                                                <div className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">
+                                                    {isPendingTranslation ? (
+                                                        <span className="text-slate-400 dark:text-slate-500 italic">Translating…</span>
+                                                    ) : isFailedTranslation ? (
+                                                        <span>
+                                                            <span className="text-[11px] font-semibold text-rose-500 mr-2">[Translation failed]</span>
+                                                            {text}
+                                                        </span>
+                                                    ) : (
+                                                        <span>{text}</span>
+                                                    )}
+                                                </div>
                                             </div>
                                         );
                                     })}
@@ -804,6 +851,7 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                                 onJumpToSegment={jumpToSegment}
                                 isTranslated={session.is_translated}
                                 sourceLanguageLabel={session.language_label}
+                                outputLanguageLabel={session.note_output_language_label}
                             />
                         )}
 

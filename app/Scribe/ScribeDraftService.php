@@ -29,7 +29,6 @@ class ScribeDraftService
     public function __construct(
         private readonly DraftingProvider $drafting,
         private readonly ObjectiveMeasurementSource $measurements,
-        private readonly \App\Scribe\Translation\ScribeTranslationService $translation = new \App\Scribe\Translation\ScribeTranslationService,
     ) {}
 
     /**
@@ -82,12 +81,6 @@ class ScribeDraftService
             return;
         }
 
-        // If recorded in a non-English language, ensure segments are translated to English first.
-        if ($session->isNonEnglish()) {
-            $user = $userId ? User::find($userId) : null;
-            $this->translation->translate($session, $user);
-        }
-
         $tenant = Tenant::findOrFail($session->tenant_id);
         $template = $this->templateFor($session, $tenant);
         $schema = $template->schema ?? ['sections' => []];
@@ -97,6 +90,9 @@ class ScribeDraftService
             ->orderBy('sequence')
             ->get();
 
+        $outputLanguage = $session->note_output_language ?: 'en';
+        $outputLanguageLabel = $session->noteOutputLanguageLabel();
+
         $result = $this->drafting->draft(new DraftingRequest(
             discipline: $template->discipline,
             disciplineLabel: $session->discipline_label ?: $tenant->disciplineLabel($template->discipline),
@@ -104,12 +100,14 @@ class ScribeDraftService
             transcript: $segments->map(fn (ScribeTranscriptSegment $s) => [
                 'id' => $s->id,
                 'sequence' => $s->sequence,
-                'text' => ($session->isNonEnglish() && ! empty($s->translated_text)) ? $s->translated_text : $s->text,
+                'text' => $s->text,
                 'start_ms' => $s->start_ms,
                 'end_ms' => $s->end_ms,
                 'speaker_role' => $s->speaker_role,
             ])->all(),
             objectiveMeasurements: $this->measurements->approvedMeasurementsFor($session),
+            outputLanguage: $outputLanguage,
+            outputLanguageLabel: $outputLanguageLabel,
         ));
 
         $items = $this->validate($result->fields, $schema, $segments->keyBy('sequence')->all());

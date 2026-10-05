@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutDashboard, Building2, Users, LifeBuoy, Settings, LogOut, ChevronDown, ShieldCheck, ClipboardCheck, IdCard, CreditCard } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, LifeBuoy, Settings, LogOut, ChevronDown, ShieldCheck, ClipboardCheck, IdCard, CreditCard, Globe } from 'lucide-react';
 
 export default function AdminLayout({ children, title }) {
     const { auth } = usePage().props;
@@ -15,6 +15,7 @@ export default function AdminLayout({ children, title }) {
         { name: 'Clinic Applications', href: '/admin/clinics', icon: ClipboardCheck },
         { name: 'Practitioner Verification', href: '/admin/practitioners', icon: IdCard },
         { name: 'Pricing & Plans', href: '/admin/plans', icon: CreditCard },
+        { name: 'AI Scribe Languages', href: '/admin/scribe-languages', icon: Globe },
         { name: 'Platform Staff', href: '/admin/staff', icon: Users },
         { name: 'Support', href: '#', icon: LifeBuoy },
         { name: 'Platform Settings', href: '/admin/settings', icon: Settings },

@@ -48,7 +48,16 @@ class ScribeSessionController extends Controller
             'client_id' => ['required', 'uuid', Rule::exists('clients', 'id')->where('tenant_id', $tenantId)],
             'appointment_id' => ['nullable', 'uuid'],
             'force_new' => ['nullable', 'boolean'],
-            'language' => ['nullable', 'string', Rule::in(array_keys(config('scribe.languages', [])))],
+            'language' => ['nullable', 'string', function ($attribute, $value, $fail) {
+                if ($value && ! \App\Scribe\LanguageRegistry::isValidEncounterLanguage($value)) {
+                    $fail("Language \"{$value}\" is not supported.");
+                }
+            }],
+            'note_output_language' => ['nullable', 'string', function ($attribute, $value, $fail) {
+                if ($value && ! \App\Scribe\LanguageRegistry::isValidNoteOutputLanguage($value)) {
+                    $fail("Note output language \"{$value}\" is not supported.");
+                }
+            }],
         ]);
 
         $client = Client::where('tenant_id', $tenantId)->findOrFail($data['client_id']);
@@ -70,7 +79,8 @@ class ScribeSessionController extends Controller
             $appointment,
             $request->ip(),
             (bool) ($data['force_new'] ?? false),
-            $data['language'] ?? null
+            $data['language'] ?? null,
+            $data['note_output_language'] ?? null
         );
 
         return response()->json(['session' => $this->payload($session, $request)], 201);
@@ -135,10 +145,25 @@ class ScribeSessionController extends Controller
         $enabledLanguages = $scribeSession->tenant->scribeEnabledLanguages();
 
         $data = $request->validate([
-            'language' => ['required', 'string', Rule::in($enabledLanguages)],
+            'language' => ['nullable', 'string', Rule::in($enabledLanguages)],
+            'note_output_language' => ['nullable', 'string', function ($attribute, $value, $fail) {
+                if ($value && ! \App\Scribe\LanguageRegistry::isValidNoteOutputLanguage($value)) {
+                    $fail("Note output language \"{$value}\" is not supported.");
+                }
+            }],
         ]);
 
-        return $this->run($request, $scribeSession, fn () => $this->scribe->updateLanguage($scribeSession, $data['language'], $request->user(), $request->ip()));
+        if (empty($data['language']) && empty($data['note_output_language'])) {
+            return response()->json(['message' => 'No language changes provided.'], 422);
+        }
+
+        return $this->run($request, $scribeSession, fn () => $this->scribe->updateLanguage(
+            $scribeSession,
+            $data['language'] ?? null,
+            $request->user(),
+            $request->ip(),
+            $data['note_output_language'] ?? null
+        ));
     }
 
     public function start(Request $request, ScribeSession $scribeSession): JsonResponse
@@ -146,8 +171,9 @@ class ScribeSessionController extends Controller
         $this->authorizeSession($scribeSession, 'record');
 
         $language = $request->input('language');
-        if ($language && in_array($language, array_keys(config('scribe.languages', [])), true)) {
-            $this->scribe->updateLanguage($scribeSession, $language, $request->user(), $request->ip());
+        $noteOutputLanguage = $request->input('note_output_language');
+        if ($language || $noteOutputLanguage) {
+            $this->scribe->updateLanguage($scribeSession, $language, $request->user(), $request->ip(), $noteOutputLanguage);
         }
 
         return $this->run($request, $scribeSession, fn () => $this->scribe->start($scribeSession, $request->user(), $request->ip()));
@@ -157,11 +183,24 @@ class ScribeSessionController extends Controller
     {
         $this->authorizeSession($scribeSession, 'record');
 
-        return $this->run($request, $scribeSession, function () use ($request, $scribeSession) {
-            app(\App\Scribe\Translation\ScribeTranslationService::class)->translate($scribeSession, $request->user(), $request->ip());
+        if (! $scribeSession->isNonEnglish()) {
+            return response()->json([
+                'message' => 'Translation is only needed for non-English sessions.',
+                'code' => 'translation_not_required',
+                'session' => $this->payload($scribeSession->refresh(), $request),
+            ], 422);
+        }
 
-            return ['translated' => true];
-        });
+        return $this->run($request, $scribeSession, function () use ($request, $scribeSession) {
+            $scribeSession->forceFill([
+                'translation_status' => ScribeSession::TRANSLATION_PENDING,
+                'translation_error' => null,
+            ])->save();
+
+            \App\Jobs\TranslateScribeSession::dispatch($scribeSession->id, $request->user()->id, $request->ip());
+
+            return ['dispatched' => true];
+        }, status: 202);
     }
 
     public function pause(Request $request, ScribeSession $scribeSession): JsonResponse
@@ -280,6 +319,35 @@ class ScribeSessionController extends Controller
                 'code' => 'invalid_state',
                 'session' => $this->payload($session->refresh(), $request),
             ], 409);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e) {
+            throw $e;
+        } catch (\App\Scribe\Drafting\DraftingException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'code' => 'drafting_error',
+                'retryable' => $e->retryable,
+                'session' => $this->payload($session->refresh(), $request),
+            ], 422);
+        } catch (\App\Scribe\Contracts\TranscriptionException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'code' => 'transcription_error',
+                'retryable' => $e->retryable,
+                'session' => $this->payload($session->refresh(), $request),
+            ], 422);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Scribe error: '.$e->getMessage(), [
+                'session_id' => $session->id,
+                'exception' => $e,
+            ]);
+
+            return response()->json([
+                'message' => $e->getMessage() ?: 'An error occurred during the AI Scribe operation.',
+                'code' => 'provider_error',
+                'session' => $this->payload($session->refresh(), $request),
+            ], 422);
         }
 
         $body = is_array($extra) ? $extra : [];
@@ -324,11 +392,14 @@ class ScribeSessionController extends Controller
                 'text' => $s->text,
                 'translated_text' => $s->translated_text,
                 'language' => $s->language,
+                'detected_language' => $s->detected_language,
+                'translation_status' => $s->translation_status,
                 'start_ms' => $s->start_ms,
                 'end_ms' => $s->end_ms,
                 'source' => $s->source,
             ]);
 
+        $totalChunks = (int) ScribeAudioChunk::where('scribe_session_id', $session->id)->count();
         $chunkCounts = ScribeAudioChunk::where('scribe_session_id', $session->id)
             ->selectRaw('status, count(*) as total')
             ->groupBy('status')
@@ -336,6 +407,20 @@ class ScribeSessionController extends Controller
 
         $consent = $session->consent;
         $settings = $tenant?->scribeSettings() ?? config('scribe.defaults');
+
+        $encounterLanguages = \App\Scribe\LanguageRegistry::forEncounter()->map(fn ($l) => [
+            'code' => $l->code,
+            'label' => $l->label,
+            'native_name' => $l->native_name,
+            'is_beta' => $l->isBeta(),
+        ])->values()->all();
+
+        $noteOutputLanguages = \App\Scribe\LanguageRegistry::forNoteOutput()->map(fn ($l) => [
+            'code' => $l->code,
+            'label' => $l->label,
+            'native_name' => $l->native_name,
+            'is_beta' => $l->isBeta(),
+        ])->values()->all();
 
         return [
             'id' => $session->id,
@@ -350,12 +435,18 @@ class ScribeSessionController extends Controller
             'discipline_label' => $session->discipline_label,
             'language' => $session->language ?? 'en',
             'language_label' => $session->languageLabel(),
+            'note_output_language' => $session->note_output_language ?? 'en',
+            'note_output_language_label' => $session->noteOutputLanguageLabel(),
+            'note_output_languages' => $noteOutputLanguages,
             'is_non_english' => $session->isNonEnglish(),
             'is_translated' => (bool) $session->is_translated,
+            'translation_status' => $session->translation_status,
+            'translation_error' => $session->translation_error,
             'translated_at' => $session->translated_at?->toIso8601String(),
             'translation_provider' => $session->translation_provider,
             'enabled_languages' => $settings['enabled_languages'] ?? ['en'],
-            'supported_languages' => config('scribe.languages', []),
+            'supported_languages' => $encounterLanguages,
+            'chunk_ms' => (int) config('scribe.chunk_ms', 12000),
             'has_valid_consent' => $session->hasValidConsent(),
             'consent' => $consent ? [
                 'id' => $consent->id,
@@ -383,6 +474,7 @@ class ScribeSessionController extends Controller
             'consent_withdrawn_at' => $session->consent_withdrawn_at?->toIso8601String(),
             'last_error' => $session->last_error,
             'chunks' => [
+                'total' => $totalChunks,
                 'pending' => (int) (($chunkCounts[ScribeAudioChunk::STATUS_PENDING] ?? 0) + ($chunkCounts[ScribeAudioChunk::STATUS_PROCESSING] ?? 0)),
                 'transcribed' => (int) ($chunkCounts[ScribeAudioChunk::STATUS_TRANSCRIBED] ?? 0),
                 'failed' => (int) ($chunkCounts[ScribeAudioChunk::STATUS_FAILED] ?? 0),
@@ -390,6 +482,7 @@ class ScribeSessionController extends Controller
             ],
             'segments' => $segments,
             'provider' => $session->transcription_provider,
+            'provider_model' => $session->provider_model,
             'audio_retention' => $settings,
             'can_record' => $request->user()->can('record', $session),
             'timezone' => $tenant?->timezone,

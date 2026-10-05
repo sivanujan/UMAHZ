@@ -193,7 +193,11 @@ class Tenant extends Model
     {
         $settings = array_merge(config('scribe.defaults'), $this->scribe_settings ?? []);
 
-        $supportedLanguages = array_keys(config('scribe.languages', ['en' => []]));
+        $registryLanguages = app(\App\Scribe\LanguageRegistry::class)->forEncounter()->pluck('code')->all();
+        $supportedLanguages = ! empty($registryLanguages)
+            ? $registryLanguages
+            : array_keys(config('scribe.languages', ['en' => []]));
+
         $enabled = array_values(array_unique(array_filter(
             (array) ($settings['enabled_languages'] ?? ['en']),
             fn ($lang) => is_string($lang) && in_array($lang, $supportedLanguages, true)
