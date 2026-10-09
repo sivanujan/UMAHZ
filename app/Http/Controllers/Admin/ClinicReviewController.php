@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditEvent;
+use App\Models\BlockedEmail;
 use App\Models\PractitionerProfile;
 use App\Models\StaffMembership;
 use App\Models\Tenant;
@@ -12,6 +13,9 @@ use App\Http\Controllers\Onboarding\ClinicRegistrationController;
 use App\Notifications\ClinicApplicationApprovedNotification;
 use App\Notifications\ClinicApplicationNeedsInfoNotification;
 use App\Notifications\ClinicApplicationRejectedNotification;
+use App\Notifications\ClinicApplicationRejectionNotification;
+use App\Notifications\ClinicApplicationFinalRejectionNotification;
+use App\Notifications\ClinicApplicationPermanentRejectionNotification;
 use App\Services\ClinicSubscriptionService;
 use App\Support\ClinicOptions;
 use App\Support\Tenancy;
@@ -44,26 +48,51 @@ class ClinicReviewController extends Controller
         $status = $request->query('status', Tenant::STATUS_PENDING_REVIEW);
         $status = in_array($status, self::FILTERABLE_STATUSES, true) ? $status : Tenant::STATUS_PENDING_REVIEW;
 
+        $blockedBizRegs = BlockedEmail::whereNotNull('business_registration_number')->pluck('business_registration_number')->filter()->all();
+        $blockedPhones = BlockedEmail::whereNotNull('phone')->pluck('phone')->filter()->all();
+
         $tenants = Tenant::query()
             ->where('status', $status)
             ->orderBy('submitted_at')
             ->get()
-            ->map(fn (Tenant $tenant) => [
-                'id' => $tenant->id,
-                'name' => $tenant->name,
-                'plan_tier' => $tenant->plan_tier,
-                'plan_name' => $tenant->planName(),
-                'full_time_practitioners_count' => $tenant->full_time_practitioners_count,
-                'part_time_practitioners_count' => $tenant->part_time_practitioners_count,
-                'monthly_total' => $tenant->monthlyBillableTotal(),
-                'primary_contact_name' => $tenant->primary_contact_name,
-                'primary_contact_email' => $tenant->primary_contact_email,
-                'requested_disciplines' => $tenant->requested_disciplines,
-                'discipline_labels' => $tenant->offeredDisciplineLabels(),
-                'estimated_practitioner_count' => $tenant->estimated_practitioner_count,
-                'submitted_at' => $tenant->submitted_at?->format('M j, Y g:i A'),
-                'submitted_ago' => $tenant->submitted_at?->diffForHumans(),
-            ]);
+            ->map(function (Tenant $tenant) use ($blockedBizRegs, $blockedPhones) {
+                $matchesBlocked = false;
+                $matchReason = null;
+
+                if (!empty($tenant->business_registration_number) && in_array($tenant->business_registration_number, $blockedBizRegs, true)) {
+                    $matchesBlocked = true;
+                    $matchReason = 'Matches blocked business registration number (' . $tenant->business_registration_number . ')';
+                } elseif (!empty($tenant->primary_contact_phone) && in_array($tenant->primary_contact_phone, $blockedPhones, true)) {
+                    $matchesBlocked = true;
+                    $matchReason = 'Matches blocked contact phone (' . $tenant->primary_contact_phone . ')';
+                }
+
+                $attempt = $tenant->reapply_count ?: 1;
+                $maxAttempts = $tenant->maxReapplyAttempts();
+
+                return [
+                    'id' => $tenant->id,
+                    'name' => $tenant->name,
+                    'plan_tier' => $tenant->plan_tier,
+                    'plan_name' => $tenant->planName(),
+                    'full_time_practitioners_count' => $tenant->full_time_practitioners_count,
+                    'part_time_practitioners_count' => $tenant->part_time_practitioners_count,
+                    'monthly_total' => $tenant->monthlyBillableTotal(),
+                    'primary_contact_name' => $tenant->primary_contact_name,
+                    'primary_contact_email' => $tenant->primary_contact_email,
+                    'requested_disciplines' => $tenant->requested_disciplines,
+                    'discipline_labels' => $tenant->offeredDisciplineLabels(),
+                    'estimated_practitioner_count' => $tenant->estimated_practitioner_count,
+                    'submitted_at' => $tenant->submitted_at?->format('M j, Y g:i A'),
+                    'submitted_ago' => $tenant->submitted_at?->diffForHumans(),
+                    'reapply_count' => $attempt,
+                    'max_attempts' => $maxAttempts,
+                    'is_reapplication' => $attempt > 1,
+                    'matches_blocked' => $matchesBlocked,
+                    'blocked_match_reason' => $matchReason,
+                    'is_permanently_rejected' => (bool) $tenant->is_permanently_rejected,
+                ];
+            });
 
         return Inertia::render('Admin/Clinics/Index', [
             'tenants' => $tenants,
@@ -80,6 +109,23 @@ class ClinicReviewController extends Controller
             ->whereHas('staffMembership', fn ($q) => $q->where('tenant_id', $tenant->id))
             ->first();
 
+        $blockedBizRegs = BlockedEmail::whereNotNull('business_registration_number')->pluck('business_registration_number')->filter()->all();
+        $blockedPhones = BlockedEmail::whereNotNull('phone')->pluck('phone')->filter()->all();
+
+        $matchesBlocked = false;
+        $matchReason = null;
+        if (!empty($tenant->business_registration_number) && in_array($tenant->business_registration_number, $blockedBizRegs, true)) {
+            $matchesBlocked = true;
+            $matchReason = 'Matches blocked business registration number (' . $tenant->business_registration_number . ')';
+        } elseif (!empty($tenant->primary_contact_phone) && in_array($tenant->primary_contact_phone, $blockedPhones, true)) {
+            $matchesBlocked = true;
+            $matchReason = 'Matches blocked contact phone (' . $tenant->primary_contact_phone . ')';
+        }
+
+        $attempt = $tenant->reapply_count ?: 1;
+        $maxAttempts = $tenant->maxReapplyAttempts();
+        $attemptsRemaining = max(0, $maxAttempts - $attempt);
+
         return Inertia::render('Admin/Clinics/Show', [
             'tenant' => [
                 'id' => $tenant->id,
@@ -88,6 +134,9 @@ class ClinicReviewController extends Controller
                 'slug' => $tenant->slug,
                 'plan_tier' => $tenant->plan_tier,
                 'plan_name' => $tenant->planName(),
+                'billing_interval' => $tenant->billing_interval ?? 'month',
+                'applied_promo_code' => $tenant->applied_promo_code,
+                'extra_practitioner_seats' => $tenant->extra_practitioner_seats ?? 0,
                 'full_time_practitioners_count' => $tenant->full_time_practitioners_count,
                 'part_time_practitioners_count' => $tenant->part_time_practitioners_count,
                 'billing_breakdown' => $tenant->monthlyBillableBreakdown(),
@@ -102,6 +151,15 @@ class ClinicReviewController extends Controller
                 'submitted_at' => $tenant->submitted_at?->format('M j, Y g:i A'),
                 'reviewed_at' => $tenant->reviewed_at?->format('M j, Y g:i A'),
                 'review_note' => $tenant->review_note,
+                'reapply_count' => $attempt,
+                'max_attempts' => $maxAttempts,
+                'attempts_remaining' => $attemptsRemaining,
+                'can_reapply' => $tenant->canReapply(),
+                'is_permanently_rejected' => (bool) $tenant->is_permanently_rejected,
+                'rejection_sections' => $tenant->rejection_sections ?: [],
+                'rejection_history' => $tenant->rejection_history ?: [],
+                'matches_blocked' => $matchesBlocked,
+                'blocked_match_reason' => $matchReason,
             ],
             'primaryPractitioner' => $primaryProfile ? [
                 'id' => $primaryProfile->id,
@@ -214,7 +272,10 @@ class ClinicReviewController extends Controller
         abort_unless($tenant->status === Tenant::STATUS_APPROVED, 403, 'Only an approved clinic can be suspended.');
 
         DB::transaction(function () use ($request, $tenant) {
-            $tenant->update(['status' => Tenant::STATUS_SUSPENDED]);
+            $tenant->update([
+                'status' => Tenant::STATUS_SUSPENDED,
+                'is_manually_suspended' => true,
+            ]);
             $this->logAuditEvent($request, $tenant, 'clinic.suspended');
         });
 
@@ -228,7 +289,10 @@ class ClinicReviewController extends Controller
         abort_unless($tenant->status === Tenant::STATUS_SUSPENDED, 403, 'Only a suspended clinic can be reactivated.');
 
         DB::transaction(function () use ($request, $tenant) {
-            $tenant->update(['status' => Tenant::STATUS_APPROVED]);
+            $tenant->update([
+                'status' => Tenant::STATUS_APPROVED,
+                'is_manually_suspended' => false,
+            ]);
             $this->logAuditEvent($request, $tenant, 'clinic.reactivated');
         });
 
@@ -239,9 +303,30 @@ class ClinicReviewController extends Controller
     {
         $this->authorize('review', $tenant);
 
-        // A saved card is required before an application is ever submitted, so
-        // this should always hold — but guard so we never "approve" a clinic we
-        // then can't bill.
+        // If stripe_pm_id is not set locally but stripe_id exists, attempt to auto-recover
+        // the customer's default or attached payment method from Stripe.
+        if (empty($tenant->stripe_pm_id) && ! empty($tenant->stripe_id)) {
+            try {
+                $customer = \Laravel\Cashier\Cashier::stripe()->customers->retrieve($tenant->stripe_id);
+                $defaultPm = $customer->invoice_settings->default_payment_method;
+                if (! $defaultPm) {
+                    $pms = \Laravel\Cashier\Cashier::stripe()->paymentMethods->all([
+                        'customer' => $tenant->stripe_id,
+                        'type' => 'card',
+                        'limit' => 1,
+                    ]);
+                    $defaultPm = $pms->data[0]->id ?? null;
+                }
+                if ($defaultPm) {
+                    $tenant->forceFill(['stripe_pm_id' => $defaultPm])->save();
+                }
+            } catch (\Throwable $e) {
+                // Ignore fallback lookup errors
+            }
+        }
+
+        // A saved card is required before an application is approved so
+        // subscription billing can be activated.
         if (empty($tenant->stripe_id) || empty($tenant->stripe_pm_id)) {
             return back()->withErrors(['approve' => 'This clinic has no saved payment method on file and cannot be approved.']);
         }
@@ -317,32 +402,144 @@ class ClinicReviewController extends Controller
     {
         $this->authorize('review', $tenant);
 
-        // Note stays required — validation runs before any writes.
         $data = $request->validate([
             'note' => ['required', 'string', 'max:2000'],
+            'sections' => ['nullable', 'array'],
+            'sections.*' => ['string', 'in:clinic_details,documents_license,disciplines,contact,other'],
         ]);
 
-        // No charge ever happened (we only saved the card), so there is nothing
-        // to refund — just discard the saved payment method.
-        $subscriptions->discard($tenant);
+        $sections = !empty($data['sections']) ? $data['sections'] : ['other'];
+        $attempt = $tenant->reapply_count ?: 1;
+        $maxAttempts = $tenant->maxReapplyAttempts();
+        $isFinalAttempt = ($attempt >= $maxAttempts);
 
-        DB::transaction(function () use ($request, $tenant, $data) {
-            $tenant->update([
+        // Discard saved payment method only on final rejection.
+        // When re-application is allowed, retain the verified card on file.
+        if ($isFinalAttempt) {
+            $subscriptions->discard($tenant);
+        }
+
+        DB::transaction(function () use ($request, $tenant, $data, $sections, $attempt, $isFinalAttempt) {
+            $history = $tenant->rejection_history ?? [];
+            $history[] = [
+                'attempt' => $attempt,
+                'rejected_at' => now()->toIso8601String(),
+                'rejected_by' => $request->user()->name,
+                'review_note' => $data['note'],
+                'sections' => $sections,
+                'is_permanent' => false,
+                'is_final' => $isFinalAttempt,
+            ];
+
+            $tenantUpdates = [
                 'status' => Tenant::STATUS_REJECTED,
                 'reviewed_at' => now(),
                 'reviewed_by' => $request->user()->id,
                 'review_note' => $data['note'],
-            ]);
+                'rejection_sections' => $sections,
+                'rejection_history' => $history,
+                'rejected_at' => now(),
+            ];
 
-            $this->logAuditEvent($request, $tenant, 'subscription.discarded');
+            if ($isFinalAttempt) {
+                $tenantUpdates['is_permanently_rejected'] = true;
+            }
+
+            $tenant->update($tenantUpdates);
+
+            if ($isFinalAttempt) {
+                $this->logAuditEvent($request, $tenant, 'subscription.discarded');
+            }
             $this->logAuditEvent($request, $tenant, 'clinic.rejected', $data['note']);
         });
 
-        // Outside the transaction: mail/queue failure must not roll back the review.
         $owner = $tenant->staffMemberships()->where('role', 'clinic_owner')->first()?->user;
-        $this->notifySafely($owner, new ClinicApplicationRejectedNotification($tenant));
 
-        return back()->with('success', "{$tenant->name} rejected.");
+        if ($isFinalAttempt) {
+            if ($owner) {
+                BlockedEmail::firstOrCreate(
+                    ['email' => strtolower(trim($owner->email))],
+                    [
+                        'reason' => "Max application attempts ({$maxAttempts}) reached: " . $data['note'],
+                        'blocked_by_user_id' => $request->user()->id,
+                        'tenant_id' => $tenant->id,
+                        'business_registration_number' => $tenant->business_registration_number,
+                        'phone' => $tenant->primary_contact_phone,
+                    ]
+                );
+
+                $this->notifySafely($owner, new ClinicApplicationFinalRejectionNotification($tenant));
+            }
+
+            return back()->with('success', "{$tenant->name} rejected (maximum attempts reached, email blocked from further applications).");
+        }
+
+        if ($owner) {
+            $this->notifySafely($owner, new ClinicApplicationRejectionNotification($tenant, $sections));
+        }
+
+        return back()->with('success', "{$tenant->name} rejected with re-apply link sent (attempt {$attempt} of {$maxAttempts}).");
+    }
+
+    public function rejectPermanent(Request $request, Tenant $tenant, ClinicSubscriptionService $subscriptions): RedirectResponse
+    {
+        $this->authorize('review', $tenant);
+
+        $data = $request->validate([
+            'note' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $attempt = $tenant->reapply_count ?: 1;
+
+        // Discard saved payment method
+        $subscriptions->discard($tenant);
+
+        DB::transaction(function () use ($request, $tenant, $data, $attempt) {
+            $history = $tenant->rejection_history ?? [];
+            $history[] = [
+                'attempt' => $attempt,
+                'rejected_at' => now()->toIso8601String(),
+                'rejected_by' => $request->user()->name,
+                'review_note' => $data['note'],
+                'sections' => ['all'],
+                'is_permanent' => true,
+            ];
+
+            $tenant->update([
+                'status' => Tenant::STATUS_PERMANENTLY_REJECTED,
+                'is_permanently_rejected' => true,
+                'reviewed_at' => now(),
+                'reviewed_by' => $request->user()->id,
+                'review_note' => $data['note'],
+                'rejection_sections' => ['all'],
+                'rejection_history' => $history,
+                'rejected_at' => now(),
+            ]);
+
+            $owner = $tenant->staffMemberships()->where('role', 'clinic_owner')->first()?->user;
+            if ($owner) {
+                BlockedEmail::firstOrCreate(
+                    ['email' => strtolower(trim($owner->email))],
+                    [
+                        'reason' => 'Permanent rejection: ' . $data['note'],
+                        'blocked_by_user_id' => $request->user()->id,
+                        'tenant_id' => $tenant->id,
+                        'business_registration_number' => $tenant->business_registration_number,
+                        'phone' => $tenant->primary_contact_phone,
+                    ]
+                );
+            }
+
+            $this->logAuditEvent($request, $tenant, 'subscription.discarded');
+            $this->logAuditEvent($request, $tenant, 'clinic.permanently_rejected', $data['note']);
+        });
+
+        $owner = $tenant->staffMemberships()->where('role', 'clinic_owner')->first()?->user;
+        if ($owner) {
+            $this->notifySafely($owner, new ClinicApplicationPermanentRejectionNotification($tenant));
+        }
+
+        return back()->with('success', "{$tenant->name} permanently rejected and email blocked.");
     }
 
     /**

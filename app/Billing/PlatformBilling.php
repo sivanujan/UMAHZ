@@ -43,11 +43,60 @@ interface PlatformBilling
      * Sync the subscription item quantities (e.g. additional FT/PT practitioners)
      * on Stripe when practitioner counts change.
      */
-    public function syncSubscriptionQuantities(Tenant $tenant): void;
+    public function syncSubscriptionQuantities(Tenant $tenant, bool $invoiceImmediately = false): void;
 
     /**
      * Discard a saved card without ever charging it — used when an application
      * is rejected. Safe to call when nothing was saved.
      */
-    public function discardPaymentMethod(string $customerId, ?string $paymentMethodId): void;
+    public function discardPaymentMethod(?string $customerId, ?string $paymentMethodId): void;
+
+    /**
+     * Create a Stripe Product for a plan or add-on.
+     */
+    public function createStripeProduct(string $name, ?string $description = null, array $metadata = []): string;
+
+    /**
+     * Update an existing Stripe Product.
+     */
+    public function updateStripeProduct(string $productId, array $params): void;
+
+    /**
+     * Create an immutable Stripe recurring Price.
+     */
+    public function createStripePrice(string $productId, float $amount, string $currency, string $interval, array $metadata = [], ?string $lookupKey = null): string;
+
+    /**
+     * Archive an existing Stripe Price so new subscriptions cannot use it.
+     */
+    public function archiveStripePrice(string $priceId): void;
+
+    /**
+     * Create a Stripe Coupon for discounts.
+     *
+     * @param array{
+     *     percent_off?: float,
+     *     amount_off?: int,
+     *     currency?: string,
+     *     duration: string,
+     *     duration_in_months?: int,
+     *     name: string
+     * } $params
+     */
+    public function createStripeCoupon(array $params): string;
+
+    /**
+     * Create a Stripe Promotion Code for customer checkout.
+     */
+    public function createStripePromotionCode(string $couponId, string $code, ?int $maxRedemptions = null, ?int $expiresAt = null): string;
+
+    /**
+     * Deactivate a Stripe Promotion Code.
+     */
+    public function deactivateStripePromotionCode(string $promotionCodeId): void;
+
+    /**
+     * Swap subscription plan items on Stripe without any proration charge (noProrate).
+     */
+    public function swapSubscriptionWithoutProration(Tenant $tenant): void;
 }

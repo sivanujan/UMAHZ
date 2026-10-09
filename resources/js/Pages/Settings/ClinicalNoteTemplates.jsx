@@ -185,7 +185,7 @@ export default function ClinicalNoteTemplates({ templates = {}, offeredDisciplin
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
                     <div>
                         <div className="flex items-center gap-2">
-                            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+                            <h1 className="text-2xl font-bold tracking-[-0.01em] text-slate-900 dark:text-white">
                                 Clinical Note Templates
                             </h1>
                             <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-300">

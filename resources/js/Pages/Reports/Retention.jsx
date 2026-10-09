@@ -242,7 +242,7 @@ export default function RetentionReport({
                                     <Award className="w-4 h-4" />
                                 </div>
                                 <div>
-                                    <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                    <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white tracking-normal">
                                         Patient Retention Composition
                                     </h3>
                                     <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -283,7 +283,7 @@ export default function RetentionReport({
                                                 </PieChart>
                                             </ResponsiveContainer>
                                             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
-                                                <span className="text-sm font-black text-slate-900 dark:text-white tabular-nums leading-none">
+                                                <span className="text-sm font-bold text-slate-900 dark:text-white tabular-nums leading-none">
                                                     {summary.total_active_clients}
                                                 </span>
                                                 <span className="text-[9px] uppercase font-bold text-slate-400 dark:text-slate-500">
@@ -492,7 +492,7 @@ export default function RetentionReport({
                                 <UserCheck className="w-4 h-4" />
                             </div>
                             <div>
-                                <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white tracking-normal">
                                     Patient Loyalty & Rebooking Status
                                 </h3>
                                 <p className="text-xs text-slate-500 dark:text-slate-400">

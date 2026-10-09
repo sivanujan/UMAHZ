@@ -50,9 +50,42 @@ class FakePlatformBilling implements PlatformBilling
 
     public function startMonthlySubscription(Tenant $tenant, string $paymentMethodId): void
     {
-        $tier = $tenant->plan_tier ?? PlanPricing::TIER_PRACTICE;
         $ft = $tenant->full_time_practitioners_count ?? 1;
         $pt = $tenant->part_time_practitioners_count ?? 0;
+
+        if ($tenant->plan_id && $tenant->plan) {
+            $addOns = $tenant->tenantAddOns()
+                ->where('status', 'active')
+                ->where('quantity', '>', 0)
+                ->with('addOn')
+                ->get()
+                ->map(fn ($tao) => ['addon' => $tao->addOn, 'quantity' => $tao->quantity])
+                ->all();
+            $items = DynamicPlanPricing::buildSubscriptionItems($tenant->plan, $tenant->billing_interval ?? 'month', $tenant->totalPractitionersCount(), $addOns);
+            $breakdown = DynamicPlanPricing::calculateBreakdown(
+                $tenant->plan,
+                $tenant->billing_interval ?? 'month',
+                $tenant->totalPractitionersCount(),
+                $addOns,
+                $tenant->promoCode,
+                allowExpiredLockedPromo: true
+            );
+
+            $this->startedSubscriptions[] = [
+                'tenant_id' => $tenant->id,
+                'payment_method' => $paymentMethodId,
+                'tier' => $tenant->plan->slug,
+                'plan_id' => $tenant->plan_id,
+                'billing_interval' => $tenant->billing_interval ?? 'month',
+                'full_time_count' => $ft,
+                'part_time_count' => $pt,
+                'items' => $items,
+                'total_monthly' => $breakdown['total'],
+            ];
+            return;
+        }
+
+        $tier = $tenant->plan_tier ?? PlanPricing::TIER_PRACTICE;
 
         $items = PlanPricing::buildSubscriptionItems($tier, $ft, $pt);
         $breakdown = PlanPricing::calculateBreakdown($tier, $ft, $pt);
@@ -68,13 +101,25 @@ class FakePlatformBilling implements PlatformBilling
         ];
     }
 
-    public function syncSubscriptionQuantities(Tenant $tenant): void
+    public function syncSubscriptionQuantities(Tenant $tenant, bool $invoiceImmediately = false): void
     {
-        $tier = $tenant->plan_tier ?? PlanPricing::TIER_PRACTICE;
         $ft = $tenant->full_time_practitioners_count ?? 1;
         $pt = $tenant->part_time_practitioners_count ?? 0;
 
-        $items = PlanPricing::buildSubscriptionItems($tier, $ft, $pt);
+        if ($tenant->plan_id && $tenant->plan) {
+            $addOns = $tenant->tenantAddOns()
+                ->where('status', 'active')
+                ->where('quantity', '>', 0)
+                ->with('addOn')
+                ->get()
+                ->map(fn ($tao) => ['addon' => $tao->addOn, 'quantity' => $tao->quantity])
+                ->all();
+            $items = DynamicPlanPricing::buildSubscriptionItems($tenant->plan, $tenant->billing_interval ?? 'month', $tenant->totalPractitionersCount(), $addOns);
+            $tier = $tenant->plan->slug;
+        } else {
+            $tier = $tenant->plan_tier ?? PlanPricing::TIER_PRACTICE;
+            $items = PlanPricing::buildSubscriptionItems($tier, $ft, $pt);
+        }
 
         $this->syncedSubscriptions[] = [
             'tenant_id' => $tenant->id,
@@ -85,9 +130,116 @@ class FakePlatformBilling implements PlatformBilling
         ];
     }
 
-    public function discardPaymentMethod(string $customerId, ?string $paymentMethodId): void
+    public function discardPaymentMethod(?string $customerId, ?string $paymentMethodId): void
     {
         $this->discarded[] = ['customer' => $customerId, 'payment_method' => $paymentMethodId];
+    }
+
+    public function swapSubscriptionWithoutProration(Tenant $tenant): void
+    {
+        $this->syncSubscriptionQuantities($tenant);
+    }
+
+    /** @var array<string, array{name:string, description:?string, metadata:array}> */
+    public array $products = [];
+    /** @var array<string, array{product_id:string, amount:float, currency:string, interval:string, metadata:array, active:bool}> */
+    public array $prices = [];
+    /** @var array<int, string> */
+    public array $archivedPrices = [];
+    /** @var array<string, array> */
+    public array $coupons = [];
+    /** @var array<string, array{coupon_id:string, code:string, active:bool, max_redemptions:?int, expires_at:?int}> */
+    public array $promotionCodes = [];
+
+    public function createStripeProduct(string $name, ?string $description = null, array $metadata = []): string
+    {
+        $searchKey = $metadata['slug'] ?? $metadata['plan_id'] ?? $metadata['addon_id'] ?? null;
+        if ($searchKey) {
+            foreach ($this->products as $id => $p) {
+                if (($p['metadata']['slug'] ?? null) === $searchKey ||
+                    ($p['metadata']['plan_id'] ?? null) === $searchKey ||
+                    ($p['metadata']['addon_id'] ?? null) === $searchKey) {
+                    return $id;
+                }
+            }
+        }
+
+        $id = 'prod_fake_'.substr(md5($name.count($this->products)), 0, 14);
+        $this->products[$id] = [
+            'name' => $name,
+            'description' => $description,
+            'metadata' => $metadata,
+        ];
+
+        return $id;
+    }
+
+    public function updateStripeProduct(string $productId, array $params): void
+    {
+        if (isset($this->products[$productId])) {
+            $this->products[$productId] = array_merge($this->products[$productId], $params);
+        }
+    }
+
+    public function createStripePrice(string $productId, float $amount, string $currency, string $interval, array $metadata = [], ?string $lookupKey = null): string
+    {
+        if ($lookupKey) {
+            foreach ($this->prices as $id => $p) {
+                if (($p['lookup_key'] ?? null) === $lookupKey && ($p['active'] ?? true)) {
+                    return $id;
+                }
+            }
+        }
+
+        $id = 'price_fake_'.substr(md5($productId.$amount.$interval.count($this->prices)), 0, 14);
+        $this->prices[$id] = [
+            'product_id' => $productId,
+            'amount' => $amount,
+            'currency' => $currency,
+            'interval' => $interval,
+            'metadata' => $metadata,
+            'lookup_key' => $lookupKey,
+            'active' => true,
+        ];
+
+        return $id;
+    }
+
+    public function archiveStripePrice(string $priceId): void
+    {
+        $this->archivedPrices[] = $priceId;
+        if (isset($this->prices[$priceId])) {
+            $this->prices[$priceId]['active'] = false;
+        }
+    }
+
+    public function createStripeCoupon(array $params): string
+    {
+        $id = 'coupon_fake_'.substr(md5(json_encode($params).count($this->coupons)), 0, 14);
+        $this->coupons[$id] = $params;
+
+        return $id;
+    }
+
+    public function createStripePromotionCode(string $couponId, string $code, ?int $maxRedemptions = null, ?int $expiresAt = null): string
+    {
+        $id = 'promo_fake_'.substr(md5($couponId.$code.count($this->promotionCodes)), 0, 14);
+        $this->promotionCodes[$id] = [
+            'coupon_id' => $couponId,
+            'code' => $code,
+            'active' => true,
+            'max_redemptions' => $maxRedemptions,
+            'expires_at' => $expiresAt,
+        ];
+
+        return $id;
+    }
+
+    public function deactivateStripePromotionCode(string $promotionCodeId): void
+    {
+        if (isset($this->promotionCodes[$promotionCodeId])) {
+            $this->promotionCodes[$promotionCodeId]['active'] = false;
+        }
     }
 
     /** Test helper: was the first charge ever triggered for this tenant? */

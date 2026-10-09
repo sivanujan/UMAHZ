@@ -2,6 +2,7 @@ import React from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Clock, CheckCircle2, User, Sparkles, FileWarning, ShieldAlert } from 'lucide-react';
+import { getFirstName } from '@/Utils/name';
 
 export default function PractitionerDashboard({ appointments, unsignedNotes, formAlerts }) {
     const { auth } = usePage().props;
@@ -18,7 +19,7 @@ export default function PractitionerDashboard({ appointments, unsignedNotes, for
                         <Sparkles className="w-4 h-4" />
                         <span>Multi-Tenant Practice Workspace</span>
                     </div>
-                    <h1 className="text-2xl font-bold tracking-tight">Welcome back, {user?.name}</h1>
+                    <h1 className="text-2xl sm:text-[28px] font-bold tracking-[-0.01em] leading-tight">Welcome back, {getFirstName(user?.name)}</h1>
                     <p className="text-slate-300 text-sm mt-1">
                         Here is today's schedule for <span className="font-semibold text-white">{tenant?.name || 'Your Clinic'}</span>.
                     </p>

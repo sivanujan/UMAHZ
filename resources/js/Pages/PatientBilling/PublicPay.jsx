@@ -559,7 +559,7 @@ function InvoiceCard({ invoice, clinic, onPayClick }) {
                         <span className="block text-[11px] text-slate-400 font-medium">
                             {isPaid ? 'Total Paid' : 'Amount Due'}
                         </span>
-                        <span className="text-lg font-extrabold text-slate-900 dark:text-white">
+                        <span className="text-lg font-bold tracking-normal text-slate-900 dark:text-white">
                             {fmt(isPaid ? invoice.total_amount : invoice.amount_due, currency)}
                         </span>
                     </div>
@@ -836,7 +836,7 @@ function PatientCardPaymentModal({ invoice, clinic, userEmail, sessionToken, pub
                             <CheckCircle2 className="w-9 h-9" />
                         </div>
                         <div>
-                            <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">
+                            <h3 className="text-lg font-semibold tracking-normal text-slate-900 dark:text-white">
                                 Payment Successful!
                             </h3>
                             <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
@@ -877,7 +877,7 @@ function PatientCardPaymentModal({ invoice, clinic, userEmail, sessionToken, pub
                     <form onSubmit={handlePay}>
                         <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 mb-4 flex items-center justify-between text-xs">
                             <span className="text-slate-500 font-medium">Total Amount Due</span>
-                            <span className="font-extrabold text-base text-slate-900 dark:text-white font-mono">
+                            <span className="font-bold text-base text-slate-900 dark:text-white font-mono tracking-normal">
                                 {fmt(invoice.amount_due, invoice.currency)}
                             </span>
                         </div>

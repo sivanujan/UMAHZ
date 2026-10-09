@@ -58,7 +58,7 @@ export default function BookingSection() {
                     >
                         <PillBadge text="Get Started Today" />
 
-                        <h2 className="text-3xl md:text-4xl font-bold text-white leading-tight tracking-tight">
+                        <h2 className="text-3xl md:text-4xl font-bold text-white leading-tight tracking-normal">
                             Book A{' '}
                             <em className="not-italic font-light font-serif text-purple-300">Personalised</em>{' '}
                             Platform Demo
@@ -102,7 +102,7 @@ export default function BookingSection() {
                         variants={formEntrance}
                         className="bg-white dark:bg-[#131B2B] rounded-2xl p-7 shadow-2xl border border-purple-100 dark:border-slate-800 transition-colors duration-300"
                     >
-                        <h3 className="text-xl font-bold text-[#1E0B3C] dark:text-white mb-1 tracking-tight">Schedule Your 1-on-1 Demo</h3>
+                        <h3 className="text-xl font-bold text-[#1E0B3C] dark:text-white mb-1 tracking-normal">Schedule Your 1-on-1 Demo</h3>
                         <p className="text-slate-500 dark:text-slate-400 text-xs mb-6 font-normal">We'll personalise the walkthrough to your practice type.</p>
 
                         {done ? (

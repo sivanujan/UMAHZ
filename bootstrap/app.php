@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Middleware\EnsureClientAccess;
+use App\Http\Middleware\EnsureFeatureEnabled;
 use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\EnsureStaffRole;
+use App\Http\Middleware\EnsureSubscriptionWriteAccess;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RedirectIfAuthenticated;
 use App\Http\Middleware\ResolveTenantFromSubdomain;
@@ -23,13 +25,35 @@ if (!class_exists('finfo')) {
     class finfo {
         public function __construct(int $flags = 0, ?string $magicFile = null) {}
         public function buffer(string $string, int $flags = 0, $context = null): string|false {
-            return false;
+            $tmp = tempnam(sys_get_temp_dir(), 'finfo');
+            file_put_contents($tmp, $string);
+            $mime = $this->file($tmp, $flags, $context);
+            @unlink($tmp);
+            return $mime;
         }
         public function file(string $filename, int $flags = 0, $context = null): string|false {
-            return false;
+            $guesser = new \App\Support\FallbackMimeTypeGuesser();
+            return $guesser->guessMimeType($filename) ?? false;
         }
     }
 }
+if (!function_exists('finfo_open')) {
+    function finfo_open(int $flags = 0, ?string $magicFile = null) {
+        return new \finfo($flags, $magicFile);
+    }
+    function finfo_file($finfo, string $filename, int $flags = 0, $context = null) {
+        return $finfo instanceof \finfo ? $finfo->file($filename, $flags, $context) : false;
+    }
+    function finfo_buffer($finfo, string $string, int $flags = 0, $context = null) {
+        return $finfo instanceof \finfo ? $finfo->buffer($string, $flags, $context) : false;
+    }
+    function finfo_close($finfo): bool {
+        return true;
+    }
+}
+
+// Automatically register fallback guesser with Symfony MimeTypes
+\App\Support\FallbackMimeTypeGuesser::register();
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -61,6 +85,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'staff.role' => EnsureStaffRole::class,
             'client.access' => EnsureClientAccess::class,
             'tenant.subdomain' => ResolveTenantFromSubdomain::class,
+            'subscription.write' => EnsureSubscriptionWriteAccess::class,
+            'feature' => EnsureFeatureEnabled::class,
             // Override the framework default so already-authenticated visitors
             // hitting a guest route land in their workspace, not the home page.
             'guest' => RedirectIfAuthenticated::class,

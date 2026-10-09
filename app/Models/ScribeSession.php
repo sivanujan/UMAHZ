@@ -62,10 +62,12 @@ class ScribeSession extends Model
         'discipline',
         'discipline_label',
         'language',
+        'note_output_language',
         'status',
         'consent_id',
         'clinical_note_id',
         'transcription_provider',
+        'provider_model',
         'recorded_ms',
         'last_error',
         'started_at',
@@ -82,6 +84,8 @@ class ScribeSession extends Model
         'is_translated',
         'translated_at',
         'translation_provider',
+        'translation_status',
+        'translation_error',
         'handed_off_at',
         'handed_off_by_user_id',
         'handoff_fields',
@@ -92,6 +96,14 @@ class ScribeSession extends Model
     public const DRAFT_READY = 'ready';
 
     public const DRAFT_FAILED = 'failed';
+
+    public const TRANSLATION_PENDING = 'pending';
+
+    public const TRANSLATION_TRANSLATING = 'translating';
+
+    public const TRANSLATION_COMPLETED = 'completed';
+
+    public const TRANSLATION_FAILED = 'failed';
 
     protected function casts(): array
     {
@@ -114,7 +126,17 @@ class ScribeSession extends Model
 
     public function languageLabel(): string
     {
-        return config("scribe.languages.{$this->language}.label") ?? strtoupper($this->language ?? 'en');
+        $registryLang = app(\App\Scribe\LanguageRegistry::class)->findByCode($this->language ?? 'en');
+
+        return $registryLang?->label ?? config("scribe.languages.{$this->language}.label") ?? strtoupper($this->language ?? 'en');
+    }
+
+    public function noteOutputLanguageLabel(): string
+    {
+        $code = $this->note_output_language ?? 'en';
+        $registryLang = app(\App\Scribe\LanguageRegistry::class)->findByCode($code);
+
+        return $registryLang?->label ?? config("scribe.languages.{$code}.label") ?? strtoupper($code);
     }
 
     public function isNonEnglish(): bool

@@ -47,10 +47,17 @@ export function GlassModal({
         };
     }, [isOpen]);
 
+    const contentRef = React.useRef(null);
+    useEffect(() => {
+        if (isOpen && contentRef.current) {
+            contentRef.current.scrollTop = 0;
+        }
+    }, [isOpen]);
+
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-hidden">
                     {/* Frosted dark backdrop */}
                     <motion.div
                         initial={{ opacity: 0 }}
@@ -68,7 +75,7 @@ export function GlassModal({
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.96, y: 12 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-                        className={`relative w-full ${maxWidth} z-10 my-8 overflow-hidden rounded-3xl shadow-2xl ${className}`}
+                        className={`relative w-full ${maxWidth} z-10 max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] flex flex-col overflow-hidden rounded-3xl shadow-2xl ${className}`}
                         style={{
                             background: isDark ? 'rgba(25, 20, 38, 0.88)' : 'rgba(255, 255, 255, 0.88)',
                             backdropFilter: 'blur(36px) saturate(200%)',
@@ -81,10 +88,10 @@ export function GlassModal({
                     >
                         {/* Header */}
                         {(title || onClose) && (
-                            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200/50 dark:border-white/10">
+                            <div className="shrink-0 flex items-center justify-between px-6 py-4 sm:py-5 border-b border-slate-200/50 dark:border-white/10">
                                 <div>
                                     {title && (
-                                        <h3 className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">
+                                        <h3 className="text-lg sm:text-xl font-semibold tracking-normal text-slate-900 dark:text-white">
                                             {title}
                                         </h3>
                                     )}
@@ -107,7 +114,7 @@ export function GlassModal({
                         )}
 
                         {/* Content */}
-                        <div className="p-6">
+                        <div ref={contentRef} className="overflow-y-auto flex-1 p-5 sm:p-6 overscroll-contain">
                             {children}
                         </div>
                     </motion.div>

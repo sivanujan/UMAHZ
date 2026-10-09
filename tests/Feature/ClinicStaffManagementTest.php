@@ -107,4 +107,68 @@ class ClinicStaffManagementTest extends TestCase
 
         $this->assertSame('active', $pracB->refresh()->status);
     }
+
+    public function test_extra_seats_on_staff_invite_requires_confirmation_and_deactivation_reduces_quantity(): void
+    {
+        $plan = \App\Models\Plan::create([
+            'name' => 'Pro Plan',
+            'slug' => 'pro-seats',
+            'is_active' => true,
+            'included_practitioners' => 1,
+            'allows_extra_practitioners' => true,
+            'max_practitioners' => 5,
+        ]);
+        $plan->prices()->create([
+            'interval' => 'month',
+            'base_price' => 69.00,
+            'extra_practitioner_price' => 35.00,
+            'currency' => 'CAD',
+            'is_active' => true,
+        ]);
+
+        $tenant = $this->tenant();
+        $tenant->update([
+            'plan_id' => $plan->id,
+            'billing_interval' => 'month',
+            'subscription_status' => Tenant::SUBSCRIPTION_ACTIVE,
+            'extra_practitioner_seats' => 0,
+        ]);
+
+        $owner = $this->member($tenant, StaffMembership::ROLE_CLINIC_OWNER);
+        $existingPrac = $this->member($tenant, StaffMembership::ROLE_PRACTITIONER);
+
+        // Invite 2nd practitioner without confirmation -> fails with confirmation error
+        $response = $this->actingAs($owner->user)
+            ->post($this->url($tenant, '/app/staff'), [
+                'email' => 'newprac@acme.test',
+                'role' => StaffMembership::ROLE_PRACTITIONER,
+            ]);
+
+        $response->assertSessionHasErrors('confirm_extra_seat');
+
+        // Invite with confirmation -> succeeds
+        $response2 = $this->actingAs($owner->user)
+            ->post($this->url($tenant, '/app/staff'), [
+                'email' => 'newprac@acme.test',
+                'role' => StaffMembership::ROLE_PRACTITIONER,
+                'confirm_extra_seat' => true,
+            ]);
+
+        $response2->assertSessionHasNoErrors();
+        $tenant->refresh();
+        $this->assertSame(1, $tenant->extra_practitioner_seats);
+
+        $newMember = StaffMembership::where('tenant_id', $tenant->id)
+            ->whereHas('user', fn ($q) => $q->where('email', 'newprac@acme.test'))
+            ->firstOrFail();
+        $this->assertSame(StaffMembership::STATUS_INVITED, $newMember->status);
+
+        // Deactivating or removing the practitioner reduces extra_practitioner_seats
+        $this->actingAs($owner->user)
+            ->patch($this->url($tenant, "/app/staff/{$newMember->id}"), ['status' => 'deactivated'])
+            ->assertSessionHasNoErrors();
+
+        $tenant->refresh();
+        $this->assertSame(0, $tenant->extra_practitioner_seats);
+    }
 }

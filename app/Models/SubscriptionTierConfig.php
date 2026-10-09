@@ -5,6 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 
+/**
+ * @deprecated Legacy static tier configuration (Phase 6 cleanup). Kept for rollback compatibility.
+ * All plans and pricing are now driven dynamically by App\Models\Plan and App\Models\PlanPrice.
+ */
 class SubscriptionTierConfig extends Model
 {
     protected $table = 'subscription_tier_configs';

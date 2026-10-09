@@ -12,6 +12,11 @@ class TenantPolicy
      * its submitted documents. Platform admins only — clinic staff never
      * review their own application.
      */
+    public function viewAny(User $user): bool
+    {
+        return $user->isPlatformAdmin();
+    }
+
     public function review(User $user, Tenant $tenant): bool
     {
         return $user->isPlatformAdmin();

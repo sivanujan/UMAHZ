@@ -65,6 +65,13 @@ class PlatformSettingsController extends Controller
             // System & Announcements
             'system_announcement' => ['nullable', 'string', 'max:1000'],
             'show_announcement' => ['required', 'boolean'],
+
+            // Platform Billing Settings
+            'grace_period_days' => ['required', 'integer', 'min:0', 'max:90'],
+            'stripe_automatic_tax' => ['required', 'boolean'],
+            'default_appointment_limit_behavior' => ['required', 'string', 'in:warn,block'],
+            'default_scribe_limit_behavior' => ['required', 'string', 'in:warn,block'],
+            'default_location_limit_behavior' => ['required', 'string', 'in:warn,block'],
         ]);
 
         $groups = [
@@ -85,6 +92,12 @@ class PlatformSettingsController extends Controller
 
             'system_announcement' => 'maintenance',
             'show_announcement' => 'maintenance',
+
+            'grace_period_days' => 'billing',
+            'stripe_automatic_tax' => 'billing',
+            'default_appointment_limit_behavior' => 'billing',
+            'default_scribe_limit_behavior' => 'billing',
+            'default_location_limit_behavior' => 'billing',
         ];
 
         DB::transaction(function () use ($validated, $groups, $request) {

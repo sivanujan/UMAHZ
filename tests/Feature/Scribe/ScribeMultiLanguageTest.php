@@ -10,6 +10,8 @@ use App\Models\ScribeSession;
 use App\Models\ScribeTranscriptSegment;
 use App\Models\StaffMembership;
 use App\Models\Tenant;
+use App\Models\User;
+use App\Scribe\LanguageRegistry;
 use App\Scribe\ScribeDraftService;
 use App\Scribe\Translation\ScribeTranslationService;
 
@@ -220,7 +222,7 @@ class ScribeMultiLanguageTest extends ScribeTestCase
         );
     }
 
-    public function test_draft_service_translates_mandarin_session_and_drafts_in_english(): void
+    public function test_mandarin_session_drafts_in_english_without_waiting_for_translation(): void
     {
         $tenant = $this->clinic('drafttrans', ['enabled' => true, 'enabled_languages' => ['en', 'zh']]);
         [$practitioner, $membership] = $this->staff($tenant);
@@ -231,6 +233,7 @@ class ScribeMultiLanguageTest extends ScribeTestCase
             'client_id' => $client->id,
             'staff_membership_id' => $membership->id,
             'language' => 'zh',
+            'note_output_language' => 'en',
             'status' => ScribeSession::STATUS_CONSENT_PENDING,
         ]);
 
@@ -269,7 +272,428 @@ class ScribeMultiLanguageTest extends ScribeTestCase
 
         $session->refresh();
         $this->assertEquals(ScribeSession::DRAFT_READY, $session->draft_status);
+        // Drafting must NOT run translation.
+        $this->assertFalse($session->is_translated);
+
+        // Drafting receives original transcript text and outputs note in English
+        $this->assertNotEmpty($this->drafter->requests);
+        $request = end($this->drafter->requests);
+        $this->assertEquals('en', $request->outputLanguage);
+        $this->assertEquals('English', $request->outputLanguageLabel);
+        $this->assertEquals('患者主诉右膝疼痛，持续三周。', $request->transcript[0]['text']);
+    }
+
+    public function test_french_session_drafts_in_english_note(): void
+    {
+        $tenant = $this->clinic('frenchdraft', ['enabled' => true, 'enabled_languages' => ['en', 'fr']]);
+        [$practitioner, $membership] = $this->staff($tenant);
+        $client = $this->client($tenant);
+
+        $session = ScribeSession::create([
+            'tenant_id' => $tenant->id,
+            'client_id' => $client->id,
+            'staff_membership_id' => $membership->id,
+            'language' => 'fr',
+            'note_output_language' => 'en',
+            'status' => ScribeSession::STATUS_CONSENT_PENDING,
+        ]);
+
+        $this->giveConsent($practitioner, $tenant, $session->id)->assertOk();
+        $session->update(['status' => ScribeSession::STATUS_TRANSCRIPT_READY]);
+
+        $chunk = ScribeAudioChunk::create([
+            'tenant_id' => $tenant->id,
+            'scribe_session_id' => $session->id,
+            'sequence' => 0,
+            'storage_path' => 'fake/french.webm',
+            'mime_type' => 'audio/webm;codecs=opus',
+            'byte_size' => 1024,
+            'duration_ms' => 10000,
+            'offset_ms' => 0,
+            'status' => ScribeAudioChunk::STATUS_TRANSCRIBED,
+        ]);
+
+        ScribeTranscriptSegment::create([
+            'tenant_id' => $tenant->id,
+            'scribe_session_id' => $session->id,
+            'scribe_audio_chunk_id' => $chunk->id,
+            'sequence' => 0,
+            'start_ms' => 0,
+            'end_ms' => 10000,
+            'text' => 'Le patient signale une douleur lombaire depuis deux semaines.',
+            'language' => 'fr',
+            'provider' => 'fake',
+            'source' => ScribeTranscriptSegment::SOURCE_AI_TRANSCRIPTION,
+        ]);
+
+        $session->update(['draft_status' => ScribeSession::DRAFT_GENERATING]);
+
+        $drafterService = app(ScribeDraftService::class);
+        $drafterService->generate($session->id, $practitioner->id);
+
+        $session->refresh();
+        $this->assertEquals(ScribeSession::DRAFT_READY, $session->draft_status);
+
+        $request = end($this->drafter->requests);
+        $this->assertEquals('en', $request->outputLanguage);
+        $this->assertEquals('English', $request->outputLanguageLabel);
+        $this->assertEquals('Le patient signale une douleur lombaire depuis deux semaines.', $request->transcript[0]['text']);
+    }
+
+    public function test_translation_missing_ids_retried_once_then_marks_failed_without_fake_text(): void
+    {
+        config([
+            'scribe.drafting.driver' => 'openrouter',
+            'scribe.drafting.openrouter.api_key' => 'test-api-key',
+        ]);
+
+        $tenant = $this->clinic('transretry', ['enabled' => true, 'enabled_languages' => ['en', 'zh']]);
+        [$practitioner, $membership] = $this->staff($tenant);
+        $client = $this->client($tenant);
+
+        $session = ScribeSession::create([
+            'tenant_id' => $tenant->id,
+            'client_id' => $client->id,
+            'staff_membership_id' => $membership->id,
+            'language' => 'zh',
+            'status' => ScribeSession::STATUS_TRANSCRIPT_READY,
+        ]);
+
+        $chunk = ScribeAudioChunk::create([
+            'tenant_id' => $tenant->id,
+            'scribe_session_id' => $session->id,
+            'sequence' => 0,
+            'storage_path' => 'fake/path.webm',
+            'mime_type' => 'audio/webm;codecs=opus',
+            'byte_size' => 1024,
+            'duration_ms' => 10000,
+            'offset_ms' => 0,
+            'status' => ScribeAudioChunk::STATUS_TRANSCRIBED,
+        ]);
+
+        $seg1 = ScribeTranscriptSegment::create([
+            'tenant_id' => $tenant->id,
+            'scribe_session_id' => $session->id,
+            'scribe_audio_chunk_id' => $chunk->id,
+            'sequence' => 0,
+            'start_ms' => 0,
+            'end_ms' => 5000,
+            'text' => '第一段中文文本。',
+            'language' => 'zh',
+            'provider' => 'fake',
+            'source' => ScribeTranscriptSegment::SOURCE_AI_TRANSCRIPTION,
+        ]);
+
+        $seg2 = ScribeTranscriptSegment::create([
+            'tenant_id' => $tenant->id,
+            'scribe_session_id' => $session->id,
+            'scribe_audio_chunk_id' => $chunk->id,
+            'sequence' => 1,
+            'start_ms' => 5000,
+            'end_ms' => 10000,
+            'text' => '第二段中文文本。',
+            'language' => 'zh',
+            'provider' => 'fake',
+            'source' => ScribeTranscriptSegment::SOURCE_AI_TRANSCRIPTION,
+        ]);
+
+        // Mock OpenRouter Chat API:
+        // Batch request returns only seg1 (omits seg2).
+        // Retry request still returns empty segments array (still omits seg2).
+        \Illuminate\Support\Facades\Http::fake([
+            '*/chat/completions' => \Illuminate\Support\Facades\Http::sequence()
+                ->push([
+                    'choices' => [
+                        [
+                            'message' => [
+                                'content' => json_encode([
+                                    'segments' => [
+                                        ['id' => $seg1->id, 'sequence' => 0, 'translated_text' => 'First segment in English.'],
+                                    ],
+                                ]),
+                            ],
+                        ],
+                    ],
+                ])
+                ->push([
+                    'choices' => [
+                        [
+                            'message' => [
+                                'content' => json_encode(['segments' => []]),
+                            ],
+                        ],
+                    ],
+                ]),
+        ]);
+
+        $service = app(ScribeTranslationService::class);
+        $service->translate($session);
+
+        $seg1->refresh();
+        $seg2->refresh();
+        $session->refresh();
+
+        // Seg 1 was translated
+        $this->assertEquals('First segment in English.', $seg1->translated_text);
+        $this->assertEquals(ScribeSession::TRANSLATION_COMPLETED, $seg1->translation_status);
+
+        // Seg 2 was missing -> retried once -> marked failed with NULL translated_text (never fake text!)
+        $this->assertNull($seg2->translated_text);
+        $this->assertEquals(ScribeSession::TRANSLATION_FAILED, $seg2->translation_status);
+        $this->assertStringNotContainsString('English translation:', (string) $seg2->translated_text);
+
+        // Session reflects partial/failed translation
+        $this->assertFalse($session->is_translated);
+        $this->assertEquals(ScribeSession::TRANSLATION_FAILED, $session->translation_status);
+    }
+
+    public function test_translation_batch_splitting(): void
+    {
+        config([
+            'scribe.drafting.driver' => 'openrouter',
+            'scribe.drafting.openrouter.api_key' => 'test-api-key',
+            'scribe.translation_batch_size' => 10,
+        ]);
+
+        $tenant = $this->clinic('transbatch', ['enabled' => true, 'enabled_languages' => ['en', 'zh']]);
+        [$practitioner, $membership] = $this->staff($tenant);
+        $client = $this->client($tenant);
+
+        $session = ScribeSession::create([
+            'tenant_id' => $tenant->id,
+            'client_id' => $client->id,
+            'staff_membership_id' => $membership->id,
+            'language' => 'zh',
+            'status' => ScribeSession::STATUS_TRANSCRIPT_READY,
+        ]);
+
+        $chunk = ScribeAudioChunk::create([
+            'tenant_id' => $tenant->id,
+            'scribe_session_id' => $session->id,
+            'sequence' => 0,
+            'storage_path' => 'fake/path.webm',
+            'mime_type' => 'audio/webm;codecs=opus',
+            'byte_size' => 1024,
+            'duration_ms' => 150000,
+            'offset_ms' => 0,
+            'status' => ScribeAudioChunk::STATUS_TRANSCRIBED,
+        ]);
+
+        $segments = [];
+        for ($i = 0; $i < 15; $i++) {
+            $segments[] = ScribeTranscriptSegment::create([
+                'tenant_id' => $tenant->id,
+                'scribe_session_id' => $session->id,
+                'scribe_audio_chunk_id' => $chunk->id,
+                'sequence' => $i,
+                'start_ms' => $i * 10000,
+                'end_ms' => ($i + 1) * 10000,
+                'text' => "段落 {$i}",
+                'language' => 'zh',
+                'provider' => 'fake',
+                'source' => ScribeTranscriptSegment::SOURCE_AI_TRANSCRIPTION,
+            ]);
+        }
+
+        \Illuminate\Support\Facades\Http::fake(function (\Illuminate\Http\Client\Request $req) {
+            $body = json_decode($req->body(), true);
+            $userContent = $body['messages'][1]['content'] ?? '';
+            // Parse segment IDs from input JSON payload inside prompt
+            $startPos = strpos($userContent, '[');
+            $endPos = strrpos($userContent, ']');
+            $translated = [];
+            if ($startPos !== false && $endPos !== false) {
+                $segments = json_decode(substr($userContent, $startPos, $endPos - $startPos + 1), true) ?? [];
+                foreach ($segments as $item) {
+                    $translated[] = [
+                        'id' => $item['id'],
+                        'sequence' => (int) $item['sequence'],
+                        'translated_text' => "Translated paragraph {$item['sequence']}",
+                    ];
+                }
+            }
+
+            return \Illuminate\Support\Facades\Http::response([
+                'choices' => [
+                    ['message' => ['content' => json_encode(['segments' => $translated])]],
+                ],
+            ], 200);
+        });
+
+        $service = app(ScribeTranslationService::class);
+        $service->translate($session);
+
+        \Illuminate\Support\Facades\Http::assertSentCount(2);
+
+        $session->refresh();
         $this->assertTrue($session->is_translated);
+        $this->assertEquals(ScribeSession::TRANSLATION_COMPLETED, $session->translation_status);
+        $this->assertEquals(15, ScribeTranscriptSegment::where('scribe_session_id', $session->id)->whereNotNull('translated_text')->count());
+    }
+
+    public function test_translation_truncated_or_invalid_json_handled_cleanly(): void
+    {
+        config([
+            'scribe.drafting.driver' => 'openrouter',
+            'scribe.drafting.openrouter.api_key' => 'test-api-key',
+        ]);
+
+        $tenant = $this->clinic('transinvalid', ['enabled' => true, 'enabled_languages' => ['en', 'zh']]);
+        [$practitioner, $membership] = $this->staff($tenant);
+        $client = $this->client($tenant);
+
+        $session = ScribeSession::create([
+            'tenant_id' => $tenant->id,
+            'client_id' => $client->id,
+            'staff_membership_id' => $membership->id,
+            'language' => 'zh',
+            'status' => ScribeSession::STATUS_TRANSCRIPT_READY,
+        ]);
+
+        $chunk = ScribeAudioChunk::create([
+            'tenant_id' => $tenant->id,
+            'scribe_session_id' => $session->id,
+            'sequence' => 0,
+            'storage_path' => 'fake/path.webm',
+            'mime_type' => 'audio/webm;codecs=opus',
+            'byte_size' => 1024,
+            'duration_ms' => 10000,
+            'offset_ms' => 0,
+            'status' => ScribeAudioChunk::STATUS_TRANSCRIBED,
+        ]);
+
+        $seg = ScribeTranscriptSegment::create([
+            'tenant_id' => $tenant->id,
+            'scribe_session_id' => $session->id,
+            'scribe_audio_chunk_id' => $chunk->id,
+            'sequence' => 0,
+            'start_ms' => 0,
+            'end_ms' => 10000,
+            'text' => '截断的中文文本。',
+            'language' => 'zh',
+            'provider' => 'fake',
+            'source' => ScribeTranscriptSegment::SOURCE_AI_TRANSCRIPTION,
+        ]);
+
+        \Illuminate\Support\Facades\Http::fake([
+            '*/chat/completions' => \Illuminate\Support\Facades\Http::response([
+                'choices' => [
+                    ['message' => ['content' => '{"segments": [{"id": "'.$seg->id.'", "text": "Trun']],
+                ],
+            ], 200),
+        ]);
+
+        $service = app(ScribeTranslationService::class);
+        $service->translate($session);
+
+        $seg->refresh();
+        $session->refresh();
+
+        $this->assertNull($seg->translated_text);
+        $this->assertEquals(ScribeSession::TRANSLATION_FAILED, $seg->translation_status);
+        $this->assertFalse($session->is_translated);
+        $this->assertEquals(ScribeSession::TRANSLATION_FAILED, $session->translation_status);
+    }
+
+    public function test_registry_hidden_languages_not_shown_and_beta_badge_flag(): void
+    {
+        LanguageRegistry::clearCache();
+
+        \App\Models\ScribeLanguage::create([
+            'code' => 'de',
+            'label' => 'German',
+            'native_name' => 'Deutsch',
+            'provider' => 'assemblyai',
+            'provider_code' => 'de',
+            'supports_transcription' => true,
+            'supports_note_output' => false,
+            'status' => \App\Models\ScribeLanguage::STATUS_HIDDEN,
+            'sort_order' => 10,
+        ]);
+
+        \App\Models\ScribeLanguage::create([
+            'code' => 'es',
+            'label' => 'Spanish',
+            'native_name' => 'Español',
+            'provider' => 'assemblyai',
+            'provider_code' => 'es',
+            'supports_transcription' => true,
+            'supports_note_output' => false,
+            'status' => \App\Models\ScribeLanguage::STATUS_BETA,
+            'sort_order' => 11,
+        ]);
+
+        LanguageRegistry::clearCache();
+
+        $encounterLanguages = LanguageRegistry::forEncounter();
+
+        // Hidden language 'de' must NOT be shown
+        $this->assertNull($encounterLanguages->firstWhere('code', 'de'));
+
+        // Beta language 'es' is shown and has is_beta flag
+        $es = $encounterLanguages->firstWhere('code', 'es');
+        $this->assertNotNull($es);
+        $this->assertTrue($es->isBeta());
+    }
+
+    public function test_registry_admin_crud_permissions_enforced(): void
+    {
+        $tenant = $this->clinic('adminperm', ['enabled' => true]);
+        [$owner] = $this->staff($tenant, StaffMembership::ROLE_CLINIC_OWNER);
+        [$practitioner] = $this->staff($tenant, StaffMembership::ROLE_PRACTITIONER);
+
+        // Non-platform-admin is forbidden
+        $this->actingAs($owner)->get('/admin/scribe-languages')->assertForbidden();
+        $this->actingAs($practitioner)->get('/admin/scribe-languages')->assertForbidden();
+
+        // Platform admin can access
+        $adminUser = User::factory()->create();
+        StaffMembership::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $adminUser->id,
+            'role' => StaffMembership::ROLE_PLATFORM_ADMIN,
+            'status' => StaffMembership::STATUS_ACTIVE,
+        ]);
+
+        $res = $this->actingAs($adminUser)->get('/admin/scribe-languages');
+        $res->assertOk();
+
+        // Admin can store a language
+        $storeRes = $this->actingAs($adminUser)->post('/admin/scribe-languages', [
+            'code' => 'ja',
+            'label' => 'Japanese',
+            'native_name' => '日本語',
+            'provider' => 'assemblyai',
+            'provider_code' => 'ja',
+            'supports_transcription' => true,
+            'supports_note_output' => false,
+            'status' => 'beta',
+            'sort_order' => 20,
+        ]);
+        $storeRes->assertRedirect();
+        $this->assertDatabaseHas('scribe_languages', ['code' => 'ja', 'status' => 'beta']);
+    }
+
+    public function test_controller_returns_clean_errors_on_provider_failure(): void
+    {
+        $tenant = $this->clinic('cleanerrors', ['enabled' => true]);
+        [$practitioner] = $this->staff($tenant);
+        $client = $this->client($tenant);
+
+        $res = $this->actingAs($practitioner)->postJson($this->url($tenant, '/sessions'), [
+            'client_id' => $client->id,
+            'language' => 'en',
+        ])->assertCreated();
+
+        $sessionId = $res->json('session.id');
+        $session = ScribeSession::withoutGlobalScopes()->findOrFail($sessionId);
+
+        // Trying to translate an English session returns a clean 422 JSON error, never a 500
+        $transRes = $this->actingAs($practitioner)->postJson($this->url($tenant, "/sessions/{$sessionId}/translate"));
+        $transRes->assertStatus(422);
+        $this->assertEquals('translation_not_required', $transRes->json('code'));
+        $this->assertArrayHasKey('message', $transRes->json());
+        $this->assertArrayHasKey('session', $transRes->json());
     }
 
     public function test_handoff_records_language_and_translation_provenance(): void

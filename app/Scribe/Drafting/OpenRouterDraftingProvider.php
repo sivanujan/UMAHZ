@@ -42,8 +42,8 @@ class OpenRouterDraftingProvider implements DraftingProvider
                 ->post(rtrim($config['base_url'], '/').'/chat/completions', [
                     'model' => $config['model'],
                     'messages' => [
-                        ['role' => 'system', 'content' => DraftPrompt::system($request->disciplineLabel)],
-                        ['role' => 'user', 'content' => DraftPrompt::user($request->disciplineLabel, $request->templateSchema, $request->transcript)],
+                        ['role' => 'system', 'content' => DraftPrompt::system($request->disciplineLabel, $request->outputLanguageLabel)],
+                        ['role' => 'user', 'content' => DraftPrompt::user($request->disciplineLabel, $request->templateSchema, $request->transcript, $request->outputLanguageLabel)],
                     ],
                     'temperature' => 0.2,
                     'max_tokens' => $config['max_tokens'],

@@ -36,7 +36,7 @@ export default function Logo({ size = 'md', theme = 'auto', tagline = false, cla
                 className="object-contain drop-shadow-xs"
             />
             <span className="flex flex-col leading-tight">
-                <span className={`font-extrabold tracking-tight ${wordmark} ${wordmarkColor}`}>
+                <span className={`font-bold tracking-normal ${wordmark} ${wordmarkColor}`}>
                     UMAHZ<span className="text-indigo-600 dark:text-indigo-400">.</span>
                 </span>
                 {tagline && (

@@ -40,6 +40,8 @@ class TieredRegistrationPricingTest extends TestCase
             'billing.tiers.thrive.stripe_addon_price_ft_id' => 'price_thrive_ft_test',
             'billing.tiers.thrive.stripe_addon_price_pt_id' => 'price_thrive_pt_test',
         ]);
+        \App\Models\SubscriptionTierConfig::truncate();
+        \Illuminate\Support\Facades\Cache::forget(\App\Models\SubscriptionTierConfig::CACHE_KEY);
     }
 
     public function test_pricing_calculation_for_all_tiers(): void
@@ -323,6 +325,7 @@ class TieredRegistrationPricingTest extends TestCase
             'slug' => 'solo-massage',
             'subdomain' => 'solo-massage',
             'status' => Tenant::STATUS_APPROVED,
+            'onboarding_completed_at' => now(),
             'plan_tier' => 'balance',
             'full_time_practitioners_count' => 1,
             'part_time_practitioners_count' => 0,
@@ -348,7 +351,7 @@ class TieredRegistrationPricingTest extends TestCase
 
         // Attempt to invite a 2nd practitioner to a Balance clinic on its subdomain
         $response = $this->actingAs($owner)
-            ->post('http://solo-massage.umahz.test/settings/staff/invite', [
+            ->post('http://solo-massage.umahz.test/app/staff', [
                 'email' => 'colleague@solo.ca',
                 'role' => StaffMembership::ROLE_PRACTITIONER,
             ]);

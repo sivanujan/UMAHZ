@@ -185,7 +185,7 @@ export default function PractitionerAppointments({
                                 <Sparkles className="w-4 h-4" />
                                 <span>Practitioner Schedule</span>
                             </div>
-                            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                            <h1 className="text-2xl sm:text-[28px] font-bold tracking-normal text-slate-900 dark:text-white leading-tight">
                                 {practitioner.name}’s Appointments
                             </h1>
                             <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm mt-1 flex items-center gap-2 font-medium">
@@ -201,17 +201,17 @@ export default function PractitionerAppointments({
                         {/* Quick Stats Pill */}
                         <div className="flex items-center gap-3 bg-white/50 dark:bg-white/[0.04] px-4 py-3 rounded-2xl border border-white/40 dark:border-white/10 self-start md:self-auto shadow-xs">
                             <div className="text-center px-2">
-                                <span className="block text-xl font-extrabold text-slate-900 dark:text-white">{stats.todayCount ?? 0}</span>
+                                <span className="block text-xl font-bold tracking-normal text-slate-900 dark:text-white">{stats.todayCount ?? 0}</span>
                                 <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">Today</span>
                             </div>
                             <div className="h-8 w-px bg-slate-200/60 dark:bg-white/10" />
                             <div className="text-center px-2">
-                                <span className="block text-xl font-extrabold text-emerald-600 dark:text-emerald-400">{stats.completedToday ?? 0}</span>
+                                <span className="block text-xl font-bold tracking-normal text-emerald-600 dark:text-emerald-400">{stats.completedToday ?? 0}</span>
                                 <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">Completed</span>
                             </div>
                             <div className="h-8 w-px bg-slate-200/60 dark:bg-white/10" />
                             <div className="text-center px-2">
-                                <span className="block text-xl font-extrabold text-[#8200db] dark:text-purple-300">{stats.checkedInToday ?? 0}</span>
+                                <span className="block text-xl font-bold tracking-normal text-[#8200db] dark:text-purple-300">{stats.checkedInToday ?? 0}</span>
                                 <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">Waiting</span>
                             </div>
                         </div>
@@ -337,13 +337,13 @@ export default function PractitionerAppointments({
                                             }`}
                                         >
                                             {isCurrent && (
-                                                <div className="inline-flex items-center gap-1.5 bg-[#8200db] text-white text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full mb-3 shadow-xs animate-pulse">
+                                                <div className="inline-flex items-center gap-1.5 bg-[#8200db] text-white text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full mb-3 shadow-xs animate-pulse">
                                                     <span className="w-1.5 h-1.5 rounded-full bg-white" />
                                                     Happening Now
                                                 </div>
                                             )}
                                             {isNext && (
-                                                <div className="inline-flex items-center gap-1.5 bg-amber-500 text-white text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full mb-3 shadow-xs">
+                                                <div className="inline-flex items-center gap-1.5 bg-amber-500 text-white text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full mb-3 shadow-xs">
                                                     Next Up
                                                 </div>
                                             )}
@@ -488,7 +488,7 @@ export default function PractitionerAppointments({
                                             <div className={`text-[11px] font-bold uppercase tracking-wider ${isToday ? 'text-[#8200db] dark:text-purple-300' : 'text-slate-400'}`}>
                                                 {parts[0]}
                                             </div>
-                                            <div className={`text-base font-extrabold mt-0.5 ${isToday ? 'text-[#8200db] dark:text-white' : 'text-slate-800 dark:text-slate-200'}`}>
+                                            <div className={`text-base font-bold mt-0.5 ${isToday ? 'text-[#8200db] dark:text-white' : 'text-slate-800 dark:text-slate-200'}`}>
                                                 {d.split('-')[2]}
                                             </div>
                                         </div>
@@ -759,7 +759,7 @@ function AppointmentDetailModal({ appt, tz, onClose, onStatusUpdate, onToast }) 
                                     type="button"
                                     onClick={() => onStatusUpdate(appt.id, st)}
                                     className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
-                                        isCurrent ? 'ring-2 ring-[#8200db] ring-offset-1 font-extrabold' : 'opacity-80 hover:opacity-100'
+                                        isCurrent ? 'ring-2 ring-[#8200db] ring-offset-1 font-bold' : 'opacity-80 hover:opacity-100'
                                     }`}
                                     style={{
                                         background: itemStyle.bg,

@@ -25,10 +25,12 @@ class ClinicStatusController extends Controller
         $membership = $request->attributes->get('staffMembership');
         $tenant = $membership->tenant;
 
+        $canReapply = $membership->role === StaffMembership::ROLE_CLINIC_OWNER && $tenant->canReapply();
+
         return Inertia::render('Clinic/Status', [
             'tenant' => [
                 'name' => $tenant->name,
-                'status' => $tenant->status,
+                'status' => $tenant->is_permanently_rejected ? Tenant::STATUS_PERMANENTLY_REJECTED : $tenant->status,
                 'submitted_at' => $tenant->submitted_at?->format('M j, Y'),
                 'reviewed_at' => $tenant->reviewed_at?->format('M j, Y'),
                 'review_note' => $tenant->review_note,
@@ -39,9 +41,15 @@ class ClinicStatusController extends Controller
                 'primary_contact_phone' => $tenant->primary_contact_phone,
                 'requested_disciplines' => $tenant->requested_disciplines,
                 'estimated_practitioner_count' => $tenant->estimated_practitioner_count,
+                'reapply_count' => $tenant->reapply_count ?: 1,
+                'max_attempts' => $tenant->maxReapplyAttempts(),
+                'attempts_remaining' => $tenant->attemptsRemaining(),
+                'rejection_sections' => $tenant->rejection_sections ?: [],
+                'is_permanently_rejected' => (bool) $tenant->is_permanently_rejected,
             ],
             'canEdit' => $membership->role === StaffMembership::ROLE_CLINIC_OWNER
                 && $tenant->status === Tenant::STATUS_NEEDS_MORE_INFO,
+            'canReapply' => $canReapply,
             'disciplines' => $tenant->availableDisciplineCodes(),
             'disciplineLabels' => $tenant->allDisciplineLabels(),
         ]);

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TIERS, normalizeTiers, calculateMonthlyTotal } from '@/Components/Onboarding/PlanStep';
+import OrderSummary from '@/Components/Onboarding/OrderSummary';
 
 /**
  * Visa, Mastercard, Amex SVG badge icons
@@ -21,15 +22,15 @@ import { TIERS, normalizeTiers, calculateMonthlyTotal } from '@/Components/Onboa
 const CardBadges = () => (
     <div className="flex items-center gap-1.5" aria-label="Accepted card brands">
         {/* Visa */}
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[10px] font-extrabold tracking-tighter text-[#1A1F71] dark:text-blue-300 select-none shadow-2xs">
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[10px] font-bold tracking-normal text-[#1A1F71] dark:text-blue-300 select-none shadow-2xs">
             VISA
         </span>
         {/* Mastercard */}
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[10px] font-extrabold tracking-tighter text-[#EB001B] dark:text-rose-400 select-none shadow-2xs">
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[10px] font-bold tracking-normal text-[#EB001B] dark:text-rose-400 select-none shadow-2xs">
             MC
         </span>
         {/* Amex */}
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[10px] font-extrabold tracking-tighter text-[#006FCF] dark:text-cyan-400 select-none shadow-2xs">
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[10px] font-bold tracking-normal text-[#006FCF] dark:text-cyan-400 select-none shadow-2xs">
             AMEX
         </span>
     </div>
@@ -64,27 +65,49 @@ function buildFormData(data) {
 
 function loadStripeJs() {
     return new Promise((resolve, reject) => {
-        if (window.Stripe) return resolve(window.Stripe);
+        if (typeof window !== 'undefined' && window.Stripe) {
+            return resolve(window.Stripe);
+        }
         const existing = document.querySelector('script[src="https://js.stripe.com/v3/"]');
         if (existing) {
-            existing.addEventListener('load', () => resolve(window.Stripe));
-            existing.addEventListener('error', reject);
+            // Safari / fast navigation: check if Stripe became ready
+            const interval = setInterval(() => {
+                if (window.Stripe) {
+                    clearInterval(interval);
+                    resolve(window.Stripe);
+                }
+            }, 50);
+            existing.addEventListener('load', () => {
+                clearInterval(interval);
+                resolve(window.Stripe);
+            });
+            existing.addEventListener('error', (err) => {
+                clearInterval(interval);
+                reject(err);
+            });
             return;
         }
         const script = document.createElement('script');
         script.src = 'https://js.stripe.com/v3/';
+        script.async = true;
         script.onload = () => resolve(window.Stripe);
         script.onerror = reject;
         document.head.appendChild(script);
     });
 }
 
-export default function PaymentStep({ data, tiers }) {
+export default function PaymentStep({ data, setData, tiers, plans = [] }) {
     // 'preparing' | 'ready' | 'confirming' | 'submitting' | 'success' | 'error'
     const [stage, setStage] = useState('preparing');
     const [error, setError] = useState(null);
     const [cardholderName, setCardholderName] = useState(data.name || '');
     const [postalCode, setPostalCode] = useState('');
+
+    // Promo code state
+    const [promoInput, setPromoInput] = useState(data.promo_code || '');
+    const [appliedPromo, setAppliedPromo] = useState(null);
+    const [promoError, setPromoError] = useState(null);
+    const [validatingPromo, setValidatingPromo] = useState(false);
 
     const cardRef = useRef(null);
     const stripeRef = useRef(null);
@@ -92,15 +115,100 @@ export default function PaymentStep({ data, tiers }) {
     const clientSecretRef = useRef(null);
     const pendingIdRef = useRef(null);
 
+    // Dynamic vs Legacy plan resolution
+    const selectedPlan = plans?.find((p) => p.id === data.plan_id || p.slug === data.plan_tier) || null;
+    const isAnnual = data.billing_interval === 'year';
+
     const activeTiers = normalizeTiers(tiers);
     const planTier = data.plan_tier || 'practice';
     const tierInfo = activeTiers[planTier] || activeTiers.practice;
-    const pricing = calculateMonthlyTotal(
-        planTier,
-        data.full_time_practitioners_count,
-        data.part_time_practitioners_count,
-        activeTiers
-    );
+
+    // Pricing calculation
+    let basePrice = 0;
+    let extraSeats = 0;
+    let extraSeatPrice = 0;
+    let extraCost = 0;
+    let planDisplayName = '';
+    let trialDays = 0;
+
+    if (selectedPlan) {
+        planDisplayName = selectedPlan.name;
+        trialDays = selectedPlan.trial_days || 0;
+        const priceConfig = isAnnual ? selectedPlan.annual_price : selectedPlan.monthly_price;
+        basePrice = priceConfig ? priceConfig.base_price : 0;
+        extraSeatPrice = priceConfig ? priceConfig.extra_practitioner_price : 0;
+        const totalFt = Math.max(1, parseInt(data.full_time_practitioners_count, 10) || 1);
+        if (selectedPlan.allows_extra_practitioners) {
+            extraSeats = Math.max(0, totalFt - (selectedPlan.included_practitioners || 1));
+            if (selectedPlan.show_extra_seat_price !== false) {
+                extraCost = extraSeats * extraSeatPrice;
+            } else {
+                extraCost = 0;
+            }
+        }
+    } else {
+        const pricing = calculateMonthlyTotal(
+            planTier,
+            data.full_time_practitioners_count,
+            0,
+            activeTiers
+        );
+        planDisplayName = `${tierInfo.name} Tier`;
+        basePrice = pricing.basePrice;
+        extraCost = pricing.extraFtCost;
+    }
+
+    const subtotal = basePrice + extraCost;
+    const discountAmount = appliedPromo?.breakdown?.discount_amount || 0;
+    const totalDue = appliedPromo?.breakdown?.total ?? Math.max(0, subtotal - discountAmount);
+
+    const handleApplyPromo = async (e) => {
+        if (e) {
+            e.preventDefault?.();
+            e.stopPropagation?.();
+        }
+        if (!promoInput.trim()) return;
+
+        setValidatingPromo(true);
+        setPromoError(null);
+
+        try {
+            const { data: res } = await window.axios.post('/clinics/register/validate-promo', {
+                promo_code: promoInput.trim(),
+                plan_id: data.plan_id || data.plan_tier || 'practice',
+                billing_interval: data.billing_interval || 'month',
+                practitioners_count: (data.full_time_practitioners_count || 1) + (data.part_time_practitioners_count || 0),
+                pending_id: pendingIdRef.current || null,
+            });
+
+            if (res.valid) {
+                setAppliedPromo(res);
+                data.promo_code = res.promo.code;
+                if (setData) {
+                    setData('promo_code', res.promo.code);
+                }
+            }
+        } catch (err) {
+            setPromoError(err?.response?.data?.reason || 'Invalid or expired promo code.');
+            setAppliedPromo(null);
+        } finally {
+            setValidatingPromo(false);
+        }
+    };
+
+    const handleRemovePromo = async (e) => {
+        if (e) {
+            e.preventDefault?.();
+            e.stopPropagation?.();
+        }
+        setAppliedPromo(null);
+        setPromoInput('');
+        setPromoError(null);
+        data.promo_code = '';
+        if (setData) {
+            setData('promo_code', '');
+        }
+    };
 
     useEffect(() => {
         let cancelled = false;
@@ -110,9 +218,10 @@ export default function PaymentStep({ data, tiers }) {
                 setStage('preparing');
                 setError(null);
 
-                const { data: res } = await window.axios.post('/clinics/register/prepare', buildFormData(data), {
-                    headers: { 'Content-Type': 'multipart/form-data' },
-                });
+                // SAFARI FIX: Do NOT set Content-Type header on FormData!
+                // Passing FormData without custom headers lets Axios and WebKit/Safari
+                // generate the correct multipart/form-data; boundary=... string.
+                const { data: res } = await window.axios.post('/clinics/register/prepare', buildFormData(data));
                 if (cancelled) return;
 
                 pendingIdRef.current = res.pending_id;
@@ -153,12 +262,14 @@ export default function PaymentStep({ data, tiers }) {
                 cardElementRef.current = card;
                 setStage('ready');
 
-                // Mount after container is ready
-                setTimeout(() => {
-                    if (!cancelled && cardRef.current) {
-                        card.mount(cardRef.current);
-                    }
-                }, 50);
+                // SAFARI FIX: Use requestAnimationFrame + timeout to guarantee container is in the DOM
+                requestAnimationFrame(() => {
+                    setTimeout(() => {
+                        if (!cancelled && cardRef.current) {
+                            card.mount(cardRef.current);
+                        }
+                    }, 80);
+                });
             } catch (e) {
                 if (cancelled) return;
                 const msg =
@@ -209,7 +320,10 @@ export default function PaymentStep({ data, tiers }) {
             // Finalize registration: creates tenant and submits application for review
             router.post(
                 '/clinics/register',
-                { pending_id: pendingIdRef.current },
+                {
+                    pending_id: pendingIdRef.current,
+                    promo_code: data.promo_code || appliedPromo?.promo?.code || '',
+                },
                 {
                     onSuccess: () => {
                         setStage('success');
@@ -247,10 +361,10 @@ export default function PaymentStep({ data, tiers }) {
 
     return (
         <div className="space-y-6">
-            {/* Two-column layout inside form: LEFT = Card details, RIGHT = Order summary */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* LEFT COLUMN: Card Details Form (7 cols) */}
-                <div className="lg:col-span-7 space-y-4">
+            {/* Two-column layout inside form: LEFT = Card details (~55%), RIGHT = Order summary (~45%) */}
+            <div className="grid grid-cols-1 lg:grid-cols-11 gap-6 items-start">
+                {/* LEFT COLUMN: Card Details Form (~55% on desktop, top on mobile/tablet) */}
+                <div className="lg:col-span-6 space-y-4 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-5 sm:p-6 shadow-sm dark:shadow-xl">
                     <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800">
                         <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                             <CreditCard className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
@@ -272,7 +386,7 @@ export default function PaymentStep({ data, tiers }) {
                                 onChange={(e) => setCardholderName(e.target.value)}
                                 placeholder="Full Name as on Card"
                                 required
-                                className="w-full pl-10 pr-3.5 py-2.5 rounded-xl text-sm bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:border-indigo-600 dark:focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all"
+                                className="w-full pl-10 pr-3.5 py-2.5 rounded-xl text-sm bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:border-indigo-600 dark:focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all font-sans"
                             />
                         </div>
                     </div>
@@ -308,7 +422,7 @@ export default function PaymentStep({ data, tiers }) {
                                 value={postalCode}
                                 onChange={(e) => setPostalCode(e.target.value)}
                                 placeholder="A1A 1A1 or 90210"
-                                className="w-full pl-10 pr-3.5 py-2.5 rounded-xl text-sm bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:border-indigo-600 dark:focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all uppercase"
+                                className="w-full pl-10 pr-3.5 py-2.5 rounded-xl text-sm bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:border-indigo-600 dark:focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all uppercase font-sans"
                             />
                         </div>
                     </div>
@@ -337,63 +451,27 @@ export default function PaymentStep({ data, tiers }) {
                     </AnimatePresence>
                 </div>
 
-                {/* RIGHT COLUMN: Order Summary Card (5 cols) */}
-                <div className="lg:col-span-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-850 p-5 space-y-4">
-                    <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/60 dark:border-slate-700/60">
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                            Order Summary
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
-                            Monthly
-                        </span>
-                    </div>
-
-                    {/* Selected Plan Details */}
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                            <span className="font-semibold text-slate-800 dark:text-slate-200">
-                                {tierInfo.name} Tier
-                            </span>
-                            <span className="font-mono font-bold text-slate-900 dark:text-white">
-                                ${tierInfo.basePrice}.00
-                            </span>
-                        </div>
-
-                        {/* Extra Practitioner Line Items */}
-                        {pricing.extraFtCost > 0 && (
-                            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                                <span>Extra FT Seat</span>
-                                <span className="font-mono">+${pricing.extraFtCost.toFixed(2)}</span>
-                            </div>
-                        )}
-                        {pricing.extraPtCost > 0 && (
-                            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                                <span>Extra PT Seat</span>
-                                <span className="font-mono">+${pricing.extraPtCost.toFixed(2)}</span>
-                            </div>
-                        )}
-
-                        <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-baseline justify-between">
-                            <div>
-                                <span className="text-xs font-bold text-slate-900 dark:text-white">Total</span>
-                                <p className="text-[10px] text-slate-500 dark:text-slate-400">Billed monthly</p>
-                            </div>
-                            <div className="text-right">
-                                <span className="text-lg font-extrabold font-mono text-indigo-600 dark:text-indigo-400">
-                                    ${pricing.total.toFixed(2)}{' '}
-                                    <span className="text-xs font-semibold">CAD</span>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Reassuring Green Notice */}
-                    <div className="rounded-xl p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 text-[11px] leading-relaxed flex items-start gap-2">
-                        <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
-                        <div>
-                            <strong className="font-bold">You won't be charged today.</strong> Billing starts only after your clinic application is approved.
-                        </div>
-                    </div>
+                {/* RIGHT COLUMN: Order Summary Card (~45% on desktop, stacked below on tablet/mobile) */}
+                <div className="lg:col-span-5">
+                    <OrderSummary
+                        planName={selectedPlan ? selectedPlan.name : (activeTiers[planTier]?.name || planTier)}
+                        billingInterval={data.billing_interval || 'month'}
+                        basePrice={basePrice}
+                        extraSeats={extraSeats}
+                        extraCost={extraCost}
+                        showExtraSeatPrice={selectedPlan ? selectedPlan.show_extra_seat_price !== false : true}
+                        trialDays={trialDays}
+                        subtotal={subtotal}
+                        totalDue={totalDue}
+                        showPromoInput={true}
+                        promoInput={promoInput}
+                        onPromoInputChange={setPromoInput}
+                        onApplyPromo={handleApplyPromo}
+                        onRemovePromo={handleRemovePromo}
+                        validatingPromo={validatingPromo}
+                        promoError={promoError}
+                        appliedPromo={appliedPromo}
+                    />
                 </div>
             </div>
 

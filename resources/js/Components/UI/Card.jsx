@@ -24,7 +24,7 @@ export function IconCard({ icon: Icon, iconBg = '#ede9fe', iconColor = '#5B2EFF'
                         <Icon className="w-6 h-6" style={{ color: iconColor }} strokeWidth={1.8} />
                     </div>
                 </div>
-                <h3 className="text-[#1E0B3C] dark:text-white font-bold text-base mb-2 pr-8 tracking-tight">{title}</h3>
+                <h3 className="text-[#1E0B3C] dark:text-white font-semibold text-base sm:text-lg mb-2 pr-8 tracking-normal">{title}</h3>
                 <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed mb-5 font-normal">{description}</p>
             </div>
             {href && (

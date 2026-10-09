@@ -38,7 +38,7 @@ export default function TestimonialsSection() {
                 >
                     <PillBadge text="Practitioner Stories" />
 
-                    <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-tight">
+                    <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-normal">
                         Loved By{' '}
                         <em className="not-italic font-light font-serif text-[#5B2EFF] dark:text-[#8B6BFF]">Wellness Practices</em>{' '}
                         Everywhere

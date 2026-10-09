@@ -6,12 +6,19 @@ use App\Models\SubscriptionTierConfig;
 use App\Models\Tenant;
 use InvalidArgumentException;
 
+/**
+ * @deprecated Legacy static tier pricing helper. Use DynamicPlanPricing and the Plan model instead. Kept for rollback compatibility.
+ */
 class PlanPricing
 {
+    /** @deprecated */
     public const TIER_BALANCE = 'balance';
+    /** @deprecated */
     public const TIER_PRACTICE = 'practice';
+    /** @deprecated */
     public const TIER_THRIVE = 'thrive';
 
+    /** @deprecated */
     public const TIERS = [
         self::TIER_BALANCE,
         self::TIER_PRACTICE,
@@ -20,6 +27,8 @@ class PlanPricing
 
     /**
      * Get the configuration definition for a specific tier.
+     *
+     * @deprecated Use DynamicPlanPricing or Plan model.
      */
     public static function getTierConfig(string $tier): array
     {
@@ -53,6 +62,28 @@ class PlanPricing
      */
     public static function calculateBreakdown(string $tier, int $fullTimeCount = 1, int $partTimeCount = 0): array
     {
+        $plan = \App\Models\Plan::where('slug', $tier)->first();
+        if ($plan) {
+            $totalPractitioners = max(1, $fullTimeCount + $partTimeCount);
+            $breakdown = DynamicPlanPricing::calculateBreakdown($plan, 'month', $totalPractitioners);
+
+            return [
+                'tier' => $tier,
+                'tier_name' => $plan->name,
+                'base_price' => $breakdown['base_price'],
+                'full_time_count' => $fullTimeCount,
+                'part_time_count' => $partTimeCount,
+                'additional_ft_count' => $breakdown['extra_practitioners_count'],
+                'additional_pt_count' => 0,
+                'additional_ft_cost' => $breakdown['extra_practitioners_cost'],
+                'additional_pt_cost' => 0.0,
+                'total_monthly' => $breakdown['total'],
+                'total_monthly_formatted' => $breakdown['total_formatted'],
+                'total_practitioners' => $totalPractitioners,
+                'is_balance' => $plan->max_practitioners === 1,
+            ];
+        }
+
         $config = self::getTierConfig($tier);
         $fullTimeCount = max(1, $fullTimeCount);
         $partTimeCount = max(0, $partTimeCount);
@@ -99,7 +130,48 @@ class PlanPricing
      */
     public static function buildSubscriptionItems(string $tier, int $fullTimeCount = 1, int $partTimeCount = 0): array
     {
-        $config = self::getTierConfig($tier);
+        $explicitConfig = config("billing.tiers.{$tier}");
+        $config = ! empty($explicitConfig['stripe_price_id']) ? $explicitConfig : self::getTierConfig($tier);
+        $basePriceId = $config['stripe_price_id'] ?? null;
+
+        if (! empty($basePriceId)) {
+            $items = [
+                [
+                    'price' => $basePriceId,
+                    'quantity' => 1,
+                ],
+            ];
+
+            if ($tier === self::TIER_BALANCE) {
+                return $items;
+            }
+
+            $additionalFt = max(0, $fullTimeCount - (int) ($config['included_full_time'] ?? 1));
+            $additionalPt = max(0, $partTimeCount);
+
+            if ($additionalFt > 0 && ! empty($config['stripe_addon_price_ft_id'])) {
+                $items[] = [
+                    'price' => $config['stripe_addon_price_ft_id'],
+                    'quantity' => $additionalFt,
+                ];
+            }
+
+            if ($additionalPt > 0 && ! empty($config['stripe_addon_price_pt_id'])) {
+                $items[] = [
+                    'price' => $config['stripe_addon_price_pt_id'],
+                    'quantity' => $additionalPt,
+                ];
+            }
+
+            return $items;
+        }
+
+        $plan = \App\Models\Plan::where('slug', $tier)->first();
+        if ($plan) {
+            $totalPractitioners = max(1, $fullTimeCount + $partTimeCount);
+            return DynamicPlanPricing::buildSubscriptionItems($plan, 'month', $totalPractitioners);
+        }
+
         $items = [];
 
         // 1. Base tier item (quantity 1)

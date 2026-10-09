@@ -185,7 +185,7 @@ export default function LocationsIndex({ locations = [], timezones = [], provinc
                                 <Building2 className="w-5 h-5" />
                             </div>
                             <div>
-                                <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                                <div className="text-xl font-bold tracking-normal text-slate-900 dark:text-white leading-tight">
                                     {totalLocations}
                                 </div>
                                 <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -199,7 +199,7 @@ export default function LocationsIndex({ locations = [], timezones = [], provinc
                                 <CheckCircle2 className="w-5 h-5" />
                             </div>
                             <div>
-                                <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                                <div className="text-xl font-bold tracking-normal text-slate-900 dark:text-white leading-tight">
                                     {activeLocations}
                                 </div>
                                 <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -213,7 +213,7 @@ export default function LocationsIndex({ locations = [], timezones = [], provinc
                                 <DoorOpen className="w-5 h-5" />
                             </div>
                             <div>
-                                <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                                <div className="text-xl font-bold tracking-normal text-slate-900 dark:text-white leading-tight">
                                     {totalRooms}
                                 </div>
                                 <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -227,7 +227,7 @@ export default function LocationsIndex({ locations = [], timezones = [], provinc
                                 <Calendar className="w-5 h-5" />
                             </div>
                             <div>
-                                <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                                <div className="text-xl font-bold tracking-normal text-slate-900 dark:text-white leading-tight">
                                     {appointmentsToday}
                                 </div>
                                 <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">

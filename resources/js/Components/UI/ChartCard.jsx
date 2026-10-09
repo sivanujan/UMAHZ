@@ -34,7 +34,7 @@ export function ChartCard({
                         </div>
                     )}
                     <div>
-                        <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                        <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white tracking-normal">
                             {title}
                         </h3>
                         {subtitle && (

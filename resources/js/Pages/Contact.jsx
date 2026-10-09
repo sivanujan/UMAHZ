@@ -78,7 +78,7 @@ export default function Contact() {
                         >
                             <PillBadge text="Get In Touch" />
 
-                            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight tracking-tight">
+                            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight tracking-normal">
                                 Book Your{' '}
                                 <em className="not-italic font-light font-serif text-purple-300">Personalised</em>{' '}
                                 Demo
@@ -120,7 +120,7 @@ export default function Contact() {
                             variants={formEntrance}
                             className="bg-white dark:bg-[#131B2B] rounded-2xl p-7 shadow-2xl border border-purple-100 dark:border-slate-800 transition-colors duration-300"
                         >
-                            <h2 className="text-xl font-bold text-[#1E0B3C] dark:text-white mb-1 tracking-tight">Request a Demo</h2>
+                            <h2 className="text-xl font-bold text-[#1E0B3C] dark:text-white mb-1 tracking-normal">Request a Demo</h2>
                             <p className="text-slate-500 dark:text-slate-400 text-xs mb-6 font-normal">We'll personalise the walkthrough to your practice type.</p>
 
                             {done ? (

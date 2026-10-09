@@ -38,7 +38,7 @@ export default function CTABanner() {
                 >
                     <PillBadge text="Transform Your Practice" />
 
-                    <h2 className="text-3xl md:text-4xl font-bold text-white leading-tight max-w-2xl mx-auto tracking-tight">
+                    <h2 className="text-3xl md:text-4xl font-bold text-white leading-tight max-w-2xl mx-auto tracking-normal">
                         Ready To Unify Your{' '}
                         <em className="not-italic font-light font-serif text-purple-300">Integrated</em>{' '}
                         Practice Management?

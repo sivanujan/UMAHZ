@@ -88,9 +88,9 @@ export default function KpiCard({
                 </div>
             </div>
 
-            {/* Middle: Big Metric Value (Impactful size, high-contrast) */}
+            {/* Middle: Big Metric Value (Prominent, refined weight) */}
             <div className="mt-3.5">
-                <h3 className="text-3xl sm:text-[34px] font-black tracking-tight text-slate-900 dark:text-white leading-none">
+                <h3 className="text-3xl sm:text-[32px] font-bold tracking-[-0.01em] text-slate-900 dark:text-white leading-none">
                     {displayValue}
                 </h3>
             </div>

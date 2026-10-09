@@ -89,6 +89,7 @@ class ClinicApprovalBillingTest extends TestCase
     {
         $admin = $this->admin();
         $clinic = $this->pendingClinic();
+        $clinic->update(['reapply_count' => $clinic->maxReapplyAttempts()]);
 
         $this->actingAs($admin)
             ->post($this->url($clinic, '/reject'), ['note' => 'Incomplete license documentation.'])
@@ -115,5 +116,50 @@ class ClinicApprovalBillingTest extends TestCase
 
         $this->assertFalse($this->billing->charged($clinic));
         $this->assertSame(Tenant::STATUS_PENDING_REVIEW, $clinic->refresh()->status);
+    }
+
+    public function test_locked_promo_is_honoured_at_approval_even_if_expired_in_between(): void
+    {
+        $plan = \App\Models\Plan::create([
+            'name' => 'Signature',
+            'slug' => 'signature',
+            'is_active' => true,
+            'included_practitioners' => 3,
+        ]);
+        $plan->prices()->create([
+            'interval' => 'month',
+            'base_price' => 100.00,
+            'stripe_base_price_id' => 'price_sig_month_123',
+            'currency' => 'CAD',
+            'is_active' => true,
+        ]);
+
+        $promo = \App\Models\PromoCode::create([
+            'code' => 'HALFOFF',
+            'stripe_coupon_id' => 'coup_half',
+            'discount_type' => 'percent',
+            'discount_value' => 50.00,
+            'duration' => 'once',
+            'expires_at' => now()->subDay(), // Expired before approval!
+            'is_active' => true,
+        ]);
+
+        $admin = $this->admin();
+        $clinic = $this->pendingClinic(withCard: true);
+        $clinic->update([
+            'plan_id' => $plan->id,
+            'billing_interval' => 'month',
+            'promo_code_id' => $promo->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->post($this->url($clinic, '/approve'))
+            ->assertSessionHasNoErrors();
+
+        $this->assertTrue($this->billing->charged($clinic));
+        $this->assertCount(1, $this->billing->startedSubscriptions);
+        $sub = $this->billing->startedSubscriptions[0];
+        $this->assertEquals(50.00, $sub['total_monthly']);
+        $this->assertSame(Tenant::STATUS_APPROVED, $clinic->refresh()->status);
     }
 }

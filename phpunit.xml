@@ -19,6 +19,7 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <env name="APP_KEY" value="base64:CRb0RgQnPAbGOt3cv44RiA0q3VsJTt5wKutNuPqPZX0="/>
         <env name="APP_URL" value="http://umahz.test"/>
         <env name="APP_CENTRAL_DOMAIN" value="umahz.test"/>
         <env name="APP_PORTAL_HOST" value="portal.umahz.test"/>
@@ -26,14 +27,21 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
-        <env name="DB_URL" value=""/>
+        <env name="DB_CONNECTION" value="pgsql"/>
+        <env name="DB_HOST" value="127.0.0.1"/>
+        <env name="DB_PORT" value="5432"/>
+        <env name="DB_DATABASE" value="umahz_test"/>
+        <env name="DB_USERNAME" value="postgres"/>
+        <env name="DB_PASSWORD" value="root"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="STRIPE_KEY" value="pk_test_placeholder"/>
+        <env name="STRIPE_SECRET" value="sk_test_placeholder"/>
+        <env name="STRIPE_WEBHOOK_SECRET" value="whsec_placeholder"/>
+        <env name="OPENROUTER_API_KEY" value="dummy_openrouter_key"/>
     </php>
 </phpunit>

@@ -18,7 +18,7 @@ export function EmptyState({
             <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-purple-500/10 text-[#8200db] dark:text-purple-300 mb-3.5 border border-purple-500/20 shadow-2xs">
                 <Icon className="w-6 h-6" />
             </div>
-            <h4 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+            <h4 className="text-base font-semibold text-slate-900 dark:text-white tracking-normal">
                 {title}
             </h4>
             {description && (

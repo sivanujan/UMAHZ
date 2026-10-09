@@ -43,7 +43,7 @@ export default function DoctorsSection() {
                 >
                     <div className="space-y-3 max-w-2xl">
                         <PillBadge text="Platform Modules" />
-                        <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-tight">
+                        <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-normal">
                             Explore Our{' '}
                             <em className="not-italic font-light font-serif text-[#5B2EFF] dark:text-[#8B6BFF]">Specialty</em>{' '}
                             Practice Modules
@@ -84,13 +84,13 @@ export default function DoctorsSection() {
                             >
                                 <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
                                 <div className="w-18 h-18 rounded-2xl bg-white/20 border border-white/30 flex items-center justify-center mb-3 z-10 flex-shrink-0 shadow-md transition-transform duration-200 group-hover:scale-105">
-                                    <span className="text-white text-3xl font-extrabold">{m.initials}</span>
+                                    <span className="text-white text-3xl font-bold">{m.initials}</span>
                                 </div>
                                 <span className="text-white/80 text-xs font-semibold z-10 tracking-wide uppercase">Module</span>
                             </div>
 
                             <div className="px-2 pb-2 space-y-2">
-                                <h3 className="text-[#1E0B3C] dark:text-white text-lg font-bold tracking-tight">{m.name}</h3>
+                                <h3 className="text-[#1E0B3C] dark:text-white text-lg font-bold tracking-normal">{m.name}</h3>
                                 <p className="text-slate-600 dark:text-slate-300 text-xs leading-relaxed font-normal">{m.specialty}</p>
 
                                 <div className="flex items-center gap-3 pt-3">

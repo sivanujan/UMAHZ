@@ -96,7 +96,7 @@ function LoginForm({
                                     />
                                 )}
                                 <div className="flex flex-col leading-tight">
-                                    <span className="font-extrabold tracking-tight text-lg sm:text-xl text-slate-900 dark:text-white">
+                                    <span className="font-bold tracking-normal text-lg sm:text-xl text-slate-900 dark:text-white">
                                         {clinic.name}
                                     </span>
                                     <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate max-w-[180px] sm:max-w-[240px]">
@@ -132,7 +132,7 @@ function LoginForm({
                     <div className="space-y-6">
                         {/* Heading & Subtext */}
                         <div className="space-y-1.5">
-                            <h1 className="text-2xl sm:text-3xl font-bold tracking-normal text-slate-900 dark:text-white [word-spacing:0.04em]">
+                            <h1 className="text-2xl sm:text-[28px] font-bold tracking-[-0.01em] text-slate-900 dark:text-white">
                                 {clinicNotFound
                                     ? 'Clinic Not Found'
                                     : clinic

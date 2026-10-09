@@ -51,11 +51,13 @@ export default function ScribeDraft({
     onJumpToSegment,
     isTranslated = false,
     sourceLanguageLabel = '',
+    outputLanguageLabel = 'English',
 }) {
     const [copied, setCopied] = useState(false);
     const status = draft?.status;
     const hasDraft = (draft?.version || 0) > 0 && status !== 'generating';
     const filledFields = (draft?.sections || []).flatMap((s) => s.fields).filter((f) => f.items.length > 0);
+    const isMultilingual = Boolean(sourceLanguageLabel && outputLanguageLabel && sourceLanguageLabel !== outputLanguageLabel);
 
     const copyDraft = async () => {
         const text = (draft.sections || [])
@@ -110,11 +112,11 @@ export default function ScribeDraft({
                 </div>
             </div>
 
-            {isTranslated && hasDraft && (
+            {(isTranslated || isMultilingual) && hasDraft && (
                 <div role="status" className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-500/35 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs font-medium">
                     <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
                     <div className="leading-relaxed">
-                        <strong>Translation review:</strong> This note was translated from {sourceLanguageLabel || 'Mandarin (Chinese)'} by AI — please verify before signing.
+                        <strong>Multilingual note review:</strong> This note was drafted in {outputLanguageLabel} from {sourceLanguageLabel || 'source'} audio by AI — please verify before signing.
                     </div>
                 </div>
             )}

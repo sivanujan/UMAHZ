@@ -52,14 +52,16 @@ class PractitionerAppointmentViewTest extends TestCase
         $clientA = Client::create(['tenant_id' => $clinic->id, 'first_name' => 'Alice', 'last_name' => 'Smith']);
         $clientB = Client::create(['tenant_id' => $clinic->id, 'first_name' => 'Bob', 'last_name' => 'Jones']);
 
+        $nowClinic = \Carbon\Carbon::now($clinic->timezone);
+
         // Appointment for Practitioner 1
         $appt1 = Appointment::create([
             'tenant_id' => $clinic->id,
             'client_id' => $clientA->id,
             'staff_membership_id' => $mem1->id,
             'service_name' => 'Acupuncture Initial',
-            'starts_at' => now()->startOfDay()->addHours(10),
-            'ends_at' => now()->startOfDay()->addHours(11),
+            'starts_at' => $nowClinic->copy()->startOfDay()->addHours(10),
+            'ends_at' => $nowClinic->copy()->startOfDay()->addHours(11),
             'status' => Appointment::STATUS_SCHEDULED,
         ]);
 
@@ -69,8 +71,8 @@ class PractitionerAppointmentViewTest extends TestCase
             'client_id' => $clientB->id,
             'staff_membership_id' => $mem2->id,
             'service_name' => 'Physiotherapy Assessment',
-            'starts_at' => now()->startOfDay()->addHours(14),
-            'ends_at' => now()->startOfDay()->addHours(15),
+            'starts_at' => $nowClinic->copy()->startOfDay()->addHours(14),
+            'ends_at' => $nowClinic->copy()->startOfDay()->addHours(15),
             'status' => Appointment::STATUS_SCHEDULED,
         ]);
 

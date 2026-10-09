@@ -9,6 +9,7 @@ use App\Models\Client;
 use App\Models\ConsentType;
 use App\Models\ScribeAudioChunk;
 use App\Models\ScribeSession;
+use App\Models\ScribeTranscriptSegment;
 use App\Models\StaffMembership;
 use App\Models\Tenant;
 use App\Models\User;
@@ -43,9 +44,10 @@ class ScribeSessionService
         ?Appointment $appointment,
         ?string $ip,
         bool $forceNew = false,
-        ?string $language = null
+        ?string $language = null,
+        ?string $noteOutputLanguage = null
     ): ScribeSession {
-        return DB::transaction(function () use ($tenant, $membership, $user, $client, $appointment, $ip, $forceNew, $language) {
+        return DB::transaction(function () use ($tenant, $membership, $user, $client, $appointment, $ip, $forceNew, $language, $noteOutputLanguage) {
             if (! $forceNew) {
                 $existing = ScribeSession::where('tenant_id', $tenant->id)
                     ->where('client_id', $client->id)
@@ -80,6 +82,10 @@ class ScribeSessionService
                 ? $language
                 : ($enabledLanguages[0] ?? 'en');
 
+            $selectedNoteOutput = ($noteOutputLanguage && \App\Scribe\LanguageRegistry::isValidNoteOutputLanguage($noteOutputLanguage))
+                ? $noteOutputLanguage
+                : 'en';
+
             $session = ScribeSession::create([
                 'tenant_id' => $tenant->id,
                 'client_id' => $client->id,
@@ -89,21 +95,30 @@ class ScribeSessionService
                 'discipline' => $discipline,
                 'discipline_label' => $discipline ? $tenant->disciplineLabel($discipline) : null,
                 'language' => $selectedLanguage,
+                'note_output_language' => $selectedNoteOutput,
                 'status' => ScribeSession::STATUS_CONSENT_PENDING,
                 'transcription_provider' => $this->transcription->name(),
             ]);
 
-            $this->audit($session, $user, 'scribe.session_created', $ip, ['language' => $selectedLanguage]);
+            $this->audit($session, $user, 'scribe.session_created', $ip, [
+                'language' => $selectedLanguage,
+                'note_output_language' => $selectedNoteOutput,
+            ]);
 
             return $session;
         });
     }
 
     /**
-     * Change the session language before recording begins.
+     * Change the session language and/or note output language before recording begins.
      */
-    public function updateLanguage(ScribeSession $session, string $language, User $user, ?string $ip): ScribeSession
-    {
+    public function updateLanguage(
+        ScribeSession $session,
+        ?string $language,
+        User $user,
+        ?string $ip,
+        ?string $noteOutputLanguage = null
+    ): ScribeSession {
         if ($session->status !== ScribeSession::STATUS_CONSENT_PENDING) {
             throw new ScribeStateException('Session language can only be changed before recording starts.');
         }
@@ -111,18 +126,35 @@ class ScribeSessionService
         $tenant = Tenant::findOrFail($session->tenant_id);
         $enabled = $tenant->scribeSettings()['enabled_languages'] ?? ['en'];
 
-        if (! in_array($language, $enabled, true)) {
+        if ($language !== null && ! in_array($language, $enabled, true)) {
             throw new \InvalidArgumentException("Language \"{$language}\" is not enabled for this clinic.");
         }
 
-        $oldLanguage = $session->language;
+        if ($noteOutputLanguage !== null && ! \App\Scribe\LanguageRegistry::isValidNoteOutputLanguage($noteOutputLanguage)) {
+            throw new \InvalidArgumentException("Note output language \"{$noteOutputLanguage}\" is not supported.");
+        }
 
-        DB::transaction(function () use ($session, $language, $oldLanguage, $user, $ip) {
-            $session->forceFill(['language' => $language])->save();
-            $this->audit($session, $user, 'scribe.language_updated', $ip, [
-                'from' => $oldLanguage,
-                'to' => $language,
-            ]);
+        $oldLanguage = $session->language;
+        $oldNoteOutput = $session->note_output_language;
+
+        DB::transaction(function () use ($session, $language, $noteOutputLanguage, $oldLanguage, $oldNoteOutput, $user, $ip) {
+            $updates = [];
+            if ($language !== null) {
+                $updates['language'] = $language;
+            }
+            if ($noteOutputLanguage !== null) {
+                $updates['note_output_language'] = $noteOutputLanguage;
+            }
+
+            if (! empty($updates)) {
+                $session->forceFill($updates)->save();
+                $this->audit($session, $user, 'scribe.language_updated', $ip, [
+                    'from' => $oldLanguage,
+                    'to' => $language ?? $oldLanguage,
+                    'note_output_from' => $oldNoteOutput,
+                    'note_output_to' => $noteOutputLanguage ?? $oldNoteOutput,
+                ]);
+            }
         });
 
         return $session->refresh();
@@ -339,13 +371,40 @@ class ScribeSessionService
 
     /**
      * transcribing -> transcript_ready when every chunk has settled. Locked so
-     * two workers finishing together cannot both transition.
+     * two workers finishing together cannot both transition. Auto-dispatches
+     * background translation for non-English encounters.
      */
     public static function settle(string $sessionId): void
     {
-        DB::transaction(function () use ($sessionId) {
-            ScribeSession::withoutGlobalScopes()->lockForUpdate()->find($sessionId)?->settleIfComplete();
+        $shouldTranslate = false;
+
+        DB::transaction(function () use ($sessionId, &$shouldTranslate) {
+            $session = ScribeSession::withoutGlobalScopes()->lockForUpdate()->find($sessionId);
+            if (! $session) {
+                return;
+            }
+
+            $wasTranscribing = ($session->status === ScribeSession::STATUS_TRANSCRIBING);
+            $session->settleIfComplete();
+
+            if ($wasTranscribing && $session->status === ScribeSession::STATUS_TRANSCRIPT_READY) {
+                $hasSegments = ScribeTranscriptSegment::withoutGlobalScopes()
+                    ->where('scribe_session_id', $session->id)
+                    ->exists();
+
+                if ($hasSegments && $session->isNonEnglish() && ! $session->is_translated && in_array($session->translation_status, [null, ScribeSession::TRANSLATION_FAILED], true)) {
+                    $session->forceFill([
+                        'translation_status' => ScribeSession::TRANSLATION_PENDING,
+                        'translation_error' => null,
+                    ])->save();
+                    $shouldTranslate = true;
+                }
+            }
         });
+
+        if ($shouldTranslate) {
+            \App\Jobs\TranslateScribeSession::dispatch($sessionId);
+        }
     }
 
     /**

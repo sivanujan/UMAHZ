@@ -59,7 +59,7 @@ export default function ServicesSection() {
                 >
                     <div className="space-y-3">
                         <PillBadge text="Supported Modalities" />
-                        <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-tight">
+                        <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-normal">
                             Purpose-Built for Modern Health &{' '}
                             <em className="not-italic font-light font-serif text-[#5B2EFF] dark:text-[#8B6BFF]">Wellness</em>{' '}
                             Professionals
@@ -96,7 +96,7 @@ export default function ServicesSection() {
                                             <path strokeLinecap="round" strokeLinejoin="round" d={svc.iconPath} />
                                         </svg>
                                     </div>
-                                    <h3 className="text-[#1E0B3C] dark:text-white font-bold text-base mb-2 tracking-tight">{svc.title}</h3>
+                                    <h3 className="text-[#1E0B3C] dark:text-white font-bold text-base mb-2 tracking-normal">{svc.title}</h3>
                                     <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed mb-5 font-normal">{svc.desc}</p>
                                 </div>
 
@@ -130,7 +130,7 @@ export default function ServicesSection() {
                                 </svg>
                             </div>
                             <span className="block text-[10px] font-bold tracking-[0.14em] uppercase text-pink-300">Also Available</span>
-                            <h3 className="text-xl font-bold text-white leading-snug tracking-tight">Colon Hydrotherapy Management</h3>
+                            <h3 className="text-xl font-bold text-white leading-snug tracking-normal">Colon Hydrotherapy Management</h3>
                             <p className="text-purple-200 text-sm leading-relaxed font-normal">
                                 Sterilization logs, equipment tracking, session protocols, and privacy-first consent management for colon hydrotherapy centers.
                             </p>

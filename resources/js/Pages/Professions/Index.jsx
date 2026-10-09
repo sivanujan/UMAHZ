@@ -32,7 +32,7 @@ export default function ProfessionsIndex() {
                     <div className="mb-4">
                         <PillBadge text="Supported Modalities" />
                     </div>
-                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-tight">
+                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-normal">
                         Built For Every{' '}
                         <em className="not-italic font-light font-serif text-[#5B2EFF] dark:text-[#8B6BFF]">Wellness</em> Profession
                     </h1>

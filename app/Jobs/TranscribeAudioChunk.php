@@ -37,7 +37,7 @@ class TranscribeAudioChunk implements ShouldQueue
     public function __construct(public readonly string $chunkId)
     {
         $this->tries = max(1, (int) config('scribe.max_attempts', 4));
-        $this->onQueue(config('scribe.queue', 'default'));
+        $this->onQueue(config('scribe.queue', 'scribe'));
     }
 
     public function handle(TranscriptionProvider $provider): void
@@ -110,8 +110,13 @@ class TranscribeAudioChunk implements ShouldQueue
                         'provider' => $provider->name(),
                         'provider_model' => $result->model,
                         'language' => $result->language ?: ($session->language ?? 'en'),
+                        'detected_language' => $result->language,
                     ]
                 );
+            }
+
+            if ($result->model && empty($session->provider_model)) {
+                $session->forceFill(['provider_model' => $result->model])->save();
             }
 
             $chunk->forceFill([

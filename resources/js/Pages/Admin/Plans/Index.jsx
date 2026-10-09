@@ -4,608 +4,894 @@ import AdminLayout from '@/Layouts/AdminLayout';
 import {
     CreditCard, Check, Plus, Trash2, Shield, Sparkles, Zap,
     AlertCircle, Loader2, DollarSign, Users, Calendar, ArrowRight,
+    RefreshCw, Layers, CheckCircle2, XCircle, AlertTriangle, Edit3,
+    ArrowUpRight, HelpCircle, Eye, EyeOff
 } from 'lucide-react';
 
-const TIER_ICONS = {
-    balance: Shield,
-    practice: Sparkles,
-    thrive: Zap,
-};
-
-export default function PlansIndex({ tiers = [] }) {
+export default function PlansIndex({ plans = [], features = [], stripeConfigured = false }) {
     const { flash, errors } = usePage().props;
-    const [activeTab, setActiveTab] = useState(tiers[0]?.id || 'balance');
+
+    const [selectedPlan, setSelectedPlan] = useState(null);
+    const [editorOpen, setEditorOpen] = useState(false);
+    const [isCreating, setIsCreating] = useState(false);
+    const [migrateModalPlan, setMigrateModalPlan] = useState(null);
+    const [priceConfirmOpen, setPriceConfirmOpen] = useState(false);
+    const [pendingFormSubmit, setPendingFormSubmit] = useState(null);
     const [processing, setProcessing] = useState(false);
-    const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-    const [deleting, setDeleting] = useState(false);
+    const [syncingId, setSyncingId] = useState(null);
+    const [syncingAll, setSyncingAll] = useState(false);
 
-    // Sync active tab if deleted
-    React.useEffect(() => {
-        if (tiers.length > 0 && !tiers.some((t) => t.id === activeTab)) {
-            setActiveTab(tiers[0].id);
-        }
-    }, [tiers, activeTab]);
-
-    // Local form state for each tier
-    const [formData, setFormData] = useState(() => {
-        const initial = {};
-        tiers.forEach((t) => {
-            initial[t.id] = {
-                name: t.name || '',
-                badge: t.badge || '',
-                tagline: t.tagline || '',
-                base_price: t.base_price !== undefined ? t.base_price : 0,
-                included_full_time: t.included_full_time !== undefined ? t.included_full_time : 1,
-                max_practitioners: t.max_practitioners !== null ? t.max_practitioners : '',
-                unlimited_practitioners: t.max_practitioners === null,
-                max_appointments_per_month: t.max_appointments_per_month !== null ? t.max_appointments_per_month : '',
-                unlimited_appointments: t.max_appointments_per_month === null,
-                allows_addons: Boolean(t.allows_addons),
-                addon_price_ft: t.addon_price_ft !== undefined ? t.addon_price_ft : 0,
-                addon_price_pt: t.addon_price_pt !== undefined ? t.addon_price_pt : 0,
-                stripe_price_id: t.stripe_price_id || '',
-                stripe_addon_price_ft_id: t.stripe_addon_price_ft_id || '',
-                stripe_addon_price_pt_id: t.stripe_addon_price_pt_id || '',
-                features: Array.isArray(t.features) ? [...t.features] : [],
-            };
-        });
-        return initial;
+    // Form state for plan editor
+    const [formData, setFormData] = useState({
+        name: '',
+        tagline: '',
+        description: '',
+        badge: '',
+        display_order: 1,
+        is_active: true,
+        trial_days: 14,
+        monthly_price: 99,
+        annual_price: 990,
+        included_practitioners: 1,
+        max_practitioners: '',
+        allows_extra_practitioners: true,
+        extra_practitioner_monthly_price: 49,
+        extra_practitioner_annual_price: 490,
+        appointment_limit_monthly: '',
+        appointment_limit_behavior: 'warn',
+        location_limit: '',
+        scribe_allowance_unit: 'minutes',
+        scribe_allowance_amount: 300,
+        scribe_limit_behavior: 'warn',
+        features: {}, // featureId -> boolean
     });
 
-    const [newFeatureText, setNewFeatureText] = useState('');
-
-    const currentForm = formData[activeTab] || {};
-    const Icon = TIER_ICONS[activeTab] || CreditCard;
-
-    const handleDeletePlan = () => {
-        setDeleting(true);
-        router.delete(`/admin/plans/${activeTab}`, {
-            preserveScroll: true,
-            onFinish: () => {
-                setDeleting(false);
-                setConfirmDeleteOpen(false);
-            },
+    const openCreateModal = () => {
+        setIsCreating(true);
+        setSelectedPlan(null);
+        const featureMap = {};
+        features.forEach((f) => {
+            featureMap[f.id] = false;
         });
-    };
-
-    const handleFieldChange = (field, val) => {
-        setFormData((prev) => ({
-            ...prev,
-            [activeTab]: {
-                ...prev[activeTab],
-                [field]: val,
-            },
-        }));
-    };
-
-    const handleAddFeature = () => {
-        if (!newFeatureText.trim()) return;
-        setFormData((prev) => ({
-            ...prev,
-            [activeTab]: {
-                ...prev[activeTab],
-                features: [...(prev[activeTab].features || []), newFeatureText.trim()],
-            },
-        }));
-        setNewFeatureText('');
-    };
-
-    const handleRemoveFeature = (index) => {
-        setFormData((prev) => ({
-            ...prev,
-            [activeTab]: {
-                ...prev[activeTab],
-                features: prev[activeTab].features.filter((_, i) => i !== index),
-            },
-        }));
-    };
-
-    const handleFeatureChange = (index, value) => {
-        setFormData((prev) => {
-            const updated = [...prev[activeTab].features];
-            updated[index] = value;
-            return {
-                ...prev,
-                [activeTab]: {
-                    ...prev[activeTab],
-                    features: updated,
-                },
-            };
+        setFormData({
+            name: '',
+            tagline: '',
+            description: '',
+            badge: '',
+            display_order: (plans.length + 1) * 10,
+            is_active: true,
+            trial_days: 14,
+            monthly_price: 99,
+            annual_price: 990,
+            included_practitioners: 1,
+            max_practitioners: '',
+            allows_extra_practitioners: true,
+            extra_practitioner_monthly_price: 49,
+            extra_practitioner_annual_price: 490,
+            appointment_limit_monthly: '',
+            appointment_limit_behavior: 'warn',
+            location_limit: '',
+            scribe_allowance_unit: 'minutes',
+            scribe_allowance_amount: 300,
+            scribe_limit_behavior: 'warn',
+            features: featureMap,
         });
+        setEditorOpen(true);
     };
 
-    const handleSave = (e) => {
-        e.preventDefault();
+    const openEditModal = (plan) => {
+        setIsCreating(false);
+        setSelectedPlan(plan);
+        const featureMap = {};
+        features.forEach((f) => {
+            const planFeature = (plan.features || []).find((pf) => pf.id === f.id || pf.key === f.key);
+            featureMap[f.id] = planFeature ? Boolean(planFeature.is_enabled) : false;
+        });
+
+        setFormData({
+            name: plan.name || '',
+            tagline: plan.tagline || '',
+            description: plan.description || '',
+            badge: plan.badge || '',
+            display_order: plan.display_order ?? 1,
+            is_active: Boolean(plan.is_active),
+            trial_days: plan.trial_days ?? 14,
+            monthly_price: plan.monthly_price?.base_price ?? 0,
+            annual_price: plan.annual_price?.base_price ?? 0,
+            included_practitioners: plan.included_practitioners ?? 1,
+            max_practitioners: plan.max_practitioners !== null ? plan.max_practitioners : '',
+            allows_extra_practitioners: Boolean(plan.allows_extra_practitioners),
+            extra_practitioner_monthly_price: plan.monthly_price?.extra_practitioner_price ?? 0,
+            extra_practitioner_annual_price: plan.annual_price?.extra_practitioner_price ?? 0,
+            appointment_limit_monthly: plan.appointment_limit_monthly !== null ? plan.appointment_limit_monthly : '',
+            appointment_limit_behavior: plan.appointment_limit_behavior || 'warn',
+            location_limit: plan.location_limit !== null ? plan.location_limit : '',
+            scribe_allowance_unit: plan.scribe_allowance_unit || 'minutes',
+            scribe_allowance_amount: plan.scribe_allowance_amount !== null ? plan.scribe_allowance_amount : '',
+            scribe_limit_behavior: plan.scribe_limit_behavior || 'warn',
+            features: featureMap,
+        });
+        setEditorOpen(true);
+    };
+
+    const handleFormSubmit = (e) => {
+        if (e) e.preventDefault();
+
+        // Check if price changed on existing plan
+        if (!isCreating && selectedPlan) {
+            const oldMonthly = Number(selectedPlan.monthly_price?.base_price ?? 0);
+            const newMonthly = Number(formData.monthly_price);
+            const oldAnnual = Number(selectedPlan.annual_price?.base_price ?? 0);
+            const newAnnual = Number(formData.annual_price);
+
+            if ((oldMonthly !== newMonthly || oldAnnual !== newAnnual) && selectedPlan.subscriber_count > 0 && !priceConfirmOpen) {
+                setPriceConfirmOpen(true);
+                return;
+            }
+        }
+
+        executeSave();
+    };
+
+    const executeSave = () => {
         setProcessing(true);
-
         const payload = {
-            name: currentForm.name,
-            badge: currentForm.badge,
-            tagline: currentForm.tagline,
-            base_price: parseFloat(currentForm.base_price) || 0,
-            included_full_time: parseInt(currentForm.included_full_time, 10) || 1,
-            max_practitioners: currentForm.unlimited_practitioners ? null : (parseInt(currentForm.max_practitioners, 10) || null),
-            max_appointments_per_month: currentForm.unlimited_appointments ? null : (parseInt(currentForm.max_appointments_per_month, 10) || null),
-            allows_addons: Boolean(currentForm.allows_addons),
-            addon_price_ft: parseFloat(currentForm.addon_price_ft) || 0,
-            addon_price_pt: parseFloat(currentForm.addon_price_pt) || 0,
-            stripe_price_id: currentForm.stripe_price_id || null,
-            stripe_addon_price_ft_id: currentForm.stripe_addon_price_ft_id || null,
-            stripe_addon_price_pt_id: currentForm.stripe_addon_price_pt_id || null,
-            features: currentForm.features || [],
+            ...formData,
+            monthly_base_price: Number(formData.monthly_price),
+            monthly_extra_seat_price: Number(formData.extra_practitioner_monthly_price),
+            annual_base_price: Number(formData.annual_price),
+            annual_extra_seat_price: Number(formData.extra_practitioner_annual_price),
+            monthly_price: Number(formData.monthly_price),
+            annual_price: Number(formData.annual_price),
+            extra_practitioner_monthly_price: Number(formData.extra_practitioner_monthly_price),
+            extra_practitioner_annual_price: Number(formData.extra_practitioner_annual_price),
+            max_practitioners: formData.max_practitioners === '' ? null : Number(formData.max_practitioners),
+            appointment_limit_monthly: formData.appointment_limit_monthly === '' ? null : Number(formData.appointment_limit_monthly),
+            location_limit: formData.location_limit === '' ? null : Number(formData.location_limit),
+            scribe_allowance_amount: formData.scribe_allowance_amount === '' ? null : Number(formData.scribe_allowance_amount),
+            feature_ids: Object.keys(formData.features).filter((id) => formData.features[id]),
         };
 
-        router.put(`/admin/plans/${activeTab}`, payload, {
+        if (isCreating) {
+            router.post('/admin/plans', payload, {
+                onSuccess: () => {
+                    setEditorOpen(false);
+                    setPriceConfirmOpen(false);
+                },
+                onFinish: () => setProcessing(false),
+            });
+        } else {
+            router.put(`/admin/plans/${selectedPlan.id}`, payload, {
+                onSuccess: () => {
+                    setEditorOpen(false);
+                    setPriceConfirmOpen(false);
+                },
+                onFinish: () => setProcessing(false),
+            });
+        }
+    };
+
+    const handleSyncStripe = (planId) => {
+        setSyncingId(planId);
+        router.post(`/admin/plans/${planId}/sync-stripe`, {}, {
             preserveScroll: true,
+            onFinish: () => setSyncingId(null),
+        });
+    };
+
+    const handleSyncAllStripe = () => {
+        setSyncingAll(true);
+        router.post('/admin/plans/sync-all-stripe', {}, {
+            preserveScroll: true,
+            onFinish: () => setSyncingAll(false),
+        });
+    };
+
+    const handleMigrateSubscribers = (planId) => {
+        setProcessing(true);
+        router.post(`/admin/plans/${planId}/migrate-subscribers`, {}, {
+            preserveScroll: true,
+            onSuccess: () => setMigrateModalPlan(null),
             onFinish: () => setProcessing(false),
         });
     };
 
-    return (
-        <AdminLayout title="Subscription Plans & Pricing">
-            <Head title="Subscription Plans & Pricing — Admin" />
+    // Group features by category
+    const categorizedFeatures = features.reduce((acc, feat) => {
+        const cat = feat.category || 'General';
+        if (!acc[cat]) acc[cat] = [];
+        acc[cat].push(feat);
+        return acc;
+    }, {});
 
-            <div className="space-y-6">
-                {/* Header */}
+    return (
+        <AdminLayout title="Pricing & Plans">
+            <Head title="Admin — Plans & Pricing" />
+
+            {/* Flash & Alert messages */}
+            {flash?.success && (
+                <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-sm flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                        <span>{flash.success}</span>
+                    </div>
+                </div>
+            )}
+
+            {errors && Object.keys(errors).length > 0 && (
+                <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm">
+                    <div className="flex items-center gap-2 font-medium mb-1">
+                        <AlertTriangle className="w-4 h-4 text-rose-400" />
+                        <span>Please fix the following validation errors:</span>
+                    </div>
+                    <ul className="list-disc list-inside text-xs space-y-0.5 ml-2">
+                        {Object.entries(errors).map(([key, msg]) => (
+                            <li key={key}>{msg}</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+
+            {/* Header with Stats & Actions */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                 <div>
-                    <h2 className="text-xl font-bold text-white tracking-tight">Clinic Subscription Plans</h2>
-                    <p className="text-xs text-slate-400 mt-1">
-                        Customize tier names, monthly base pricing, practitioner limits, add-on rates, bullet features, and Stripe Price IDs.
+                    <h1 className="text-2xl sm:text-[28px] font-bold text-white tracking-normal leading-tight">Platform Plans & Pricing</h1>
+                    <p className="text-sm text-slate-400 mt-1">
+                        Manage subscription tiers, feature entitlements, usage limits, and Stripe synchronization.
                     </p>
                 </div>
-
-                {/* Feedback Alerts */}
-                {flash?.success && (
-                    <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-sm flex items-center gap-3">
-                        <Check className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-                        <span className="font-medium">{flash.success}</span>
-                    </div>
-                )}
-
-                {errors && Object.keys(errors).length > 0 && (
-                    <div className="p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-sm flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" />
-                        <div className="space-y-1">
-                            {Object.values(errors).map((err, i) => (
-                                <p key={i} className="font-medium">{err}</p>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Tabs */}
-                <div className="flex border-b border-slate-800 gap-2">
-                    {tiers.map((t) => {
-                        const TabIcon = TIER_ICONS[t.id] || CreditCard;
-                        const isActive = activeTab === t.id;
-                        return (
-                            <button
-                                key={t.id}
-                                type="button"
-                                onClick={() => setActiveTab(t.id)}
-                                className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all duration-200 ${
-                                    isActive
-                                        ? 'border-blue-500 text-blue-400 bg-blue-500/5'
-                                        : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-                                }`}
-                            >
-                                <TabIcon className="w-4 h-4" />
-                                <span>{formData[t.id]?.name || t.name}</span>
-                                <span className="text-xs text-slate-500 font-mono">
-                                    ${formData[t.id]?.base_price || t.base_price} CAD
-                                </span>
-                            </button>
-                        );
-                    })}
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={handleSyncAllStripe}
+                        disabled={syncingAll}
+                        className="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 flex items-center gap-2 transition-colors disabled:opacity-50"
+                        title="Synchronize all active plans and prices with Stripe"
+                    >
+                        <RefreshCw className={`w-3.5 h-3.5 text-violet-400 ${syncingAll ? 'animate-spin' : ''}`} />
+                        <span>{syncingAll ? 'Syncing...' : 'Sync All to Stripe'}</span>
+                    </button>
+                    <button
+                        onClick={openCreateModal}
+                        className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold flex items-center gap-2 shadow-lg shadow-violet-600/20 transition-colors"
+                    >
+                        <Plus className="w-4 h-4" />
+                        <span>Create New Plan</span>
+                    </button>
                 </div>
+            </div>
 
-                {/* Main Content Grid: Form (Col 1) + Live Preview (Col 2) */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Form Section */}
-                    <div className="lg:col-span-2 space-y-6">
-                        <form onSubmit={handleSave} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
-                            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
-                                        <Icon className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-base font-bold text-white">Edit {currentForm.name} Plan</h3>
-                                        <p className="text-xs text-slate-400">Key: <code className="text-blue-400">{activeTab}</code></p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        type="button"
-                                        disabled={processing || deleting || tiers.length <= 1}
-                                        onClick={() => setConfirmDeleteOpen(true)}
-                                        className="px-4 py-2.5 rounded-xl border border-rose-500/30 hover:border-rose-500/60 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-semibold text-sm transition-colors flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed"
-                                        title={tiers.length <= 1 ? "At least one plan must remain" : "Remove this plan"}
-                                    >
-                                        <Trash2 className="w-4 h-4 text-rose-400" />
-                                        <span>Remove Plan</span>
-                                    </button>
+            {/* Plans List Table */}
+            <div className="bg-slate-900/60 rounded-xl border border-slate-800/80 overflow-hidden shadow-xl">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr className="border-b border-slate-800 bg-slate-950/40 text-xs uppercase tracking-wider text-slate-400 font-semibold">
+                                <th className="py-3.5 px-6">Plan Identity</th>
+                                <th className="py-3.5 px-4">Monthly / Annual</th>
+                                <th className="py-3.5 px-4">Subscribers</th>
+                                <th className="py-3.5 px-4">Status</th>
+                                <th className="py-3.5 px-4">Needs Review</th>
+                                <th className="py-3.5 px-4">Stripe Sync</th>
+                                <th className="py-3.5 px-6 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/60">
+                            {plans.map((plan) => {
+                                const hasReview = plan.needs_review || (plan.needs_review_fields && plan.needs_review_fields.length > 0);
+                                const hasSubscribers = plan.subscriber_count > 0;
 
-                                    <button
-                                        type="submit"
-                                        disabled={processing || deleting}
-                                        className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm"
-                                    >
-                                        {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                                        Save Plan Changes
-                                    </button>
-                                </div>
-                            </div>
+                                return (
+                                    <tr key={plan.id} className="hover:bg-slate-800/30 transition-colors">
+                                        <td className="py-4 px-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 font-bold text-sm">
+                                                    {plan.name.charAt(0)}
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-semibold text-white">{plan.name}</span>
+                                                        {plan.badge && (
+                                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                                                                {plan.badge}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-xs text-slate-400 truncate max-w-xs">{plan.tagline || plan.slug}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="py-4 px-4 font-mono text-xs">
+                                            <div className="text-white font-medium">
+                                                ${plan.monthly_price?.base_price ?? '—'}/mo
+                                            </div>
+                                            <div className="text-slate-400 text-[11px]">
+                                                ${plan.annual_price?.base_price ?? '—'}/yr
+                                            </div>
+                                        </td>
+                                        <td className="py-4 px-4">
+                                            <div className="flex items-center gap-2">
+                                                <Users className="w-3.5 h-3.5 text-slate-500" />
+                                                <span className="font-semibold text-white">{plan.subscriber_count}</span>
+                                                <span className="text-xs text-slate-400">({plan.active_subscriber_count} active)</span>
+                                            </div>
+                                            {plan.subscribers && plan.subscribers.some((s) => s.is_grandfathered) && (
+                                                <button
+                                                    onClick={() => setMigrateModalPlan(plan)}
+                                                    className="mt-1 inline-flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300 underline underline-offset-2"
+                                                >
+                                                    <AlertTriangle className="w-3 h-3" />
+                                                    <span>Grandfathered clinics exist</span>
+                                                </button>
+                                            )}
+                                        </td>
+                                        <td className="py-4 px-4">
+                                            {plan.is_active ? (
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                                    Active
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-400 border border-slate-700">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                                                    Deactivated
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="py-4 px-4">
+                                            {hasReview ? (
+                                                <div className="flex flex-col gap-1 items-start">
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                                        <AlertCircle className="w-3 h-3" />
+                                                        needs_review
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400">
+                                                        {plan.needs_review_fields?.join(', ') || 'fields pending review'}
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+                                                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                                    Confirmed
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="py-4 px-4">
+                                            {plan.has_stripe_sync ? (
+                                                <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
+                                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                                    <span>Synced</span>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleSyncStripe(plan.id)}
+                                                    disabled={syncingId === plan.id}
+                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 border border-amber-500/30 transition-colors"
+                                                >
+                                                    <RefreshCw className={`w-3 h-3 ${syncingId === plan.id ? 'animate-spin' : ''}`} />
+                                                    <span>{syncingId === plan.id ? 'Syncing...' : 'Retry sync'}</span>
+                                                </button>
+                                            )}
+                                        </td>
+                                        <td className="py-4 px-6 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                {hasSubscribers && (
+                                                    <button
+                                                        onClick={() => setMigrateModalPlan(plan)}
+                                                        className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300 flex items-center gap-1.5 transition-colors"
+                                                        title="Preview or move subscribers to latest price"
+                                                    >
+                                                        <Users className="w-3.5 h-3.5 text-violet-400" />
+                                                        <span>Subscribers</span>
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => openEditModal(plan)}
+                                                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                                                    title="Edit Plan"
+                                                >
+                                                    <Edit3 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
-                            {/* Basic Info */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                                        Plan Display Name
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={currentForm.name}
-                                        onChange={(e) => handleFieldChange('name', e.target.value)}
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                                        placeholder="e.g. Balance"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                                        Badge Label
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={currentForm.badge}
-                                        onChange={(e) => handleFieldChange('badge', e.target.value)}
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                                        placeholder="e.g. Most Popular"
-                                    />
-                                </div>
-                            </div>
-
+            {/* Plan Editor Modal */}
+            {editorOpen && (
+                <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+                    <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden my-6">
+                        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
                             <div>
-                                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                                    Tagline / Description
-                                </label>
-                                <input
-                                    type="text"
-                                    value={currentForm.tagline}
-                                    onChange={(e) => handleFieldChange('tagline', e.target.value)}
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                                    placeholder="e.g. For solo practitioners starting out"
-                                />
+                                <h2 className="text-lg font-bold text-white">
+                                    {isCreating ? 'Create Subscription Plan' : `Edit Plan: ${selectedPlan?.name}`}
+                                </h2>
+                                <p className="text-xs text-slate-400 mt-0.5">
+                                    Configuring identity, pricing, limits, and feature entitlements.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setEditorOpen(false)}
+                                className="text-slate-500 hover:text-slate-300 p-1.5 rounded-lg hover:bg-slate-800"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleFormSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+                            {/* Section 1: Identity */}
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-violet-400 border-b border-slate-800/80 pb-2">
+                                    1. Plan Identity
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-300 mb-1">Plan Name *</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={formData.name}
+                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-300 mb-1">Badge (e.g. Most Popular)</label>
+                                        <input
+                                            type="text"
+                                            value={formData.badge}
+                                            onChange={(e) => setFormData({ ...formData, badge: e.target.value })}
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                                            placeholder="Optional"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-300 mb-1">Display Order</label>
+                                        <input
+                                            type="number"
+                                            value={formData.display_order}
+                                            onChange={(e) => setFormData({ ...formData, display_order: parseInt(e.target.value) || 0 })}
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                                        />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-medium text-slate-300 mb-1">Tagline</label>
+                                        <input
+                                            type="text"
+                                            value={formData.tagline}
+                                            onChange={(e) => setFormData({ ...formData, tagline: e.target.value })}
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                                            placeholder="Short marketing headline"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-3 pt-5">
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.is_active}
+                                                onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                            <span className="ml-3 text-xs font-medium text-slate-300">
+                                                {formData.is_active ? 'Active (Visible for new signups)' : 'Deactivated (Hidden)'}
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-300 mb-1">Description</label>
+                                    <textarea
+                                        rows={2}
+                                        value={formData.description}
+                                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                                        placeholder="Full plan description"
+                                    />
+                                </div>
                             </div>
 
-                            {/* Pricing & Limits */}
-                            <div className="border-t border-slate-800 pt-5 space-y-4">
-                                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">Base Pricing & Usage Limits</h4>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                    {/* Base Price */}
+                            {/* Section 2: Pricing & Trial */}
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-violet-400 border-b border-slate-800/80 pb-2">
+                                    2. Pricing & Trial
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
-                                        <label className="block text-xs font-semibold text-slate-400 mb-1.5">
-                                            Base Monthly Price (CAD)
-                                        </label>
+                                        <label className="block text-xs font-medium text-slate-300 mb-1">Monthly Base Price (CAD) *</label>
                                         <div className="relative">
-                                            <span className="absolute left-3.5 top-2.5 text-slate-500 text-sm">$</span>
+                                            <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 text-sm">$</span>
                                             <input
                                                 type="number"
                                                 step="0.01"
-                                                min="0"
-                                                value={currentForm.base_price}
-                                                onChange={(e) => handleFieldChange('base_price', e.target.value)}
-                                                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3.5 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                                                 required
+                                                value={formData.monthly_price}
+                                                onChange={(e) => setFormData({ ...formData, monthly_price: e.target.value })}
+                                                className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500 font-mono"
                                             />
                                         </div>
                                     </div>
-
-                                    {/* Max Practitioners */}
                                     <div>
-                                        <div className="flex items-center justify-between mb-1.5">
-                                            <label className="text-xs font-semibold text-slate-400">Max Practitioners</label>
-                                            <label className="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={currentForm.unlimited_practitioners}
-                                                    onChange={(e) => handleFieldChange('unlimited_practitioners', e.target.checked)}
-                                                    className="rounded bg-slate-950 border-slate-800 text-blue-600 focus:ring-0"
-                                                />
-                                                Unlimited
-                                            </label>
-                                        </div>
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            disabled={currentForm.unlimited_practitioners}
-                                            value={currentForm.unlimited_practitioners ? '' : currentForm.max_practitioners}
-                                            onChange={(e) => handleFieldChange('max_practitioners', e.target.value)}
-                                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 disabled:opacity-40 focus:outline-none focus:border-blue-500"
-                                            placeholder={currentForm.unlimited_practitioners ? 'Unlimited' : 'e.g. 1'}
-                                        />
-                                    </div>
-
-                                    {/* Max Appointments per Month */}
-                                    <div>
-                                        <div className="flex items-center justify-between mb-1.5">
-                                            <label className="text-xs font-semibold text-slate-400">Max Appts / Month</label>
-                                            <label className="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={currentForm.unlimited_appointments}
-                                                    onChange={(e) => handleFieldChange('unlimited_appointments', e.target.checked)}
-                                                    className="rounded bg-slate-950 border-slate-800 text-blue-600 focus:ring-0"
-                                                />
-                                                Unlimited
-                                            </label>
-                                        </div>
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            disabled={currentForm.unlimited_appointments}
-                                            value={currentForm.unlimited_appointments ? '' : currentForm.max_appointments_per_month}
-                                            onChange={(e) => handleFieldChange('max_appointments_per_month', e.target.value)}
-                                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 disabled:opacity-40 focus:outline-none focus:border-blue-500"
-                                            placeholder={currentForm.unlimited_appointments ? 'Unlimited' : 'e.g. 20'}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Add-ons Configuration */}
-                            <div className="border-t border-slate-800 pt-5 space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">Practitioner Add-ons</h4>
-                                        <p className="text-[11px] text-slate-500">Allow clinics to add extra practitioners above the included tier base</p>
-                                    </div>
-                                    <label className="flex items-center gap-2 text-xs font-medium text-slate-300 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={currentForm.allows_addons}
-                                            onChange={(e) => handleFieldChange('allows_addons', e.target.checked)}
-                                            className="rounded bg-slate-950 border-slate-800 text-blue-600 focus:ring-0"
-                                        />
-                                        Enable Add-ons
-                                    </label>
-                                </div>
-
-                                {currentForm.allows_addons && (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-xs font-semibold text-slate-400 mb-1.5">
-                                                Extra Full-Time Practitioner (+$/mo)
-                                            </label>
-                                            <div className="relative">
-                                                <span className="absolute left-3.5 top-2.5 text-slate-500 text-sm">$</span>
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    min="0"
-                                                    value={currentForm.addon_price_ft}
-                                                    onChange={(e) => handleFieldChange('addon_price_ft', e.target.value)}
-                                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-semibold text-slate-400 mb-1.5">
-                                                Extra Part-Time Practitioner (+$/mo)
-                                            </label>
-                                            <div className="relative">
-                                                <span className="absolute left-3.5 top-2.5 text-slate-500 text-sm">$</span>
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    min="0"
-                                                    value={currentForm.addon_price_pt}
-                                                    onChange={(e) => handleFieldChange('addon_price_pt', e.target.value)}
-                                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Features List */}
-                            <div className="border-t border-slate-800 pt-5 space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">Feature Bullet Points</h4>
-                                    <span className="text-[11px] text-slate-500">Rendered on registration cards</span>
-                                </div>
-
-                                <div className="space-y-2">
-                                    {(currentForm.features || []).map((feat, index) => (
-                                        <div key={index} className="flex items-center gap-2">
+                                        <label className="block text-xs font-medium text-slate-300 mb-1">Annual Base Price (CAD) *</label>
+                                        <div className="relative">
+                                            <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 text-sm">$</span>
                                             <input
-                                                type="text"
-                                                value={feat}
-                                                onChange={(e) => handleFeatureChange(index, e.target.value)}
-                                                className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                                                type="number"
+                                                step="0.01"
+                                                required
+                                                value={formData.annual_price}
+                                                onChange={(e) => setFormData({ ...formData, annual_price: e.target.value })}
+                                                className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500 font-mono"
                                             />
-                                            <button
-                                                type="button"
-                                                onClick={() => handleRemoveFeature(index)}
-                                                className="p-2 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition-colors"
-                                                title="Remove feature"
-                                            >
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                            </button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-300 mb-1">Trial Period Days</label>
+                                        <input
+                                            type="number"
+                                            value={formData.trial_days}
+                                            onChange={(e) => setFormData({ ...formData, trial_days: parseInt(e.target.value) || 0 })}
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500 font-mono"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section 3: Practitioner Seats */}
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-violet-400 border-b border-slate-800/80 pb-2">
+                                    3. Practitioner Seats & Extra Seat Pricing
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-300 mb-1">Included Practitioners *</label>
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            required
+                                            value={formData.included_practitioners}
+                                            onChange={(e) => setFormData({ ...formData, included_practitioners: parseInt(e.target.value) || 1 })}
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500 font-mono"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-300 mb-1">Max Practitioners (Blank = Unlimited)</label>
+                                        <input
+                                            type="number"
+                                            value={formData.max_practitioners}
+                                            onChange={(e) => setFormData({ ...formData, max_practitioners: e.target.value })}
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500 font-mono"
+                                            placeholder="Unlimited"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-3 pt-5">
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.allows_extra_practitioners}
+                                                onChange={(e) => setFormData({ ...formData, allows_extra_practitioners: e.target.checked })}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
+                                            <span className="ml-3 text-xs font-medium text-slate-300">Allows Extra Practitioner Seats</span>
+                                        </label>
+                                    </div>
+                                    {formData.allows_extra_practitioners && (
+                                        <>
+                                            <div>
+                                                <label className="block text-xs font-medium text-slate-300 mb-1">Extra Seat Monthly (CAD)</label>
+                                                <div className="relative">
+                                                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 text-sm">$</span>
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        value={formData.extra_practitioner_monthly_price}
+                                                        onChange={(e) => setFormData({ ...formData, extra_practitioner_monthly_price: e.target.value })}
+                                                        className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500 font-mono"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-slate-300 mb-1">Extra Seat Annual (CAD)</label>
+                                                <div className="relative">
+                                                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 text-sm">$</span>
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        value={formData.extra_practitioner_annual_price}
+                                                        onChange={(e) => setFormData({ ...formData, extra_practitioner_annual_price: e.target.value })}
+                                                        className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500 font-mono"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Section 4: Usage Limits & Limit Behaviours */}
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-violet-400 border-b border-slate-800/80 pb-2">
+                                    4. Usage Limits & Enforcement Behaviours
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-300 mb-1">Appointment Limit / Month (Blank = Unlimited)</label>
+                                        <input
+                                            type="number"
+                                            value={formData.appointment_limit_monthly}
+                                            onChange={(e) => setFormData({ ...formData, appointment_limit_monthly: e.target.value })}
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500 font-mono"
+                                            placeholder="Unlimited"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-300 mb-1">Appointment Limit Behaviour</label>
+                                        <select
+                                            value={formData.appointment_limit_behavior}
+                                            onChange={(e) => setFormData({ ...formData, appointment_limit_behavior: e.target.value })}
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                                        >
+                                            <option value="warn">Warn Only (Allow booking with notification)</option>
+                                            <option value="block">Hard Block (Prevent booking when limit reached)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-300 mb-1">Location Limit (Blank = Unlimited)</label>
+                                        <input
+                                            type="number"
+                                            value={formData.location_limit}
+                                            onChange={(e) => setFormData({ ...formData, location_limit: e.target.value })}
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500 font-mono"
+                                            placeholder="Unlimited"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-300 mb-1">Scribe Allowance Amount (Blank = None)</label>
+                                        <input
+                                            type="number"
+                                            value={formData.scribe_allowance_amount}
+                                            onChange={(e) => setFormData({ ...formData, scribe_allowance_amount: e.target.value })}
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500 font-mono"
+                                            placeholder="e.g. 300"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-300 mb-1">Scribe Unit</label>
+                                        <select
+                                            value={formData.scribe_allowance_unit}
+                                            onChange={(e) => setFormData({ ...formData, scribe_allowance_unit: e.target.value })}
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                                        >
+                                            <option value="minutes">Minutes</option>
+                                            <option value="words">Words</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-300 mb-1">Scribe Limit Behaviour</label>
+                                        <select
+                                            value={formData.scribe_limit_behavior}
+                                            onChange={(e) => setFormData({ ...formData, scribe_limit_behavior: e.target.value })}
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                                        >
+                                            <option value="warn">Warn Only</option>
+                                            <option value="block">Hard Block</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section 5: Feature Entitlements */}
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-violet-400 border-b border-slate-800/80 pb-2">
+                                    5. Feature Entitlements (Grouped by Category)
+                                </h3>
+                                <div className="space-y-4">
+                                    {Object.entries(categorizedFeatures).map(([category, catFeatures]) => (
+                                        <div key={category} className="bg-slate-950/60 rounded-xl p-4 border border-slate-800/80">
+                                            <h4 className="text-xs font-bold text-slate-300 mb-3 flex items-center gap-2">
+                                                <Layers className="w-3.5 h-3.5 text-violet-400" />
+                                                <span>{category}</span>
+                                            </h4>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                {catFeatures.map((feat) => {
+                                                    const checked = Boolean(formData.features[feat.id]);
+                                                    return (
+                                                        <label
+                                                            key={feat.id}
+                                                            className={`flex items-start gap-2.5 p-2 rounded-lg cursor-pointer transition-colors border ${
+                                                                checked
+                                                                    ? 'bg-violet-950/20 border-violet-500/40 text-white'
+                                                                    : 'bg-slate-900/40 border-slate-800 text-slate-400 hover:border-slate-700'
+                                                            }`}
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={checked}
+                                                                onChange={(e) =>
+                                                                    setFormData({
+                                                                        ...formData,
+                                                                        features: {
+                                                                            ...formData.features,
+                                                                            [feat.id]: e.target.checked,
+                                                                        },
+                                                                    })
+                                                                }
+                                                                className="mt-1 rounded bg-slate-950 border-slate-700 text-violet-600 focus:ring-violet-500"
+                                                            />
+                                                            <div className="text-xs">
+                                                                <div className="font-medium text-slate-200">{feat.name}</div>
+                                                                <div className="text-[10px] text-slate-500 font-mono">{feat.key}</div>
+                                                            </div>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
-
-                                <div className="flex items-center gap-2 pt-2">
-                                    <input
-                                        type="text"
-                                        value={newFeatureText}
-                                        onChange={(e) => setNewFeatureText(e.target.value)}
-                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddFeature(); } }}
-                                        placeholder="Add a new feature bullet (e.g. Advanced analytics)..."
-                                        className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={handleAddFeature}
-                                        className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition-colors flex items-center gap-1.5"
-                                    >
-                                        <Plus className="w-3.5 h-3.5" /> Add
-                                    </button>
-                                </div>
                             </div>
 
-                            {/* Stripe Price IDs */}
-                            <div className="border-t border-slate-800 pt-5 space-y-4">
-                                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">Stripe Price ID Mapping</h4>
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                    <div>
-                                        <label className="block text-[11px] font-medium text-slate-400 mb-1">Base Price ID</label>
-                                        <input
-                                            type="text"
-                                            value={currentForm.stripe_price_id}
-                                            onChange={(e) => handleFieldChange('stripe_price_id', e.target.value)}
-                                            placeholder="price_..."
-                                            className="w-full font-mono text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-300 focus:outline-none focus:border-blue-500"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-[11px] font-medium text-slate-400 mb-1">FT Addon Price ID</label>
-                                        <input
-                                            type="text"
-                                            value={currentForm.stripe_addon_price_ft_id}
-                                            onChange={(e) => handleFieldChange('stripe_addon_price_ft_id', e.target.value)}
-                                            placeholder="price_..."
-                                            className="w-full font-mono text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-300 focus:outline-none focus:border-blue-500"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-[11px] font-medium text-slate-400 mb-1">PT Addon Price ID</label>
-                                        <input
-                                            type="text"
-                                            value={currentForm.stripe_addon_price_pt_id}
-                                            onChange={(e) => handleFieldChange('stripe_addon_price_pt_id', e.target.value)}
-                                            placeholder="price_..."
-                                            className="w-full font-mono text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-300 focus:outline-none focus:border-blue-500"
-                                        />
-                                    </div>
+                            <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
+                                <div className="text-xs text-slate-400">
+                                    Saving clears <span className="font-mono text-amber-400">needs_review</span> flags on the modified fields.
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditorOpen(false)}
+                                        className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={processing}
+                                        className="px-5 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-xs font-semibold text-white flex items-center gap-2 shadow-lg shadow-violet-600/20 disabled:opacity-50"
+                                    >
+                                        {processing && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                        <span>{isCreating ? 'Create Plan' : 'Save Plan Changes'}</span>
+                                    </button>
                                 </div>
                             </div>
                         </form>
                     </div>
+                </div>
+            )}
 
-                    {/* Live Preview Section */}
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Live Registration Card Preview</h3>
-                            <span className="text-[10px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full font-mono">Live Preview</span>
+            {/* Price Change Grandfathering Confirmation Dialog */}
+            {priceConfirmOpen && (
+                <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-slate-900 border border-amber-500/40 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4">
+                        <div className="flex items-center gap-3 text-amber-400">
+                            <AlertTriangle className="w-6 h-6 flex-shrink-0" />
+                            <h3 className="text-base font-bold text-white">Price Change Confirmation</h3>
                         </div>
-
-                        {/* Preview Card (Styled identically to registration wizard) */}
-                        <div className="bg-white rounded-2xl p-5 border-2 border-[#2563EB] shadow-xl shadow-blue-500/10 text-slate-800" style={{ borderTopWidth: '4px', borderTopColor: '#2563EB' }}>
-                            <div className="h-7 flex items-center justify-between mb-2">
-                                <span className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-0.5 rounded-full font-semibold bg-[#2563EB] text-white shadow-xs">
-                                    <Icon className="w-3 h-3 text-white" />
-                                    {currentForm.badge || 'Plan'}
-                                </span>
-                                <span className="w-5 h-5 rounded-full bg-[#2563EB] text-white flex items-center justify-center">
-                                    <Check className="w-3 h-3" strokeWidth={3} />
-                                </span>
+                        <p className="text-xs text-slate-300 leading-relaxed">
+                            You are changing the price for <span className="font-semibold text-white">{selectedPlan?.name}</span>.
+                            A new price will be registered in Stripe, and <span className="font-semibold text-amber-300">all existing subscribers will keep their current price (grandfathered)</span> until you explicitly migrate them.
+                        </p>
+                        <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs space-y-1 font-mono text-slate-300">
+                            <div>Monthly: ${selectedPlan?.monthly_price?.base_price} → ${formData.monthly_price}</div>
+                            <div>Annual: ${selectedPlan?.annual_price?.base_price} → ${formData.annual_price}</div>
+                            <div className="text-[11px] text-slate-500 font-sans mt-2">
+                                Active Subscribers on old price: {selectedPlan?.active_subscriber_count ?? 0}
                             </div>
-
-                            <h4 className="text-[18px] font-bold text-[#0D1B2A] tracking-tight">
-                                {currentForm.name || 'Plan Name'}
-                            </h4>
-                            <p className="text-[12px] text-slate-500 min-h-[36px] mt-1 leading-snug">
-                                {currentForm.tagline || 'Tagline description'}
-                            </p>
-
-                            <div className="mt-3 mb-4 pb-3.5 border-b border-slate-100">
-                                <div className="flex items-baseline gap-1.5">
-                                    <span className="text-[32px] font-extrabold text-[#0D1B2A] tracking-tight leading-none">
-                                        ${parseFloat(currentForm.base_price || 0).toFixed(0)}
-                                    </span>
-                                    <span className="text-[12.5px] font-semibold text-slate-500">
-                                        CAD / mo
-                                    </span>
-                                </div>
-                                <p className="text-[11px] text-slate-400 font-medium mt-1">
-                                    {currentForm.unlimited_practitioners
-                                        ? 'Includes 1 full-time practitioner'
-                                        : `${currentForm.max_practitioners || 1} practitioner included`}
-                                </p>
-                            </div>
-
-                            <ul className="space-y-2">
-                                {(currentForm.features || []).map((feat, idx) => (
-                                    <li key={idx} className="flex items-start gap-2 text-[12px] text-slate-600 leading-snug">
-                                        <div className="w-4 h-4 rounded-full bg-emerald-50 text-[#22C55E] flex items-center justify-center flex-shrink-0 mt-0.5">
-                                            <Check className="w-2.5 h-2.5" strokeWidth={3} />
-                                        </div>
-                                        <span>{feat}</span>
-                                    </li>
-                                ))}
-                            </ul>
                         </div>
-
-                        <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/50 text-xs text-slate-400 space-y-2">
-                            <p className="font-semibold text-slate-300">How dynamic changes work:</p>
-                            <p>1. Changing price/features updates new clinic signups at <code>/clinics/register</code> instantly.</p>
-                            <p>2. Existing active subscriptions in Stripe will continue on their current billing until updated.</p>
+                        <div className="flex items-center justify-end gap-3 pt-2">
+                            <button
+                                onClick={() => setPriceConfirmOpen(false)}
+                                className="px-3.5 py-1.5 rounded-lg bg-slate-800 text-xs font-semibold text-slate-300 hover:bg-slate-700"
+                            >
+                                Back to Edit
+                            </button>
+                            <button
+                                onClick={executeSave}
+                                disabled={processing}
+                                className="px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-xs font-semibold text-white flex items-center gap-2"
+                            >
+                                {processing && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                <span>Save & Keep Existing Grandfathered</span>
+                            </button>
                         </div>
                     </div>
                 </div>
+            )}
 
-                {/* Confirm Delete Plan Modal */}
-                {confirmDeleteOpen && (
-                    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-                        <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-                            <div className="flex items-center gap-3 text-rose-400">
-                                <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center flex-shrink-0">
-                                    <Trash2 className="w-5 h-5 text-rose-400" />
-                                </div>
-                                <div>
-                                    <h3 className="text-base font-bold text-white">Remove {currentForm.name} Plan?</h3>
-                                    <p className="text-xs text-slate-400 mt-0.5">Tier key: <code className="text-rose-400">{activeTab}</code></p>
-                                </div>
+            {/* Migrate Subscribers Preview & Confirmation Modal */}
+            {migrateModalPlan && (
+                <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl p-6 shadow-2xl space-y-4">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                            <div className="flex items-center gap-2">
+                                <Users className="w-5 h-5 text-violet-400" />
+                                <h3 className="text-base font-bold text-white">
+                                    Move Subscribers to New Price — {migrateModalPlan.name}
+                                </h3>
                             </div>
+                            <button
+                                onClick={() => setMigrateModalPlan(null)}
+                                className="text-slate-500 hover:text-slate-300"
+                            >
+                                ✕
+                            </button>
+                        </div>
 
-                            <p className="text-xs text-slate-300 leading-relaxed">
-                                Are you sure you want to permanently remove the <strong className="text-white">{currentForm.name}</strong> subscription tier?
-                                New clinic signups will no longer be able to select this tier. Existing active clinic subscriptions will remain untouched.
-                            </p>
+                        <p className="text-xs text-slate-400">
+                            Below is the list of active clinic subscribers for this plan. Migrating them will update their assigned plan price to the latest active rate and synchronize with Stripe.
+                        </p>
 
-                            <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-800">
+                        <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950">
+                            <table className="w-full text-left text-xs">
+                                <thead>
+                                    <tr className="border-b border-slate-800 bg-slate-900/60 text-slate-400">
+                                        <th className="py-2.5 px-4">Clinic</th>
+                                        <th className="py-2.5 px-4">Interval</th>
+                                        <th className="py-2.5 px-4 font-mono">Current Price</th>
+                                        <th className="py-2.5 px-4 font-mono">New Price</th>
+                                        <th className="py-2.5 px-4">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-800">
+                                    {(migrateModalPlan.subscribers || []).map((sub) => (
+                                        <tr key={sub.id} className="hover:bg-slate-900/40">
+                                            <td className="py-2.5 px-4 font-medium text-white">
+                                                <div>{sub.name}</div>
+                                                <div className="text-[10px] text-slate-500">{sub.subdomain}.umahz.com</div>
+                                            </td>
+                                            <td className="py-2.5 px-4 capitalize text-slate-300">{sub.interval}ly</td>
+                                            <td className="py-2.5 px-4 font-mono text-slate-300">${sub.old_price}</td>
+                                            <td className="py-2.5 px-4 font-mono text-emerald-400 font-semibold">${sub.new_price}</td>
+                                            <td className="py-2.5 px-4">
+                                                {sub.is_grandfathered ? (
+                                                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                                        Grandfathered
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[11px] text-slate-500">Current</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {(!migrateModalPlan.subscribers || migrateModalPlan.subscribers.length === 0) && (
+                                        <tr>
+                                            <td colSpan={5} className="py-6 text-center text-slate-500 text-xs">
+                                                No active subscribers on this plan.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2">
+                            <div className="text-xs text-slate-400">
+                                Total subscribers: {migrateModalPlan.subscribers?.length || 0}
+                            </div>
+                            <div className="flex items-center gap-3">
                                 <button
-                                    type="button"
-                                    onClick={() => setConfirmDeleteOpen(false)}
-                                    className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors"
+                                    onClick={() => setMigrateModalPlan(null)}
+                                    className="px-4 py-2 rounded-lg bg-slate-800 text-xs font-semibold text-slate-300 hover:bg-slate-700"
                                 >
                                     Cancel
                                 </button>
                                 <button
-                                    type="button"
-                                    disabled={deleting}
-                                    onClick={handleDeletePlan}
-                                    className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-2"
+                                    onClick={() => handleMigrateSubscribers(migrateModalPlan.id)}
+                                    disabled={processing || !migrateModalPlan.subscribers?.length}
+                                    className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-xs font-semibold text-white flex items-center gap-2 disabled:opacity-50"
                                 >
-                                    {deleting ? (
-                                        <>
-                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                            <span>Removing...</span>
-                                        </>
-                                    ) : (
-                                        <span>Yes, Remove Plan</span>
-                                    )}
+                                    {processing && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                    <span>Migrate All to New Price</span>
                                 </button>
                             </div>
                         </div>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
         </AdminLayout>
     );
 }

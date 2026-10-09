@@ -313,15 +313,26 @@ class BookingService
 
     /**
      * Ensure the tenant has not reached their monthly appointment limit under their current plan.
+     * Respects warn vs block and patient vs staff error messaging.
      *
      * @throws \Illuminate\Validation\ValidationException
      */
-    protected function assertWithinMonthlyAppointmentLimit(Tenant $tenant): void
+    protected function assertWithinMonthlyAppointmentLimit(Tenant $tenant, bool $isPatientBooking = false): void
     {
-        if (! $tenant->canBookAppointment()) {
-            $limit = $tenant->maxMonthlyAppointments();
+        $entitlements = app(\App\Services\PlanEntitlements::class);
+        $check = $entitlements->checkAppointmentsLimit($tenant, $isPatientBooking);
+
+        if (! $check['allowed']) {
+            $entitlements->recordBlockedAction(
+                $tenant,
+                auth()->user(),
+                'appointment_limit',
+                $check['reason'] ?? 'Monthly appointment limit reached',
+                ['is_patient_booking' => $isPatientBooking]
+            );
+
             throw ValidationException::withMessages([
-                'starts_at' => "Monthly appointment limit reached ({$limit} appointments/month on the {$tenant->planName()} plan). Please upgrade your clinic subscription plan to book more appointments.",
+                'starts_at' => $check['reason'],
             ]);
         }
     }

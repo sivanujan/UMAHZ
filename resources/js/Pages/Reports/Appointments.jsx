@@ -269,7 +269,7 @@ export default function AppointmentsReport({
                                         <User className="w-4 h-4" />
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                        <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white tracking-normal">
                                             Performance by Practitioner
                                         </h3>
                                         <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -369,7 +369,7 @@ export default function AppointmentsReport({
                                     <Stethoscope className="w-4 h-4" />
                                 </div>
                                 <div>
-                                    <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                    <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white tracking-normal">
                                         Appointments by Service
                                     </h3>
                                     <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -418,7 +418,7 @@ export default function AppointmentsReport({
                                         <Building2 className="w-4 h-4" />
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                        <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white tracking-normal">
                                             Appointments by Location
                                         </h3>
                                         <p className="text-xs text-slate-500 dark:text-slate-400">

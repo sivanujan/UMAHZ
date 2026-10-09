@@ -28,7 +28,7 @@ export default function SelectWorkspace({ workspaces }) {
 
                 <div className="bg-white rounded-3xl shadow-xl border border-purple-100 p-8 space-y-6">
                     <div className="text-center">
-                        <h1 className="text-2xl font-bold text-[#1E0B3C] tracking-tight">Select a Workspace</h1>
+                        <h1 className="text-2xl font-bold text-[#1E0B3C] tracking-normal">Select a Workspace</h1>
                         <p className="mt-1 text-sm text-slate-500">You have staff access at more than one clinic. Choose one to continue.</p>
                     </div>
 

@@ -198,7 +198,7 @@ export default function PublicIntakeForm({
                     <span className="inline-block text-[11px] font-bold uppercase tracking-wider text-violet-700 bg-violet-50 px-3 py-1 rounded-full border border-violet-100">
                         {disciplineLabel || DISCIPLINE_LABELS[discipline] || discipline}
                     </span>
-                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-[-0.01em]">
                         Welcome, {clientFirstName}
                     </h1>
                     <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
@@ -212,7 +212,7 @@ export default function PublicIntakeForm({
                     {(schema.sections || []).map((section, sIdx) => (
                         <div key={sIdx} className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-5">
                             <div className="border-b border-slate-100 pb-3">
-                                <h2 className="font-bold text-sm sm:text-base text-slate-900 flex items-center gap-2">
+                                <h2 className="font-semibold text-sm sm:text-base text-slate-900 flex items-center gap-2 tracking-normal">
                                     <span className="w-6 h-6 rounded-lg bg-violet-100 text-violet-700 text-xs font-bold flex items-center justify-center shrink-0">
                                         {sIdx + 1}
                                     </span>

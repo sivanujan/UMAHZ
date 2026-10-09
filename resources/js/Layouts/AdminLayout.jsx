@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutDashboard, Building2, Users, LifeBuoy, Settings, LogOut, ChevronDown, ShieldCheck, ClipboardCheck, IdCard, CreditCard } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, LifeBuoy, Settings, LogOut, ChevronDown, ShieldCheck, ClipboardCheck, IdCard, CreditCard, Globe, Layers, Puzzle, Tag, History, Ban } from 'lucide-react';
+import { getAvatarInitial } from '@/Utils/name';
 
 export default function AdminLayout({ children, title }) {
     const { auth } = usePage().props;
@@ -13,10 +14,15 @@ export default function AdminLayout({ children, title }) {
     const navigation = [
         { name: 'Overview', href: '/admin/dashboard', icon: LayoutDashboard },
         { name: 'Clinic Applications', href: '/admin/clinics', icon: ClipboardCheck },
+        { name: 'Blocked Applicants', href: '/admin/blocked-emails', icon: Ban },
         { name: 'Practitioner Verification', href: '/admin/practitioners', icon: IdCard },
-        { name: 'Pricing & Plans', href: '/admin/plans', icon: CreditCard },
+        { name: 'Plans & Pricing', href: '/admin/plans', icon: CreditCard },
+        { name: 'Feature Catalog', href: '/admin/features', icon: Puzzle },
+        { name: 'Add-ons', href: '/admin/addons', icon: Layers },
+        { name: 'Promo Codes', href: '/admin/promo-codes', icon: Tag },
+        { name: 'AI Scribe Languages', href: '/admin/scribe-languages', icon: Globe },
+        { name: 'Audit Logs', href: '/admin/audit-logs', icon: History },
         { name: 'Platform Staff', href: '/admin/staff', icon: Users },
-        { name: 'Support', href: '#', icon: LifeBuoy },
         { name: 'Platform Settings', href: '/admin/settings', icon: Settings },
     ];
 
@@ -69,7 +75,7 @@ export default function AdminLayout({ children, title }) {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3 overflow-hidden">
                             <div className="h-8 w-8 rounded-full bg-violet-900 text-violet-200 flex items-center justify-center font-semibold text-xs border border-violet-700">
-                                {user?.name?.charAt(0) || 'A'}
+                                {getAvatarInitial(user?.name, 'A')}
                             </div>
                             <div className="truncate">
                                 <div className="text-xs font-medium text-slate-200 truncate">{user?.name}</div>

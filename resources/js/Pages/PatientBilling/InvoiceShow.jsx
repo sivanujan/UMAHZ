@@ -52,14 +52,14 @@ export default function InvoiceShow({ invoice, canAcceptCards, stripePublishable
                                     <Receipt className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <h1 className="text-lg font-bold text-slate-900 dark:text-white">{invoice.reference}</h1>
-                                    {invoice.client && <p className="text-xs text-slate-500">{invoice.client.name}</p>}
+                                    <h1 className="text-xl sm:text-2xl font-bold tracking-[-0.01em] text-slate-900 dark:text-white">{invoice.reference}</h1>
+                                    {invoice.client && <p className="text-xs text-slate-500 font-medium">{invoice.client.name}</p>}
                                 </div>
                             </div>
                             <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold capitalize ${STATUS_STYLES[invoice.status]}`}>{invoice.status}</span>
                         </div>
                         {invoice.status === 'void' && invoice.void_reason && (
-                            <p className="mt-3 text-xs text-slate-500">Voided: {invoice.void_reason}</p>
+                            <p className="mt-3 text-xs text-slate-500 font-medium">Voided: {invoice.void_reason}</p>
                         )}
                     </div>
 
@@ -67,7 +67,7 @@ export default function InvoiceShow({ invoice, canAcceptCards, stripePublishable
                     <div className="p-6">
                         <table className="w-full text-left text-sm">
                             <thead>
-                                <tr className="text-[10px] uppercase tracking-wider text-slate-400 border-b" style={{ borderColor: 'var(--umahz-border)' }}>
+                                <tr className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 border-b" style={{ borderColor: 'var(--umahz-border)' }}>
                                     <th className="py-2 pr-4">Description</th>
                                     <th className="py-2 pr-4 text-center">Qty</th>
                                     <th className="py-2 pr-4 text-right">Unit</th>

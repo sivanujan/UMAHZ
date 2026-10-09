@@ -66,7 +66,7 @@ export default function ActivityListCard({ appointments = [] }) {
                         <Calendar className="w-4 h-4" />
                     </div>
                     <div>
-                        <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                        <h3 className="font-semibold text-lg text-slate-900 dark:text-white tracking-normal">
                             Upcoming Appointments & Activity
                         </h3>
                         <p className="text-xs text-slate-500 dark:text-slate-400">

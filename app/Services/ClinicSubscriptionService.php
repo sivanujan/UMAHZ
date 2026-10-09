@@ -93,39 +93,33 @@ class ClinicSubscriptionService
      */
     public function syncPractitionerCounts(Tenant $tenant): void
     {
-        // Find all active or invited practitioner profiles for this tenant
-        $profiles = \App\Models\PractitionerProfile::query()
-            ->whereHas('staffMembership', function ($q) use ($tenant) {
-                $q->where('tenant_id', $tenant->id)
-                    ->whereIn('status', [
-                        \App\Models\StaffMembership::STATUS_ACTIVE,
-                        \App\Models\StaffMembership::STATUS_INVITED,
-                    ]);
+        // Count all active or invited practitioners for this tenant
+        $practitionersCount = \App\Models\StaffMembership::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where(function ($q) {
+                $q->where('role', \App\Models\StaffMembership::ROLE_PRACTITIONER)
+                    ->orWhereHas('practitionerProfile');
             })
-            ->get();
-
-        $ftCount = 0;
-        $ptCount = 0;
-
-        foreach ($profiles as $profile) {
-            if ($profile->employment_type === \App\Models\PractitionerProfile::EMPLOYMENT_PART_TIME) {
-                $ptCount++;
-            } else {
-                $ftCount++;
-            }
-        }
+            ->whereIn('status', [
+                \App\Models\StaffMembership::STATUS_ACTIVE,
+                \App\Models\StaffMembership::STATUS_INVITED,
+            ])
+            ->count();
 
         // At minimum, 1 full-time practitioner (the clinic owner / primary contact)
-        $ftCount = max(1, $ftCount);
+        $practitionersCount = max(1, $practitionersCount);
 
         if ($tenant->isBalancePlan()) {
-            $ftCount = 1;
-            $ptCount = 0;
+            $practitionersCount = 1;
         }
 
+        $included = $tenant->plan?->included_practitioners ?? 1;
+        $extraSeats = max(0, $practitionersCount - $included);
+
         $tenant->forceFill([
-            'full_time_practitioners_count' => $ftCount,
-            'part_time_practitioners_count' => $ptCount,
+            'full_time_practitioners_count' => $practitionersCount,
+            'part_time_practitioners_count' => 0,
+            'extra_practitioner_seats' => $extraSeats,
         ])->save();
 
         if ($tenant->subscription_status === Tenant::SUBSCRIPTION_ACTIVE) {
@@ -149,7 +143,6 @@ class ClinicSubscriptionService
     {
         $tenant->forceFill([
             'subscription_status' => Tenant::SUBSCRIPTION_CANCELED,
-            'status' => Tenant::STATUS_SUSPENDED,
         ])->save();
     }
 }

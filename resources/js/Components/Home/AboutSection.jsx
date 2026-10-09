@@ -34,7 +34,7 @@ export default function AboutSection() {
                 >
                     <PillBadge text="About UMAHZ" />
 
-                    <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-tight">
+                    <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-normal">
                         Built For Modern{' '}
                         <em className="not-italic font-light font-serif text-[#5B2EFF] dark:text-[#8B6BFF]">Holistic</em>{' '}
                         Health Practices
@@ -101,7 +101,7 @@ export default function AboutSection() {
                                     <path d="M8 5v14l11-7z" />
                                 </svg>
                             </motion.button>
-                            <p className="text-white text-xl font-bold mb-2 tracking-tight">See UMAHZ In Action</p>
+                            <p className="text-white text-xl font-bold mb-2 tracking-normal">See UMAHZ In Action</p>
                             <p className="text-purple-200 text-sm">2-minute product walkthrough</p>
                         </div>
 
@@ -138,7 +138,7 @@ export default function AboutSection() {
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2" />
                                 </svg>
                             </div>
-                            <h3 className="text-[#1E0B3C] dark:text-white font-bold text-base mb-2 tracking-tight">Built To Save You Time</h3>
+                            <h3 className="text-[#1E0B3C] dark:text-white font-bold text-base mb-2 tracking-normal">Built To Save You Time</h3>
                             <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed flex-1 font-normal">
                                 Automated intake forms, instant SOAP charting, and one-click online booking eliminate front-desk overhead.
                             </p>
@@ -157,7 +157,7 @@ export default function AboutSection() {
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
                                 </svg>
                             </div>
-                            <h3 className="text-[#1E0B3C] dark:text-white font-bold text-base mb-2 tracking-tight">Enterprise-Grade Security</h3>
+                            <h3 className="text-[#1E0B3C] dark:text-white font-bold text-base mb-2 tracking-normal">Enterprise-Grade Security</h3>
                             <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed flex-1 font-normal">
                                 HIPAA & PIPEDA compliant, role-based access controls, complete audit trails, and encrypted data at rest and in transit.
                             </p>

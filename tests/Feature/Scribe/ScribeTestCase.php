@@ -83,15 +83,15 @@ abstract class ScribeTestCase extends TestCase
         return Client::create(['tenant_id' => $tenant->id, 'first_name' => 'Alice', 'last_name' => 'Walker']);
     }
 
-    protected function appointment(Tenant $tenant, Client $client, StaffMembership $membership): Appointment
+    protected function appointment(Tenant $tenant, Client $client, StaffMembership $membership, int $offsetHours = 1): Appointment
     {
         return Appointment::create([
             'tenant_id' => $tenant->id,
             'client_id' => $client->id,
             'staff_membership_id' => $membership->id,
             'service_name' => 'Physio assessment',
-            'starts_at' => now()->addHour(),
-            'ends_at' => now()->addHours(2),
+            'starts_at' => now()->addHours($offsetHours),
+            'ends_at' => now()->addHours($offsetHours + 1),
             'status' => Appointment::STATUS_CHECKED_IN,
         ]);
     }

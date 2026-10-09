@@ -22,6 +22,7 @@ import {
     ArrowUpRight,
     CheckCircle2,
 } from 'lucide-react';
+import { getFirstName } from '@/Utils/name';
 
 function getGreeting(name) {
     const hour = new Date().getHours();
@@ -31,7 +32,7 @@ function getGreeting(name) {
     } else if (hour >= 17) {
         timeGreeting = 'Good evening';
     }
-    return `${timeGreeting}, ${name?.split(' ')[0] || 'Doctor'}`;
+    return `${timeGreeting}, ${getFirstName(name, 'Doctor')}`;
 }
 
 export default function OwnerDashboard({
@@ -65,7 +66,7 @@ export default function OwnerDashboard({
                             <Sparkles className="w-3.5 h-3.5" />
                             <span>{tenant?.name || 'Clinic'} &bull; Overview</span>
                         </div>
-                        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+                        <h1 className="text-2xl sm:text-[28px] font-bold tracking-[-0.01em] text-slate-900 dark:text-white leading-tight">
                             {getGreeting(user?.name)}
                         </h1>
                         <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1">

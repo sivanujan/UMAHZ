@@ -32,6 +32,8 @@ class ScribeTranscriptSegment extends Model
         'provider',
         'provider_model',
         'language',
+        'detected_language',
+        'translation_status',
     ];
 
     protected function casts(): array

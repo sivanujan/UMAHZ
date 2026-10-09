@@ -66,14 +66,15 @@ class SubdomainTenantResolutionTest extends TestCase
             ->assertOk();
     }
 
-    public function test_subdomain_root_redirects_into_the_workspace(): void
+    public function test_subdomain_root_renders_public_home_page(): void
     {
         $clinic = $this->tenant('clinic-a', 'Clinic A');
         $user = $this->staffMember($clinic);
 
         $this->actingAs($user)
             ->get('http://clinic-a.umahz.test/')
-            ->assertRedirect('/app/dashboard');
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('Clinic/PublicHome'));
     }
 
     public function test_pending_owner_sees_the_status_page_on_their_subdomain(): void

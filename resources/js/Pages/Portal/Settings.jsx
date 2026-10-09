@@ -181,7 +181,7 @@ export default function Settings({ profile, notificationPreferences, deletionReq
             `}</style>
 
             <div className="mb-6">
-                <h1 className="text-2xl font-bold" style={{ color: 'var(--umahz-text-primary)' }}>Settings</h1>
+                <h1 className="text-2xl sm:text-[28px] font-bold tracking-[-0.01em]" style={{ color: 'var(--umahz-text-primary)' }}>Settings</h1>
                 <p className="text-sm mt-1" style={{ color: 'var(--umahz-text-tertiary)' }}>Manage your profile, security, and notification preferences.</p>
             </div>
 

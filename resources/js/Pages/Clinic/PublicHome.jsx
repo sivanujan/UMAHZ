@@ -28,12 +28,12 @@ export default function PublicHome({ clinic }) {
                     <meta property="og:image" content={clinic.homepage_settings.cover_image_url} />
                 )}
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
-                <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+                <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
                 <style>{`
                     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
                     html { scroll-behavior: smooth; }
                     [id] { scroll-margin-top: 80px; }
-                    body { font-family: 'Inter', -apple-system, sans-serif; background: #ffffff; color: #0f172a; line-height: 1.5; }
+                    body { font-family: 'Manrope', system-ui, -apple-system, sans-serif; background: #ffffff; color: #0f172a; line-height: 1.5; }
                     img { max-width: 100%; height: auto; }
                     a { color: inherit; }
                     ${clinic.gjs_css || ''}

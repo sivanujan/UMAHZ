@@ -63,7 +63,7 @@ export default function ProcessSection() {
 
                             <div className="relative z-10 bg-white/10 border border-white/20 rounded-xl p-4">
                                 <p className="text-[#c4b5fd] text-[11px] font-semibold uppercase tracking-wider mb-1">Monthly Revenue</p>
-                                <p className="text-white text-2xl sm:text-3xl font-extrabold">$24,850</p>
+                                <p className="text-white text-2xl sm:text-3xl font-bold tracking-normal">$24,850</p>
                                 <p className="text-[#10b981] text-xs mt-1 font-semibold">↑ 23% vs last month</p>
                             </div>
                         </div>
@@ -79,7 +79,7 @@ export default function ProcessSection() {
                     >
                         <PillBadge text="Simple Onboarding" />
 
-                        <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-tight">
+                        <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-normal">
                             How UMAHZ Transforms Your{' '}
                             <em className="not-italic font-light font-serif text-[#5B2EFF] dark:text-[#8B6BFF]">Daily</em>{' '}
                             Practice
@@ -137,7 +137,7 @@ export default function ProcessSection() {
                             <div className="w-11 h-11 rounded-xl bg-white dark:bg-slate-800 border border-purple-100/80 dark:border-slate-700 text-[#5B2EFF] dark:text-[#8B6BFF] font-bold text-sm flex items-center justify-center shadow-xs mb-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-105">
                                 {step.num}
                             </div>
-                            <h3 className="text-[#1E0B3C] dark:text-white font-bold text-base mb-2 tracking-tight">{step.title}</h3>
+                            <h3 className="text-[#1E0B3C] dark:text-white font-bold text-base mb-2 tracking-normal">{step.title}</h3>
                             <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed font-normal">{step.desc}</p>
                         </motion.div>
                     ))}

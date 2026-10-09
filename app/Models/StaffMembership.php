@@ -33,6 +33,7 @@ class StaffMembership extends Model
         'status',
         'invited_at',
         'joined_at',
+        'has_scribe_plus',
     ];
 
     protected function casts(): array
@@ -41,6 +42,7 @@ class StaffMembership extends Model
             'permissions' => 'array',
             'invited_at' => 'datetime',
             'joined_at' => 'datetime',
+            'has_scribe_plus' => 'boolean',
         ];
     }
 
