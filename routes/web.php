@@ -1,9 +1,16 @@
 <?php
 
+use App\Http\Controllers\Admin\AddOnController;
+use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\BlockedEmailController;
+use App\Http\Controllers\Admin\ClinicBillingInspectorController;
 use App\Http\Controllers\Admin\ClinicReviewController;
+use App\Http\Controllers\ClinicReapplyController;
+use App\Http\Controllers\Admin\FeatureController;
 use App\Http\Controllers\Admin\PlatformSettingsController;
 use App\Http\Controllers\Admin\PlatformStaffController;
 use App\Http\Controllers\Admin\PractitionerReviewController;
+use App\Http\Controllers\Admin\PromoCodeController;
 use App\Http\Controllers\Admin\SubscriptionPlanController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\ClientController;
@@ -123,7 +130,14 @@ Route::domain($central)->group(function () {
     })->name('professions.show');
 
     Route::get('/pricing', function () {
-        return Inertia::render('Pricing');
+        $plans = \App\Models\Plan::with(['monthlyPrice', 'annualPrice', 'enabledFeatures'])
+            ->where('is_active', true)
+            ->orderBy('display_order')
+            ->get();
+
+        return Inertia::render('Pricing', [
+            'plans' => \App\Support\PlanPresenter::collectionForDisplay($plans),
+        ]);
     })->name('pricing');
 
     Route::get('/security', function () {
@@ -156,12 +170,14 @@ Route::domain($central)->group(function () {
         // Live subdomain availability check for the wizard.
         Route::get('clinics/register/subdomain', [ClinicRegistrationController::class, 'checkSubdomain'])
             ->name('clinics.register.subdomain');
-        Route::get('clinics/register/check-subdomain', [ClinicRegistrationController::class, 'checkSubdomain']);
         // Email verification codes for step 1 (rate-limited against abuse).
         Route::post('clinics/register/send-code', [ClinicRegistrationController::class, 'sendCode'])
             ->middleware('throttle:5,1')->name('clinics.register.send-code');
         Route::post('clinics/register/verify-code', [ClinicRegistrationController::class, 'verifyCode'])
             ->middleware('throttle:10,1')->name('clinics.register.verify-code');
+        // Live promo code validation for registration wizard
+        Route::post('clinics/register/validate-promo', [ClinicRegistrationController::class, 'validatePromo'])
+            ->middleware('throttle:20,1')->name('clinics.register.validate-promo');
     });
 
     /*
@@ -179,9 +195,16 @@ Route::domain($central)->group(function () {
             Route::post('/{tenant}/approve', [ClinicReviewController::class, 'approve'])->name('approve');
             Route::post('/{tenant}/request-info', [ClinicReviewController::class, 'requestMoreInfo'])->name('request-info');
             Route::post('/{tenant}/reject', [ClinicReviewController::class, 'reject'])->name('reject');
+            Route::post('/{tenant}/reject-permanent', [ClinicReviewController::class, 'rejectPermanent'])->name('reject-permanent');
             Route::patch('/{tenant}/suspend', [ClinicReviewController::class, 'suspend'])->name('suspend');
             Route::patch('/{tenant}/reactivate', [ClinicReviewController::class, 'reactivate'])->name('reactivate');
             Route::delete('/{tenant}', [ClinicReviewController::class, 'destroy'])->name('destroy');
+
+            // Clinic Billing Inspector & Overrides
+            Route::get('/{tenant}/billing', [ClinicBillingInspectorController::class, 'show'])->name('billing.show');
+            Route::post('/{tenant}/billing/change-plan', [ClinicBillingInspectorController::class, 'changePlan'])->name('billing.change-plan');
+            Route::post('/{tenant}/billing/apply-promo', [ClinicBillingInspectorController::class, 'applyPromo'])->name('billing.apply-promo');
+            Route::post('/{tenant}/billing/extend-grace', [ClinicBillingInspectorController::class, 'extendGracePeriod'])->name('billing.extend-grace');
         });
 
         Route::prefix('practitioners')->name('practitioners.')->group(function () {
@@ -194,8 +217,43 @@ Route::domain($central)->group(function () {
 
         Route::prefix('plans')->name('plans.')->group(function () {
             Route::get('/', [SubscriptionPlanController::class, 'index'])->name('index');
-            Route::put('/{tier}', [SubscriptionPlanController::class, 'update'])->name('update');
-            Route::delete('/{tier}', [SubscriptionPlanController::class, 'destroy'])->name('destroy');
+            Route::post('/', [SubscriptionPlanController::class, 'store'])->name('store');
+            Route::post('/sync-all-stripe', [SubscriptionPlanController::class, 'syncAllStripe'])->name('sync-all-stripe');
+            Route::put('/{plan}', [SubscriptionPlanController::class, 'update'])->name('update');
+            Route::delete('/{plan}', [SubscriptionPlanController::class, 'destroy'])->name('destroy');
+            Route::post('/{plan}/sync-stripe', [SubscriptionPlanController::class, 'syncStripe'])->name('sync-stripe');
+            Route::post('/{plan}/migrate-subscribers', [SubscriptionPlanController::class, 'migrateSubscribers'])->name('migrate-subscribers');
+        });
+
+        Route::prefix('features')->name('features.')->group(function () {
+            Route::get('/', [FeatureController::class, 'index'])->name('index');
+            Route::post('/', [FeatureController::class, 'store'])->name('store');
+            Route::put('/{feature}', [FeatureController::class, 'update'])->name('update');
+            Route::delete('/{feature}', [FeatureController::class, 'destroy'])->name('destroy');
+        });
+
+        Route::prefix('blocked-emails')->name('blocked-emails.')->group(function () {
+            Route::get('/', [BlockedEmailController::class, 'index'])->name('index');
+            Route::post('/{blockedEmail}/unban', [BlockedEmailController::class, 'unban'])->name('unban');
+        });
+
+        Route::prefix('addons')->name('addons.')->group(function () {
+            Route::get('/', [AddOnController::class, 'index'])->name('index');
+            Route::post('/', [AddOnController::class, 'store'])->name('store');
+            Route::put('/{addOn}', [AddOnController::class, 'update'])->name('update');
+            Route::delete('/{addOn}', [AddOnController::class, 'destroy'])->name('destroy');
+            Route::post('/{addOn}/sync-stripe', [AddOnController::class, 'syncStripe'])->name('sync-stripe');
+        });
+
+        Route::prefix('promo-codes')->name('promo-codes.')->group(function () {
+            Route::get('/', [PromoCodeController::class, 'index'])->name('index');
+            Route::post('/', [PromoCodeController::class, 'store'])->name('store');
+            Route::post('/{promoCode}/deactivate', [PromoCodeController::class, 'deactivate'])->name('deactivate');
+            Route::get('/{promoCode}/redemptions', [PromoCodeController::class, 'redemptions'])->name('redemptions');
+        });
+
+        Route::prefix('audit-logs')->name('audit-logs.')->group(function () {
+            Route::get('/', [AuditLogController::class, 'index'])->name('index');
         });
 
         Route::prefix('staff')->name('staff.')->group(function () {
@@ -240,6 +298,11 @@ Route::domain($portalHost)->group(function () {
         Route::patch('/settings/theme', [SettingsController::class, 'updateTheme'])->name('settings.theme');
         Route::post('/settings/delete-account', [SettingsController::class, 'requestDeletion'])->name('settings.delete-account');
     });
+
+    // Signed entry route for re-applying from email link (central domain)
+    Route::get('/clinic/reapply/entry/{tenant}', [ClinicReapplyController::class, 'entry'])
+        ->middleware('signed')
+        ->name('clinic.reapply.entry');
 });
 
 /*
@@ -271,13 +334,16 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
     Route::post('/pay/logout', [PatientPayController::class, 'logout'])->name('patient.pay.logout');
 
     /*
-    | Clinic application status — /clinic/status
-    | The one route EnsureStaffRole exempts from its approval gate, so an
-    | owner mid-review can always see where their application stands.
+    | Clinic application status & re-apply — /clinic/*
+    | The routes EnsureStaffRole exempts from its approval gate, so an
+    | owner mid-review can always see where their application stands and re-apply.
     */
     Route::middleware(['auth', 'verified', 'tenant.subdomain', 'staff.role'])->prefix('clinic')->name('clinic.')->group(function () {
         Route::get('/status', [ClinicStatusController::class, 'show'])->name('status');
         Route::patch('/status', [ClinicStatusController::class, 'update'])->name('status.update');
+        Route::get('/reapply', [ClinicReapplyController::class, 'show'])->name('reapply');
+        Route::post('/reapply/setup-intent', [ClinicReapplyController::class, 'createSetupIntent'])->name('reapply.setup-intent');
+        Route::post('/reapply', [ClinicReapplyController::class, 'submit'])->name('reapply.submit');
     });
 
     /*
@@ -301,7 +367,7 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
         // (owner, practitioner, receptionist). Every query and mutation is
         // tenant-scoped via BelongsToTenant global scope.
         Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
-        Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
+        Route::post('/clients', [ClientController::class, 'store'])->middleware('subscription.write')->name('clients.store');
         Route::get('/clients/{client}', [ClientController::class, 'show'])->name('clients.show');
         Route::patch('/clients/{client}', [ClientController::class, 'update'])->name('clients.update');
         Route::patch('/clients/{client}/toggle', [ClientController::class, 'toggle'])->name('clients.toggle');
@@ -347,7 +413,7 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
         // for the Scribe panel. Receptionists are excluded at the route AND by
         // ScribeSessionPolicy; the consent gate is enforced in the service.
         Route::middleware('staff.role:practitioner,clinic_owner')->prefix('scribe')->name('scribe.')->group(function () {
-            Route::post('/sessions', [ScribeSessionController::class, 'store'])->name('sessions.store');
+            Route::post('/sessions', [ScribeSessionController::class, 'store'])->middleware('subscription.write')->name('sessions.store');
             Route::get('/sessions/{scribeSession}', [ScribeSessionController::class, 'show'])->name('sessions.show');
             Route::post('/sessions/{scribeSession}/consent', [ScribeSessionController::class, 'captureConsent'])->name('sessions.consent');
             Route::post('/sessions/{scribeSession}/consent/withdraw', [ScribeSessionController::class, 'withdrawConsent'])->name('sessions.consent.withdraw');
@@ -368,7 +434,7 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
         // by the Appointment global scope + BookingService boundary checks.
         Route::get('/calendar', [AppointmentController::class, 'index'])->name('calendar');
         Route::get('/appointments', [AppointmentController::class, 'index'])->name('appointments');
-        Route::post('/appointments', [AppointmentController::class, 'store'])->name('appointments.store');
+        Route::post('/appointments', [AppointmentController::class, 'store'])->middleware('subscription.write')->name('appointments.store');
         Route::patch('/appointments/{appointment}', [AppointmentController::class, 'update'])->name('appointments.update');
         Route::patch('/appointments/{appointment}/status', [AppointmentController::class, 'status'])->name('appointments.status');
         Route::patch('/appointments/{appointment}/cancel', [AppointmentController::class, 'cancel'])->name('appointments.cancel');
@@ -391,7 +457,7 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
             Route::get('/utilization/export', [ReportController::class, 'exportUtilization'])->name('utilization.export');
 
             // Financial & Revenue reporting — strictly owner-only (enforced via middleware & policy)
-            Route::middleware('staff.role:clinic_owner')->group(function () {
+            Route::middleware(['staff.role:clinic_owner', 'feature:advanced_financial_reporting'])->group(function () {
                 Route::get('/revenue', [ReportController::class, 'revenue'])->name('revenue');
                 Route::get('/revenue/export', [ReportController::class, 'exportRevenue'])->name('revenue.export');
             });
@@ -400,17 +466,22 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
         // Staff invitations are owner-only.
         Route::middleware('staff.role:clinic_owner')->group(function () {
             Route::get('/staff', [StaffInvitationController::class, 'index'])->name('staff.index');
-            Route::post('/staff', [StaffInvitationController::class, 'store'])->name('staff.store');
+            Route::post('/staff', [StaffInvitationController::class, 'store'])->middleware('subscription.write')->name('staff.store');
             Route::patch('/staff/{membership}', [StaffInvitationController::class, 'updateStatus'])->name('staff.update');
             Route::post('/staff/{membership}/resend', [StaffInvitationController::class, 'resend'])->name('staff.resend');
             Route::delete('/staff/{membership}', [StaffInvitationController::class, 'destroy'])->name('staff.destroy');
 
             // Clinic Subscription & Billing — plan upgrade, card management, invoice downloads.
             Route::get('/billing', [ClinicBillingController::class, 'show'])->name('billing');
+            Route::get('/billing/preview-change', [ClinicBillingController::class, 'previewPlanChange'])->name('billing.preview-change');
             Route::put('/billing/plan', [ClinicBillingController::class, 'updatePlan'])->name('billing.plan');
+            Route::post('/billing/cancel', [ClinicBillingController::class, 'cancelSubscription'])->name('billing.cancel');
+            Route::post('/billing/resume', [ClinicBillingController::class, 'resumeSubscription'])->name('billing.resume');
             Route::post('/billing/payment-method', [ClinicBillingController::class, 'updatePaymentMethod'])->name('billing.payment-method');
             Route::post('/billing/setup-intent', [ClinicBillingController::class, 'createSetupIntent'])->name('billing.setup-intent');
             Route::get('/billing/invoices/{invoice}', [ClinicBillingController::class, 'downloadInvoice'])->name('billing.invoice');
+            Route::post('/billing/scribe-addon', [ClinicBillingController::class, 'updateScribeAddon'])->name('billing.scribe-addon');
+            Route::delete('/billing/scheduled-change', [ClinicBillingController::class, 'cancelScheduledPlanChange'])->name('billing.scheduled-change.cancel');
 
             // Connect payments onboarding — owner connects the clinic's own
             // Stripe account so patients can pay the clinic directly.
@@ -425,6 +496,7 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
             Route::patch('/settings/disciplines', [ClinicSettingsController::class, 'updateDisciplines'])->name('settings.disciplines');
             Route::post('/settings/branding', [ClinicSettingsController::class, 'updateBranding'])->name('settings.branding');
             Route::patch('/settings/scribe', [ClinicSettingsController::class, 'updateScribe'])->name('settings.scribe');
+            Route::delete('/settings/account', [ClinicSettingsController::class, 'deleteAccount'])->name('settings.account.delete');
 
             // Public home page content — owner customises tagline, description,
             // cover image, social links, hours/address visibility.
@@ -456,13 +528,13 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
 
             // Locations & Rooms — owner-only management.
             Route::get('/locations', [LocationController::class, 'index'])->name('locations.index');
-            Route::post('/locations', [LocationController::class, 'store'])->name('locations.store');
+            Route::post('/locations', [LocationController::class, 'store'])->middleware('subscription.write')->name('locations.store');
             Route::get('/locations/{location}', [LocationController::class, 'show'])->name('locations.show');
             Route::patch('/locations/{location}', [LocationController::class, 'update'])->name('locations.update');
             Route::patch('/locations/{location}/toggle', [LocationController::class, 'toggle'])->name('locations.toggle');
             Route::delete('/locations/{location}', [LocationController::class, 'destroy'])->name('locations.destroy');
 
-            Route::post('/locations/{location}/rooms', [RoomController::class, 'store'])->name('rooms.store');
+            Route::post('/locations/{location}/rooms', [RoomController::class, 'store'])->middleware('subscription.write')->name('rooms.store');
             Route::patch('/rooms/{room}', [RoomController::class, 'update'])->name('rooms.update');
             Route::patch('/rooms/{room}/toggle', [RoomController::class, 'toggle'])->name('rooms.toggle');
             Route::delete('/rooms/{room}', [RoomController::class, 'destroy'])->name('rooms.destroy');

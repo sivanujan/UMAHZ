@@ -9,13 +9,13 @@ import {
     Minus,
     Info,
     CheckCircle2,
-    ChevronDown,
-    ChevronUp,
 } from 'lucide-react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
+import OrderSummary from '@/Components/Onboarding/OrderSummary';
 
-const BLUE = '#2563EB';
-
+/**
+ * @deprecated Legacy tier defaults. Dynamic plans from the database are preferred.
+ */
 export const TIERS = {
     balance: {
         id: 'balance',
@@ -24,6 +24,7 @@ export const TIERS = {
         basePrice: 54,
         includedFt: 1,
         maxPractitioners: 1,
+        allowsExtra: false,
         maxAppointments: 20,
         extraFtPrice: 0,
         extraPtPrice: 0,
@@ -51,6 +52,7 @@ export const TIERS = {
         basePrice: 79,
         includedFt: 1,
         maxPractitioners: null,
+        allowsExtra: true,
         maxAppointments: null,
         extraFtPrice: 35.0,
         extraPtPrice: 17.5,
@@ -79,6 +81,7 @@ export const TIERS = {
         basePrice: 99,
         includedFt: 1,
         maxPractitioners: null,
+        allowsExtra: true,
         maxAppointments: null,
         extraFtPrice: 40.0,
         extraPtPrice: 20.0,
@@ -101,6 +104,9 @@ export const TIERS = {
     },
 };
 
+/**
+ * @deprecated Use normalizeDynamicPlans instead.
+ */
 export function normalizeTiers(rawTiers = {}) {
     const result = { ...TIERS };
     if (!rawTiers || typeof rawTiers !== 'object') return result;
@@ -124,11 +130,17 @@ export function normalizeTiers(rawTiers = {}) {
                 : val.extraPtPrice || defaultTier.extraPtPrice;
 
         let extraPricingNote = defaultTier.extraPricingNote;
-        if (key === 'balance') {
+        if (key === 'balance' || key === 'essential') {
             extraPricingNote = 'Solo practitioner only (no add-on seats)';
         } else if (extraFtPrice || extraPtPrice) {
             extraPricingNote = `Extra seats: +$${extraFtPrice.toFixed(2)}/mo FT · +$${extraPtPrice.toFixed(2)}/mo PT`;
         }
+
+        const allowsExtra = val.allowsExtra !== undefined
+            ? Boolean(val.allowsExtra)
+            : (val.allows_extra_practitioners !== undefined
+                ? Boolean(val.allows_extra_practitioners)
+                : (key !== 'balance' && key !== 'essential'));
 
         result[key] = {
             id: key,
@@ -144,16 +156,20 @@ export function normalizeTiers(rawTiers = {}) {
                     : val.includedFt || defaultTier.includedFt,
             maxPractitioners:
                 val.max_practitioners !== undefined ? val.max_practitioners : defaultTier.maxPractitioners,
+            allowsExtra,
+            showExtraSeatPrice: val.showExtraSeatPrice !== undefined
+                ? val.showExtraSeatPrice
+                : (val.show_extra_seat_price !== undefined ? Boolean(val.show_extra_seat_price) : true),
             maxAppointments:
                 val.max_appointments_per_month !== undefined
                     ? val.max_appointments_per_month
                     : defaultTier.maxAppointments,
             extraFtPrice,
             extraPtPrice,
-            badge: key === 'balance' ? 'Solo' : key === 'practice' ? 'Clinic' : 'Full',
+            badge: key === 'balance' || key === 'essential' ? 'Solo' : key === 'practice' || key === 'professional' ? 'Clinic' : 'Full',
             badgeIcon: defaultTier.badgeIcon || Sparkles,
             badgeColor: defaultTier.badgeColor,
-            isPopular: key === 'practice',
+            isPopular: key === 'practice' || key === 'professional',
             features: benefitFeatures.length > 0 ? benefitFeatures : defaultTier.features,
             extraPricingNote,
         };
@@ -162,72 +178,154 @@ export function normalizeTiers(rawTiers = {}) {
     return result;
 }
 
-export function calculateMonthlyTotal(tierId, fullTimeCount = 1, partTimeCount = 0, customTiers = null) {
-    const tiers = customTiers ? normalizeTiers(customTiers) : TIERS;
-    const tier = tiers[tierId] || tiers.practice;
-    const ft = Math.max(1, parseInt(fullTimeCount, 10) || 1);
-    const pt = Math.max(0, parseInt(partTimeCount, 10) || 0);
+export function normalizeDynamicPlans(plans = [], billingInterval = 'month') {
+    const isAnnual = billingInterval === 'year';
+    const result = {};
 
-    if (tierId === 'balance') {
+    plans.forEach((plan) => {
+        const priceObj = isAnnual ? plan.annual_price : plan.monthly_price;
+        const basePrice = priceObj ? (typeof priceObj === 'object' ? priceObj.base_price : priceObj) : 0;
+        const extraFtPrice = priceObj ? (typeof priceObj === 'object' ? priceObj.extra_practitioner_price : (isAnnual ? plan.extra_seat_annual : plan.extra_seat_monthly) || 0) : 0;
+
+        const isEssential = plan.slug === 'essential' || plan.slug === 'balance';
+        const isProfessional = plan.slug === 'professional' || plan.slug === 'practice';
+        const isSignature = plan.slug === 'signature' || plan.slug === 'thrive';
+
+        let badge = plan.badge || (isEssential ? 'Solo' : isProfessional ? 'Clinic' : 'Full');
+        if (badge === 'Most Popular') {
+            badge = 'Clinic';
+        }
+        let isPopular = isProfessional || plan.is_popular;
+        const showExtraSeatPrice = plan.show_extra_seat_price !== false;
+
+        result[plan.slug] = {
+            id: plan.slug,
+            planId: plan.id,
+            rawPlan: plan,
+            name: plan.name,
+            tagline: plan.tagline || (isEssential ? 'For solo practitioners starting out' : isProfessional ? 'For growing clinics' : 'For full-service practices'),
+            basePrice,
+            includedFt: plan.included_practitioners || 1,
+            maxPractitioners: plan.max_practitioners,
+            allowsExtra: plan.allows_extra_practitioners,
+            showExtraSeatPrice,
+            extraFtPrice,
+            extraPtPrice: 0,
+            badge,
+            isPopular,
+            limitLines: plan.limit_lines || (
+                isEssential
+                    ? ['Up to 50 appointments/month', '1 location', 'Standard support']
+                    : isProfessional
+                    ? ['Unlimited appointments', 'Multiple locations']
+                    : ['Unlimited appointments', 'Unlimited locations']
+            ),
+            parentTierName: plan.parent_tier_name !== undefined
+                ? plan.parent_tier_name
+                : (isProfessional ? 'Essential' : isSignature ? 'Professional' : null),
+            deltaFeatures: plan.delta_features || [],
+            features: (plan.features || []).filter((f) => {
+                if (plan.show_scribe_allowance === false && typeof f === 'string' && f.toLowerCase().includes('scribe allowance')) {
+                    return false;
+                }
+                return true;
+            }),
+            extraPricingNote: plan.allows_extra_practitioners
+                ? (showExtraSeatPrice && extraFtPrice > 0
+                    ? `Extra seats: +$${Number(extraFtPrice).toFixed(2)}${isAnnual ? '/yr' : '/mo'}`
+                    : 'Additional practitioners available')
+                : 'Solo practitioner only (no add-on seats)',
+        };
+    });
+
+    return result;
+}
+
+export function calculateMonthlyTotal(tierId, fullTimeCount = 1, partTimeCount = 0, customTiers = null) {
+    let tiers = TIERS;
+    if (customTiers) {
+        if (Array.isArray(customTiers)) {
+            tiers = normalizeDynamicPlans(customTiers);
+        } else if (
+            customTiers[tierId]?.basePrice !== undefined ||
+            customTiers.professional?.basePrice !== undefined ||
+            customTiers.practice?.basePrice !== undefined ||
+            customTiers.essential?.basePrice !== undefined ||
+            customTiers.balance?.basePrice !== undefined
+        ) {
+            tiers = customTiers;
+        } else {
+            tiers = normalizeTiers(customTiers);
+        }
+    }
+    const tier = tiers[tierId] || tiers.practice || Object.values(tiers)[0] || TIERS.practice;
+    const ft = Math.max(1, parseInt(fullTimeCount, 10) || 1);
+
+    const allowsExtra = tier.allowsExtra !== undefined
+        ? Boolean(tier.allowsExtra)
+        : (tierId !== 'balance' && tierId !== 'essential');
+
+    if (tierId === 'balance' || tierId === 'essential' || !allowsExtra) {
         return {
             basePrice: tier.basePrice,
+            includedFt: tier.includedFt || 1,
             extraFtCount: 0,
             extraPtCount: 0,
             extraFtCost: 0,
             extraPtCost: 0,
+            showExtraSeatPrice: tier.showExtraSeatPrice !== false,
             total: tier.basePrice,
             totalPractitioners: 1,
         };
     }
 
-    const extraFtCount = Math.max(0, ft - tier.includedFt);
-    const extraPtCount = pt;
-    const extraFtCost = extraFtCount * tier.extraFtPrice;
-    const extraPtCost = extraPtCount * tier.extraPtPrice;
-    const total = tier.basePrice + extraFtCost + extraPtCost;
+    const includedFt = tier.includedFt || 1;
+    const extraFtCount = Math.max(0, ft - includedFt);
+    const showExtraSeatPrice = tier.showExtraSeatPrice !== false;
+    const extraFtCost = showExtraSeatPrice ? extraFtCount * (tier.extraFtPrice || 0) : 0;
+    const total = tier.basePrice + extraFtCost;
 
     return {
         basePrice: tier.basePrice,
+        includedFt,
         extraFtCount,
-        extraPtCount,
+        extraPtCount: 0,
         extraFtCost,
-        extraPtCost,
+        extraPtCost: 0,
+        showExtraSeatPrice,
         total,
-        totalPractitioners: ft + pt,
+        totalPractitioners: ft,
     };
 }
 
 export default function PlanStep({
     selectedTier,
     onSelectTier,
+    billingInterval = 'month',
+    onChangeInterval,
     ftCount,
     onChangeFt,
     ptCount,
     onChangePt,
     error,
     tiers: rawTiers,
+    plans = [],
 }) {
     const shouldReduceMotion = useReducedMotion();
-    const activeTiers = normalizeTiers(rawTiers);
-    const currentTier = selectedTier || 'practice';
+    const isDynamic = plans && plans.length > 0;
+    const activeTiers = isDynamic
+        ? normalizeDynamicPlans(plans, billingInterval)
+        : normalizeTiers(rawTiers);
+
+    const currentTier = selectedTier || (isDynamic ? (plans.find(p => p.slug === 'professional' || p.slug === 'practice')?.slug || plans[0]?.slug) : 'practice');
     const breakdown = calculateMonthlyTotal(currentTier, ftCount, ptCount, activeTiers);
 
-    // Track per-card expansion of hidden features
-    const [expandedCards, setExpandedCards] = useState({});
-
-    const toggleExpand = (tierId, e) => {
-        e.stopPropagation();
-        setExpandedCards((prev) => ({
-            ...prev,
-            [tierId]: !prev[tierId],
-        }));
-    };
-
     const handleTierChange = (tierId) => {
-        onSelectTier(tierId);
-        if (tierId === 'balance') {
-            onChangeFt(1);
-            onChangePt(0);
+        const tier = activeTiers[tierId];
+        onSelectTier(tierId, tier?.rawPlan);
+        if (tierId === 'balance' || tierId === 'essential' || (tier && !tier.allowsExtra)) {
+            onChangeFt?.(1);
+            onChangePt?.(0);
         }
     };
 
@@ -243,6 +341,39 @@ export default function PlanStep({
                 >
                     <Info className="w-4 h-4 text-rose-500 flex-shrink-0" aria-hidden="true" />
                     <span>{error}</span>
+                </div>
+            )}
+
+            {/* MONTHLY / ANNUAL CADENCE TOGGLE */}
+            {onChangeInterval && (
+                <div className="flex items-center justify-center gap-2 pb-1">
+                    <div className="inline-flex p-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+                        <button
+                            type="button"
+                            onClick={() => onChangeInterval('month')}
+                            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer ${
+                                billingInterval === 'month'
+                                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-xs'
+                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                            }`}
+                        >
+                            Monthly Billing
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => onChangeInterval('year')}
+                            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer ${
+                                billingInterval === 'year'
+                                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-xs'
+                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                            }`}
+                        >
+                            <span>Annual Billing</span>
+                            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                                Save ~17%
+                            </span>
+                        </button>
+                    </div>
                 </div>
             )}
 
@@ -263,9 +394,9 @@ export default function PlanStep({
                         icon: 'text-slate-500 dark:text-slate-400',
                     };
 
-                    const topFeatures = (tier.features || []).slice(0, 3);
-                    const remainingFeatures = (tier.features || []).slice(3);
-                    const isExpanded = !!expandedCards[tier.id];
+                    const featureItems = tier.parentTierName && tier.deltaFeatures?.length > 0
+                        ? tier.deltaFeatures
+                        : (tier.features || []);
 
                     return (
                         <div
@@ -280,7 +411,7 @@ export default function PlanStep({
                                     handleTierChange(tier.id);
                                 }
                             }}
-                            className={`group relative rounded-2xl cursor-pointer transition-all duration-200 flex flex-col justify-between p-4 select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 ${
+                            className={`group relative rounded-2xl cursor-pointer transition-all duration-200 flex flex-col justify-between h-full p-4 select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 ${
                                 isRecommended
                                     ? 'md:-translate-y-1 shadow-md shadow-indigo-950/5 dark:shadow-black/20'
                                     : 'hover:shadow-sm'
@@ -307,12 +438,16 @@ export default function PlanStep({
                             <div className="flex flex-col flex-1">
                                 {/* Row 1: Badge on Left + Radio Check Indicator on Right */}
                                 <div className="flex items-center justify-between">
-                                    <span
-                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide border ${badgeColors.bg} ${badgeColors.text} ${badgeColors.border}`}
-                                    >
-                                        <BadgeIcon className={`w-3 h-3 flex-shrink-0 ${badgeColors.icon}`} aria-hidden="true" />
-                                        <span>{tier.badge}</span>
-                                    </span>
+                                    {!isRecommended && tier.badge ? (
+                                        <span
+                                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide border ${badgeColors.bg} ${badgeColors.text} ${badgeColors.border}`}
+                                        >
+                                            <BadgeIcon className={`w-3 h-3 flex-shrink-0 ${badgeColors.icon}`} aria-hidden="true" />
+                                            <span>{tier.badge}</span>
+                                        </span>
+                                    ) : (
+                                        <span />
+                                    )}
 
                                     {/* Selection Radio Circle */}
                                     <span
@@ -329,7 +464,7 @@ export default function PlanStep({
 
                                 {/* Row 2: Plan Name */}
                                 <div className="mt-2.5 flex items-center justify-between">
-                                    <h4 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                    <h4 className="text-base font-semibold text-slate-900 dark:text-white tracking-normal">
                                         {tier.name}
                                     </h4>
                                 </div>
@@ -340,25 +475,46 @@ export default function PlanStep({
                                 </p>
 
                                 {/* Row 4: Price Block (High contrast, clearly visible on all card states) */}
-                                <div className="mt-2 mb-3 pb-2.5 border-b border-slate-100 dark:border-slate-700/60">
+                                <div className="mt-2 mb-2.5 pb-2 border-b border-slate-100 dark:border-slate-700/60">
                                     <div className="flex items-baseline gap-1">
-                                        <span className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono tracking-tight leading-none">
+                                        <span className="text-2xl font-bold text-slate-900 dark:text-white font-mono tracking-normal leading-none">
                                             ${tier.basePrice}
                                         </span>
                                         <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                                            CAD/mo
+                                            CAD{billingInterval === 'year' ? '/yr' : '/mo'}
                                         </span>
                                     </div>
                                     <p className="text-[10.5px] text-slate-600 dark:text-slate-300 font-medium mt-1">
-                                        {tier.id === 'balance'
-                                            ? '1 practitioner included (capped)'
-                                            : 'Includes 1 full-time practitioner'}
+                                        {tier.allowsExtra
+                                            ? `Includes ${tier.includedFt} practitioner${tier.includedFt > 1 ? 's' : ''}`
+                                            : '1 practitioner included (capped)'}
                                     </p>
                                 </div>
 
-                                {/* Row 5: Top 3 Features (Crisp, readable text-slate-700 dark:text-slate-200) */}
+                                {/* Row 5: Limits Lines at Top of List */}
+                                {tier.limitLines && tier.limitLines.length > 0 && (
+                                    <div className="mb-2 pb-2 border-b border-slate-100 dark:border-slate-700/60 space-y-1 text-[11.5px]">
+                                        {tier.limitLines.map((limit, idx) => (
+                                            <div key={`limit-${idx}`} className="flex items-center gap-2 text-slate-900 dark:text-white font-semibold leading-tight">
+                                                <div className="w-3.5 h-3.5 rounded-full bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 ring-1 ring-indigo-200 dark:ring-indigo-800/60 flex items-center justify-center flex-shrink-0">
+                                                    <Check className="w-2.5 h-2.5" strokeWidth={3} aria-hidden="true" />
+                                                </div>
+                                                <span className="flex-1 truncate">{limit}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Row 6: "Everything in X, plus:" Subheader */}
+                                {tier.parentTierName && (
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-1.5">
+                                        Everything in {tier.parentTierName}, plus:
+                                    </div>
+                                )}
+
+                                {/* Row 7: Features (Crisp, readable text-slate-700 dark:text-slate-200) */}
                                 <ul className="space-y-1.5 flex-1 text-[11.5px]">
-                                    {topFeatures.map((feat, idx) => (
+                                    {featureItems.map((feat, idx) => (
                                         <li
                                             key={idx}
                                             className="flex items-start gap-2 text-slate-700 dark:text-slate-200 leading-tight"
@@ -369,54 +525,10 @@ export default function PlanStep({
                                             <span className="flex-1">{feat}</span>
                                         </li>
                                     ))}
-
-                                    {/* Collapsed Features Behind Expander */}
-                                    {remainingFeatures.length > 0 && (
-                                        <AnimatePresence initial={false}>
-                                            {isExpanded && (
-                                                <motion.div
-                                                    initial={shouldReduceMotion ? false : { opacity: 0, height: 0 }}
-                                                    animate={{ opacity: 1, height: 'auto' }}
-                                                    exit={shouldReduceMotion ? false : { opacity: 0, height: 0 }}
-                                                    transition={{ duration: 0.2, ease: 'easeOut' }}
-                                                    className="overflow-hidden space-y-1.5 pt-1.5"
-                                                >
-                                                    {remainingFeatures.map((feat, idx) => (
-                                                        <li
-                                                            key={`rem-${idx}`}
-                                                            className="flex items-start gap-2 text-slate-700 dark:text-slate-200 leading-tight"
-                                                        >
-                                                            <div className="w-3.5 h-3.5 rounded-full bg-emerald-50 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-100 dark:ring-emerald-800/60 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                                                <Check className="w-2.5 h-2.5" strokeWidth={3} aria-hidden="true" />
-                                                            </div>
-                                                            <span className="flex-1">{feat}</span>
-                                                        </li>
-                                                    ))}
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    )}
                                 </ul>
 
-                                {/* "See All Features" Expander Button */}
-                                {remainingFeatures.length > 0 && (
-                                    <button
-                                        type="button"
-                                        onClick={(e) => toggleExpand(tier.id, e)}
-                                        aria-expanded={isExpanded}
-                                        className="mt-2 text-[10.5px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-1 focus:outline-none cursor-pointer select-none py-0.5"
-                                    >
-                                        <span>{isExpanded ? 'Hide details' : `+${remainingFeatures.length} more features`}</span>
-                                        {isExpanded ? (
-                                            <ChevronUp className="w-3 h-3" />
-                                        ) : (
-                                            <ChevronDown className="w-3 h-3" />
-                                        )}
-                                    </button>
-                                )}
-
-                                {/* Row 6: Small Muted Helper Line */}
-                                <div className="pt-2 mt-2.5 border-t border-slate-100 dark:border-slate-700/60">
+                                {/* Row 8: Small Muted Helper Line */}
+                                <div className="pt-2 mt-auto border-t border-slate-100 dark:border-slate-700/60">
                                     <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-tight truncate">
                                         {tier.extraPricingNote}
                                     </p>
@@ -427,11 +539,11 @@ export default function PlanStep({
                 })}
             </div>
 
-            {/* 2. TEAM CONFIGURATION & STICKY TOTAL (SIDE-BY-SIDE IN 2 COLUMNS) */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start pt-1">
-                {/* LEFT COLUMN: Team Config / Balance Notice (7 cols) */}
-                <div className="md:col-span-7">
-                    {currentTier !== 'balance' ? (
+            {/* 2. TEAM CONFIGURATION & STICKY TOTAL (SIDE-BY-SIDE IN 2 COLUMNS: ~55% / ~45%) */}
+            <div className="grid grid-cols-1 lg:grid-cols-11 gap-6 items-start pt-1">
+                {/* LEFT COLUMN: Team Config / Solo Plan Notice (~55% on desktop, top on mobile/tablet) */}
+                <div className="lg:col-span-6">
+                    {activeTiers[currentTier]?.allowsExtra ? (
                         <div className="bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xs">
                             <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/60 dark:border-slate-700/80">
                                 <div>
@@ -447,93 +559,74 @@ export default function PlanStep({
                                 </div>
                             </div>
 
-                            <div className="space-y-2.5">
-                                {/* Full-Time Practitioners Counter */}
-                                <div className="bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl p-3 flex items-center justify-between gap-3 shadow-2xs">
-                                    <div className="min-w-0">
-                                        <div className="flex items-center gap-1.5 flex-wrap">
-                                            <span className="text-xs font-bold text-slate-900 dark:text-white">
-                                                Full-Time Practitioners
-                                            </span>
-                                            {breakdown.extraFtCount > 0 ? (
-                                                <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-900/60 tabular-nums">
-                                                    +${extraFtCost.toFixed(2)}/mo
-                                                </span>
-                                            ) : (
-                                                <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-900/40 px-1.5 py-0.5 rounded-full border border-slate-100 dark:border-slate-750">
-                                                    1 included
-                                                </span>
-                                            )}
-                                        </div>
-                                        <p className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5">
-                                            +${(activeTiers[currentTier]?.extraFtPrice || 35).toFixed(2)} CAD/mo each extra
-                                        </p>
-                                    </div>
-
-                                    <div className="flex items-center gap-1 flex-shrink-0">
-                                        <button
-                                            type="button"
-                                            onClick={() => onChangeFt(Math.max(1, (parseInt(ftCount, 10) || 1) - 1))}
-                                            disabled={parseInt(ftCount, 10) <= 1}
-                                            className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-700 border border-slate-200/80 dark:border-slate-600 flex items-center justify-center text-slate-800 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 active:scale-95"
-                                            aria-label="Decrease full-time practitioners"
-                                        >
-                                            <Minus className="w-3 h-3" />
-                                        </button>
-                                        <span className="w-7 text-center text-xs font-bold text-slate-900 dark:text-white font-mono tabular-nums">
-                                            {ftCount || 1}
-                                        </span>
-                                        <button
-                                            type="button"
-                                            onClick={() => onChangeFt((parseInt(ftCount, 10) || 1) + 1)}
-                                            className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-700 border border-slate-200/80 dark:border-slate-600 flex items-center justify-center text-slate-800 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 active:scale-95"
-                                            aria-label="Increase full-time practitioners"
-                                        >
-                                            <Plus className="w-3 h-3" />
-                                        </button>
-                                    </div>
+                            <div className="space-y-3">
+                                {/* Included Practitioners Banner */}
+                                <div className="flex items-center justify-between text-xs px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+                                    <span className="text-slate-600 dark:text-slate-300 font-medium">Included practitioners</span>
+                                    <span className="font-bold text-slate-900 dark:text-white">
+                                        {activeTiers[currentTier]?.includedFt || 1} {((activeTiers[currentTier]?.includedFt || 1) === 1) ? 'practitioner' : 'practitioners'} included
+                                    </span>
                                 </div>
 
-                                {/* Part-Time Practitioners Counter */}
-                                <div className="bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl p-3 flex items-center justify-between gap-3 shadow-2xs">
+                                {/* Additional Practitioners Counter */}
+                                <div className="bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl p-3.5 flex items-center justify-between gap-3 shadow-2xs">
                                     <div className="min-w-0">
                                         <div className="flex items-center gap-1.5 flex-wrap">
                                             <span className="text-xs font-bold text-slate-900 dark:text-white">
-                                                Part-Time Practitioners
+                                                Additional practitioners
                                             </span>
-                                            {breakdown.extraPtCount > 0 ? (
+                                            {breakdown.extraFtCount > 0 && (
                                                 <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-900/60 tabular-nums">
-                                                    +${extraPtCost.toFixed(2)}/mo
-                                                </span>
-                                            ) : (
-                                                <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-900/40 px-1.5 py-0.5 rounded-full border border-slate-100 dark:border-slate-750">
-                                                    0 added
+                                                    +{breakdown.extraFtCount} {breakdown.extraFtCount === 1 ? 'seat' : 'seats'}
                                                 </span>
                                             )}
                                         </div>
-                                        <p className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5">
-                                            +${(activeTiers[currentTier]?.extraPtPrice || 17.5).toFixed(2)} CAD/mo each extra
-                                        </p>
+                                        {breakdown.showExtraSeatPrice ? (
+                                            <p className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                                +${(activeTiers[currentTier]?.extraFtPrice || 0).toFixed(2)} CAD/{billingInterval === 'year' ? 'yr' : 'mo'} each additional
+                                            </p>
+                                        ) : (
+                                            <p className="text-[10.5px] text-amber-600 dark:text-amber-400 font-medium mt-0.5">
+                                                Additional practitioner pricing will be confirmed before you're charged
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div className="flex items-center gap-1 flex-shrink-0">
                                         <button
                                             type="button"
-                                            onClick={() => onChangePt(Math.max(0, (parseInt(ptCount, 10) || 0) - 1))}
-                                            disabled={parseInt(ptCount, 10) <= 0}
+                                            onClick={() => {
+                                                const inc = activeTiers[currentTier]?.includedFt || 1;
+                                                const currentFt = Math.max(inc, parseInt(ftCount, 10) || inc);
+                                                onChangeFt?.(Math.max(inc, currentFt - 1));
+                                            }}
+                                            disabled={breakdown.extraFtCount <= 0}
                                             className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-700 border border-slate-200/80 dark:border-slate-600 flex items-center justify-center text-slate-800 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 active:scale-95"
-                                            aria-label="Decrease part-time practitioners"
+                                            aria-label="Decrease additional practitioners"
                                         >
                                             <Minus className="w-3 h-3" />
                                         </button>
                                         <span className="w-7 text-center text-xs font-bold text-slate-900 dark:text-white font-mono tabular-nums">
-                                            {ptCount || 0}
+                                            {breakdown.extraFtCount}
                                         </span>
                                         <button
                                             type="button"
-                                            onClick={() => onChangePt((parseInt(ptCount, 10) || 0) + 1)}
-                                            className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-700 border border-slate-200/80 dark:border-slate-600 flex items-center justify-center text-slate-800 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 active:scale-95"
-                                            aria-label="Increase part-time practitioners"
+                                            onClick={() => {
+                                                const inc = activeTiers[currentTier]?.includedFt || 1;
+                                                const currentFt = Math.max(inc, parseInt(ftCount, 10) || inc);
+                                                if (activeTiers[currentTier]?.maxPractitioners && (currentFt + 1) > activeTiers[currentTier].maxPractitioners) {
+                                                    return;
+                                                }
+                                                onChangeFt?.(currentFt + 1);
+                                            }}
+                                            disabled={
+                                                Boolean(
+                                                    activeTiers[currentTier]?.maxPractitioners &&
+                                                    (Math.max(activeTiers[currentTier]?.includedFt || 1, parseInt(ftCount, 10) || 1)) >= activeTiers[currentTier].maxPractitioners
+                                                )
+                                            }
+                                            className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-700 border border-slate-200/80 dark:border-slate-600 flex items-center justify-center text-slate-800 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 active:scale-95"
+                                            aria-label="Increase additional practitioners"
                                         >
                                             <Plus className="w-3 h-3" />
                                         </button>
@@ -542,97 +635,37 @@ export default function PlanStep({
                             </div>
                         </div>
                     ) : (
-                        /* Balance Tier Policy Callout */
-                        <div className="rounded-2xl border border-slate-200/90 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/80 p-4 flex items-start gap-3 shadow-2xs">
-                            <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200/70 dark:border-amber-800/60 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                <Shield className="w-3.5 h-3.5" aria-hidden="true" />
+                        /* Essential / Solo Plan Notice (no +/- buttons) */
+                        <div className="rounded-2xl border border-slate-200/90 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/80 p-4 sm:p-5 flex items-start gap-3 shadow-2xs">
+                            <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/60 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <Shield className="w-4 h-4" aria-hidden="true" />
                             </div>
                             <div className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                                <strong className="font-bold text-slate-900 dark:text-white block mb-0.5">Solo Practitioner Limit:</strong>
-                                The Balance plan includes 1 seat and up to {activeTiers.balance?.maxAppointments || 20} appointments/mo. Need team collaboration or higher capacity? Select{' '}
-                                <span className="font-semibold text-indigo-600 dark:text-indigo-400">Practice</span> or{' '}
-                                <span className="font-semibold text-indigo-600 dark:text-indigo-400">Thrive</span>.
+                                <strong className="font-bold text-slate-900 dark:text-white block mb-0.5">
+                                    1 practitioner (solo plan)
+                                </strong>
+                                The {activeTiers[currentTier]?.name || 'Essential'} plan is built for solo practitioners with 1 practitioner seat included. Additional practitioner seats are not available on this plan. Need team collaboration? Select{' '}
+                                <span className="font-semibold text-indigo-600 dark:text-indigo-400">Professional</span> or{' '}
+                                <span className="font-semibold text-indigo-600 dark:text-indigo-400">Signature</span>.
                             </div>
                         </div>
                     )}
                 </div>
 
-                {/* RIGHT COLUMN: Compact & Sticky Total Monthly Cost Summary (5 cols) */}
-                <div className="md:col-span-5 sticky top-4">
-                    <div className="bg-[#0D1B2A] dark:bg-slate-900 text-white rounded-2xl p-4 sm:p-5 space-y-3 shadow-xl shadow-slate-900/10 border border-slate-800 dark:border-slate-750">
-                        <div className="flex items-center justify-between pb-2 border-b border-slate-800 dark:border-slate-750">
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                                Order Summary
-                            </span>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                                Monthly CAD
-                            </span>
-                        </div>
-
-                        {/* Itemized Line Items */}
-                        <div className="space-y-1.5 text-xs">
-                            {/* Base Plan */}
-                            <div className="flex items-baseline justify-between gap-1.5">
-                                <span className="text-slate-300">
-                                    {activeTiers[currentTier]?.name || currentTier} base plan
-                                </span>
-                                <span className="flex-1 border-b border-dotted border-slate-700/60 mx-1.5 mb-1" aria-hidden="true" />
-                                <span className="font-mono font-bold text-slate-100 tabular-nums">
-                                    ${breakdown.basePrice.toFixed(2)}
-                                </span>
-                            </div>
-
-                            {/* Extra Full-Time Seats */}
-                            {breakdown.extraFtCount > 0 && (
-                                <div className="flex items-baseline justify-between gap-1.5 text-slate-300">
-                                    <span>
-                                        +{breakdown.extraFtCount} FT {breakdown.extraFtCount === 1 ? 'seat' : 'seats'}
-                                    </span>
-                                    <span className="flex-1 border-b border-dotted border-slate-700/60 mx-1.5 mb-1" aria-hidden="true" />
-                                    <span className="font-mono font-bold text-slate-100 tabular-nums">
-                                        +${breakdown.extraFtCost.toFixed(2)}
-                                    </span>
-                                </div>
-                            )}
-
-                            {/* Extra Part-Time Seats */}
-                            {breakdown.extraPtCount > 0 && (
-                                <div className="flex items-baseline justify-between gap-1.5 text-slate-300">
-                                    <span>
-                                        +{breakdown.extraPtCount} PT {breakdown.extraPtCount === 1 ? 'seat' : 'seats'}
-                                    </span>
-                                    <span className="flex-1 border-b border-dotted border-slate-700/60 mx-1.5 mb-1" aria-hidden="true" />
-                                    <span className="font-mono font-bold text-slate-100 tabular-nums">
-                                        +${breakdown.extraPtCost.toFixed(2)}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Total Row */}
-                        <div className="pt-2.5 border-t border-slate-800 dark:border-slate-750 flex items-baseline justify-between">
-                            <div>
-                                <span className="text-xs font-bold text-slate-200 block">Total monthly cost</span>
-                                <span className="text-[10px] text-slate-400">Billed monthly in CAD</span>
-                            </div>
-                            <div className="text-right" aria-live="polite">
-                                <span className="text-2xl font-extrabold font-mono text-indigo-400 tabular-nums">
-                                    ${breakdown.total.toFixed(2)}
-                                </span>
-                                <span className="text-[10px] font-semibold text-slate-400 ml-1">
-                                    CAD
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Green Reassuring Note */}
-                        <div className="pt-1">
-                            <span className="text-[11px] text-emerald-400 font-medium inline-flex items-center gap-1.5 leading-snug">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" aria-hidden="true" />
-                                <span>Charged only after platform approval</span>
-                            </span>
-                        </div>
-                    </div>
+                {/* RIGHT COLUMN: Shared Order Summary Card (~45% on desktop, stacked below on tablet/mobile) */}
+                <div className="lg:col-span-5 sticky top-4">
+                    <OrderSummary
+                        planName={activeTiers[currentTier]?.name || currentTier}
+                        billingInterval={billingInterval}
+                        basePrice={breakdown.basePrice}
+                        extraSeats={breakdown.extraFtCount}
+                        extraCost={breakdown.extraFtCost}
+                        showExtraSeatPrice={breakdown.showExtraSeatPrice}
+                        trialDays={activeTiers[currentTier]?.rawPlan?.trial_days || 0}
+                        subtotal={breakdown.total}
+                        totalDue={breakdown.total}
+                        showPromoInput={false}
+                    />
                 </div>
             </div>
         </div>

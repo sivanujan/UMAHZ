@@ -170,6 +170,17 @@ function AppointmentBlock({ appt, tz, startHour, onClick }) {
     const left = (appt.lane || 0) * width;
     const s = STATUS_STYLES[appt.status] || STATUS_STYLES.scheduled;
     const cancelled = appt.status === 'cancelled';
+    const duration = appt.duration_minutes || (appt.endMin - appt.startMin);
+    const isShort = height <= 44 || duration <= 30;
+
+    const fullTitle = [
+        appt.client_name,
+        appt.service_name,
+        `(${humanTime(appt.starts_at, tz)} - ${humanTime(appt.ends_at, tz)})`,
+        appt.practitioner_name,
+        appt.room_name,
+        STATUS_STYLES[appt.status]?.label || appt.status,
+    ].filter(Boolean).join(' · ');
 
     return (
         <button
@@ -178,7 +189,7 @@ function AppointmentBlock({ appt, tz, startHour, onClick }) {
                 e.stopPropagation();
                 onClick(appt);
             }}
-            className="absolute rounded-xl px-2.5 py-1.5 text-left overflow-hidden transition-all duration-150 hover:shadow-lg hover:-translate-y-0.5 hover:z-30 group border backdrop-blur-md"
+            className="absolute rounded-xl px-2.5 py-1 text-left overflow-hidden transition-all duration-150 hover:shadow-lg hover:-translate-y-0.5 hover:z-30 group border backdrop-blur-md"
             style={{
                 top,
                 height,
@@ -189,36 +200,60 @@ function AppointmentBlock({ appt, tz, startHour, onClick }) {
                 borderLeftWidth: '4px',
                 opacity: cancelled ? 0.6 : 1,
             }}
-            title={`${appt.client_name} · ${appt.service_name} (${humanTime(appt.starts_at, tz)} - ${humanTime(appt.ends_at, tz)})`}
+            title={fullTitle}
         >
-            <div className="flex items-center justify-between gap-1 leading-tight">
-                <span className="text-[11px] font-extrabold flex items-center gap-1" style={{ color: s.fg }}>
-                    <Clock className="w-3 h-3 shrink-0 opacity-80" />
-                    <span>{humanTime(appt.starts_at, tz)}</span>
-                    <span className="text-[10px] font-normal opacity-70">· {appt.duration_minutes}m</span>
-                </span>
-                <span
-                    className="w-2 h-2 rounded-full shrink-0 shadow-xs"
-                    style={{ background: s.dot }}
-                />
-            </div>
-
-            <div
-                className={`text-[12px] font-bold truncate leading-tight mt-1 text-slate-900 dark:text-white ${cancelled ? 'line-through opacity-60' : ''}`}
-            >
-                {appt.client_name}
-            </div>
-
-            {height > 46 && (
-                <div className="text-[11px] font-semibold truncate leading-tight mt-0.5 text-slate-700 dark:text-slate-200">
-                    {appt.service_name}
+            {isShort ? (
+                <div className="flex items-center gap-1.5 leading-tight w-full h-full min-w-0">
+                    <span
+                        className="w-1.5 h-1.5 rounded-full shrink-0 shadow-xs"
+                        style={{ background: s.dot }}
+                    />
+                    <span className="text-[11px] font-bold shrink-0 tabular-nums" style={{ color: s.fg }}>
+                        {humanTime(appt.starts_at, tz)}
+                    </span>
+                    <span className="text-slate-400 dark:text-slate-500 text-[10px] shrink-0 font-normal">·</span>
+                    <span
+                        className={`text-[11px] font-semibold truncate text-slate-900 dark:text-white ${
+                            cancelled ? 'line-through opacity-60' : ''
+                        }`}
+                    >
+                        {appt.client_name}
+                    </span>
                 </div>
-            )}
+            ) : (
+                <>
+                    <div className="flex items-center justify-between gap-1 leading-tight">
+                        <span className="text-[11px] font-bold flex items-center gap-1" style={{ color: s.fg }}>
+                            <Clock className="w-3 h-3 shrink-0 opacity-80" />
+                            <span>{humanTime(appt.starts_at, tz)}</span>
+                            <span className="text-[10px] font-normal opacity-70">· {appt.duration_minutes}m</span>
+                        </span>
+                        <span
+                            className="w-2 h-2 rounded-full shrink-0 shadow-xs"
+                            style={{ background: s.dot }}
+                        />
+                    </div>
 
-            {height > 66 && (appt.practitioner_name || appt.room_name) && (
-                <div className="text-[10px] truncate leading-tight mt-0.5 text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
-                    {[appt.practitioner_name, appt.room_name].filter(Boolean).join(' · ')}
-                </div>
+                    <div
+                        className={`text-[12px] font-bold truncate leading-tight mt-1 text-slate-900 dark:text-white ${
+                            cancelled ? 'line-through opacity-60' : ''
+                        }`}
+                    >
+                        {appt.client_name}
+                    </div>
+
+                    {height > 46 && (
+                        <div className="text-[11px] font-semibold truncate leading-tight mt-0.5 text-slate-700 dark:text-slate-200">
+                            {appt.service_name}
+                        </div>
+                    )}
+
+                    {height > 66 && (appt.practitioner_name || appt.room_name) && (
+                        <div className="text-[10px] truncate leading-tight mt-0.5 text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
+                            {[appt.practitioner_name, appt.room_name].filter(Boolean).join(' · ')}
+                        </div>
+                    )}
+                </>
             )}
         </button>
     );
@@ -249,7 +284,7 @@ function NowLine({ nowMinutes, startHour, endHour }) {
             <div className="h-[2px] w-full bg-gradient-to-r from-[#8200db] via-purple-500 to-pink-500 dark:from-purple-400 dark:via-purple-400 dark:to-pink-400 shadow-sm" />
 
             {/* Time badge */}
-            <div className="absolute -top-3 left-3 px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-[#8200db] text-white dark:bg-purple-600 shadow-sm whitespace-nowrap">
+            <div className="absolute -top-3 left-3 px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#8200db] text-white dark:bg-purple-600 shadow-sm whitespace-nowrap">
                 {timeLabel}
             </div>
         </div>
@@ -477,7 +512,7 @@ function AppointmentModal({
                                         type="button"
                                         onClick={() => setStatus(st)}
                                         className={`text-[11px] font-bold px-3 py-1 rounded-full border transition-all ${
-                                            isCurrent ? 'ring-2 ring-offset-1 ring-[#8200db] font-extrabold' : 'opacity-80 hover:opacity-100'
+                                            isCurrent ? 'ring-2 ring-offset-1 ring-[#8200db] font-bold' : 'opacity-80 hover:opacity-100'
                                         }`}
                                         style={{
                                             borderColor: s.border,
@@ -1153,11 +1188,11 @@ export default function CalendarIndex() {
                                                     isToday ? 'bg-purple-500/[0.09] dark:bg-purple-500/[0.16]' : ''
                                                 }`}
                                             >
-                                                <div className={`text-[11px] uppercase tracking-wider font-extrabold ${isToday ? 'text-[#8200db] dark:text-purple-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                                                <div className={`text-[11px] uppercase tracking-wider font-bold ${isToday ? 'text-[#8200db] dark:text-purple-300' : 'text-slate-500 dark:text-slate-400'}`}>
                                                     {parts[0]}
                                                 </div>
                                                 <div className="flex items-center justify-center gap-1 mt-1">
-                                                    <span className={`text-[15px] ${isToday ? 'bg-gradient-to-r from-[#8200db] to-[#9333ea] text-white shadow-md shadow-purple-500/25 px-3 py-0.5 rounded-full font-black' : 'font-extrabold text-slate-800 dark:text-slate-200'}`}>
+                                                    <span className={`text-[15px] ${isToday ? 'bg-gradient-to-r from-[#8200db] to-[#9333ea] text-white shadow-md shadow-purple-500/25 px-3 py-0.5 rounded-full font-bold' : 'font-bold text-slate-800 dark:text-slate-200'}`}>
                                                         {d.split('-')[2]}
                                                     </span>
                                                     <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
@@ -1165,7 +1200,7 @@ export default function CalendarIndex() {
                                                     </span>
                                                 </div>
                                                 {isToday && (
-                                                    <div className="text-[9px] font-black uppercase tracking-widest text-[#8200db] dark:text-purple-300 mt-0.5">
+                                                    <div className="text-[9px] font-bold uppercase tracking-widest text-[#8200db] dark:text-purple-300 mt-0.5">
                                                         Today
                                                     </div>
                                                 )}

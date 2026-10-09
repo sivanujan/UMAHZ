@@ -80,7 +80,7 @@ function HeroPanel({ mode, balanceStats, balanceDueAmount, nextAppointment }) {
                     <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider" style={{ color: '#93C5FD' }}>
                         <Wallet className="w-3.5 h-3.5" /> Balance due
                     </span>
-                    <p className="text-[44px] sm:text-5xl font-extrabold leading-none mt-3 text-white tracking-tight">
+                    <p className="text-[44px] sm:text-5xl font-bold leading-none mt-3 text-white tracking-normal">
                         {balanceStats.totalDue}
                     </p>
                     {nextAppointment && (
@@ -126,7 +126,7 @@ function HeroPanel({ mode, balanceStats, balanceDueAmount, nextAppointment }) {
                     <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider" style={{ color: '#93C5FD' }}>
                         <CalendarDays className="w-3.5 h-3.5" /> Next appointment
                     </span>
-                    <p className="text-3xl sm:text-4xl font-extrabold leading-tight mt-3 text-white tracking-tight">
+                    <p className="text-3xl sm:text-4xl font-bold leading-tight mt-3 text-white tracking-normal">
                         {nextAppointment.time}
                     </p>
                     <p className="text-sm mt-2" style={{ color: '#B7C4D6' }}>
@@ -162,7 +162,7 @@ function HeroPanel({ mode, balanceStats, balanceDueAmount, nextAppointment }) {
                 <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider" style={{ color: '#6EE7B7' }}>
                     <Sparkles className="w-3.5 h-3.5" /> You're all set
                 </span>
-                <p className="text-2xl sm:text-3xl font-extrabold leading-snug mt-3 text-white tracking-tight max-w-md">
+                <p className="text-2xl sm:text-3xl font-bold leading-snug mt-3 text-white tracking-normal max-w-md">
                     No balance due and nothing on the calendar yet.
                 </p>
                 <Link
@@ -372,7 +372,7 @@ export default function PortalDashboard({ client, upcomingAppointments, formsDue
             <style>{FADE_IN_UP_STYLES}</style>
 
             <div className="mb-6 umahz-dash-fade">
-                <h1 className="text-2xl font-bold" style={{ color: 'var(--umahz-text-primary)' }}>Hi {client.first_name}, here's what's next</h1>
+                <h1 className="text-2xl sm:text-[28px] font-bold tracking-normal" style={{ color: 'var(--umahz-text-primary)' }}>Hi {client.first_name}, here's what's next</h1>
                 <p className="text-sm mt-1" style={{ color: 'var(--umahz-text-tertiary)' }}>Member since {client.member_since || '—'}</p>
             </div>
 

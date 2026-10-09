@@ -35,7 +35,7 @@ export function PageHeader({
                         <span>{displayEyebrow}</span>
                     </div>
                 )}
-                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                <h1 className="text-2xl sm:text-[28px] font-bold tracking-[-0.01em] text-slate-900 dark:text-white leading-tight">
                     {title}
                 </h1>
                 {subtitle && (

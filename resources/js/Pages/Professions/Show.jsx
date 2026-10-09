@@ -58,7 +58,7 @@ export default function ProfessionShow({ slug }) {
                         <div className="mb-4">
                             <PillBadge text={profession.tagline} />
                         </div>
-                        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-tight">
+                        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-normal">
                             {profession.name}
                         </h1>
                         <p className="text-slate-600 dark:text-slate-300 text-base md:text-lg leading-relaxed mt-6 font-normal">
@@ -81,7 +81,7 @@ export default function ProfessionShow({ slug }) {
                         variants={createFadeInUp(16, 0.45, shouldReduceMotion)}
                         className="text-center max-w-2xl mx-auto mb-12"
                     >
-                        <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-tight">
+                        <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-normal">
                             What's <em className="not-italic font-light font-serif text-[#5B2EFF] dark:text-[#8B6BFF]">Included</em>
                         </h2>
                         <p className="text-slate-600 dark:text-slate-300 text-base md:text-lg leading-relaxed mt-4 font-normal">
@@ -112,7 +112,7 @@ export default function ProfessionShow({ slug }) {
                                     <CheckCircle2 className="w-5 h-5" style={{ color: profession.stroke }} />
                                 </div>
                                 <div>
-                                    <h3 className="text-[#1E0B3C] dark:text-white font-bold text-base mb-1 tracking-tight">{m.title}</h3>
+                                    <h3 className="text-[#1E0B3C] dark:text-white font-bold text-base mb-1 tracking-normal">{m.title}</h3>
                                     <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed font-normal">{m.description}</p>
                                 </div>
                             </motion.div>

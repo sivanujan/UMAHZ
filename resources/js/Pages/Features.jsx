@@ -228,7 +228,7 @@ export default function Features() {
 
                     <h1
                         id="features-heading"
-                        className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-[#1E0B3C] dark:text-white tracking-tight leading-[1.15]"
+                        className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] dark:text-white tracking-normal leading-[1.15]"
                     >
                         Everything Your Practice Needs,{' '}
                         <em className="not-italic font-light font-serif text-[#5B2EFF] dark:text-[#8B6BFF]">Unified</em>
@@ -309,7 +309,7 @@ export default function Features() {
                                         </div>
 
                                         {/* Title & Description with high-contrast text */}
-                                        <h2 className="text-xl font-bold text-[#1E0B3C] dark:text-white tracking-tight mb-2.5 flex items-center gap-2">
+                                        <h2 className="text-xl font-bold text-[#1E0B3C] dark:text-white tracking-normal mb-2.5 flex items-center gap-2">
                                             {f.title}
                                         </h2>
 
@@ -365,7 +365,7 @@ export default function Features() {
                             <div className="mb-3">
                                 <PillBadge text="Roadmap Preview" />
                             </div>
-                            <h2 className="text-2xl sm:text-3xl font-bold text-[#1E0B3C] dark:text-white tracking-tight">
+                            <h2 className="text-2xl sm:text-3xl font-bold text-[#1E0B3C] dark:text-white tracking-normal">
                                 Coming Soon to UMAHZ
                             </h2>
                             <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base mt-2 font-normal">
@@ -390,7 +390,7 @@ export default function Features() {
                                             Coming Soon
                                         </span>
                                     </div>
-                                    <h3 className="text-xl font-bold text-[#1E0B3C] dark:text-white tracking-tight mb-2">
+                                    <h3 className="text-xl font-bold text-[#1E0B3C] dark:text-white tracking-normal mb-2">
                                         UMAHZ Motion
                                     </h3>
                                     <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed mb-6 font-normal">
@@ -426,7 +426,7 @@ export default function Features() {
                                             Coming Soon
                                         </span>
                                     </div>
-                                    <h3 className="text-xl font-bold text-[#1E0B3C] dark:text-white tracking-tight mb-2">
+                                    <h3 className="text-xl font-bold text-[#1E0B3C] dark:text-white tracking-normal mb-2">
                                         UMAHZ Scribe
                                     </h3>
                                     <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed mb-6 font-normal">

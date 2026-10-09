@@ -544,7 +544,7 @@ export default function ClientsIndex({ clients = [], stats = null, filters = {} 
                             <Users className="w-5 h-5" />
                         </div>
                         <div className="min-w-0">
-                            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                            <div className="text-xl font-bold tracking-[-0.01em] text-slate-900 dark:text-white leading-tight">
                                 {computedStats.total}
                             </div>
                             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
@@ -558,7 +558,7 @@ export default function ClientsIndex({ clients = [], stats = null, filters = {} 
                             <UserCheck className="w-5 h-5" />
                         </div>
                         <div className="min-w-0">
-                            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                            <div className="text-xl font-bold tracking-[-0.01em] text-slate-900 dark:text-white leading-tight">
                                 {computedStats.active}
                             </div>
                             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
@@ -572,7 +572,7 @@ export default function ClientsIndex({ clients = [], stats = null, filters = {} 
                             <UserX className="w-5 h-5" />
                         </div>
                         <div className="min-w-0">
-                            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                            <div className="text-xl font-bold tracking-[-0.01em] text-slate-900 dark:text-white leading-tight">
                                 {computedStats.inactive}
                             </div>
                             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
@@ -586,7 +586,7 @@ export default function ClientsIndex({ clients = [], stats = null, filters = {} 
                             <UserPlus className="w-5 h-5" />
                         </div>
                         <div className="min-w-0">
-                            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                            <div className="text-xl font-bold tracking-[-0.01em] text-slate-900 dark:text-white leading-tight">
                                 {computedStats.new_this_month}
                             </div>
                             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
@@ -600,7 +600,7 @@ export default function ClientsIndex({ clients = [], stats = null, filters = {} 
                             <CalendarCheck2 className="w-5 h-5" />
                         </div>
                         <div className="min-w-0">
-                            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                            <div className="text-xl font-bold tracking-[-0.01em] text-slate-900 dark:text-white leading-tight">
                                 {computedStats.upcoming_appointments}
                             </div>
                             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">

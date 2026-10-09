@@ -6,8 +6,9 @@ import {
 } from 'lucide-react';
 import Logo from '@/Components/Common/Logo';
 import { ThemeProvider, useTheme } from '@/Contexts/ThemeContext';
+import { getAvatarInitial } from '@/Utils/name';
 
-const UI_FONT = "'Satoshi', system-ui, -apple-system, sans-serif";
+const UI_FONT = "'Manrope', system-ui, -apple-system, sans-serif";
 
 /* Grouped so navigation state reads at a glance and matches the Owner
    dashboard's sidebar structure (headings + divider + active accent bar). */
@@ -212,7 +213,7 @@ function PortalShell({ children, title }) {
                                     style={{ color: 'var(--umahz-text-primary)' }}
                                 >
                                     <span className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-500/15 text-[#2563EB] dark:text-[#5B9BFF] flex items-center justify-center text-xs font-bold flex-shrink-0">
-                                        {user?.name?.charAt(0) || 'C'}
+                                        {getAvatarInitial(user?.name, 'C')}
                                     </span>
                                     <span className="hidden sm:inline max-w-[120px] truncate">{user?.name}</span>
                                     <ChevronDown className="w-4 h-4" style={{ color: 'var(--umahz-text-tertiary)' }} />

@@ -3,10 +3,9 @@
 return [
     /*
     |--------------------------------------------------------------------------
-    | Clinic Subscription Tiers & Pricing (Jane-style)
+    | Clinic Subscription Tiers & Pricing (DEPRECATED - Kept for legacy fallback/rollback)
     |--------------------------------------------------------------------------
-    | All prices are monthly, recurring in CAD.
-    | Stripe Price IDs are loaded from environment variables and never hardcoded.
+    | All plans and prices are now dynamically managed via the `plans` database table.
     */
     'tiers' => [
         'balance' => [

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Onboarding;
 
 use App\Billing\PlatformBilling;
 use App\Http\Controllers\Controller;
+use App\Models\BlockedEmail;
 use App\Models\IntakeFormTemplate;
 use App\Models\PendingRegistration;
 use App\Models\PractitionerProfile;
@@ -53,12 +54,111 @@ class ClinicRegistrationController extends Controller
      */
     public function create(): Response
     {
+        $plans = \App\Support\PlanPresenter::collectionForDisplay(
+            \App\Models\Plan::where('is_active', true)
+                ->orderBy('display_order')
+                ->with(['monthlyPrice', 'annualPrice', 'enabledFeatures'])
+                ->get()
+        );
+
         return Inertia::render('Onboarding/Register', [
             'disciplines' => self::DISCIPLINES,
             'disciplineLabels' => Disciplines::FIXED_LABELS,
             'subdomainSuffix' => '.'.Tenancy::centralDomain(),
             'provinces' => \App\Support\ClinicOptions::PROVINCES,
-            'tiers' => \App\Models\SubscriptionTierConfig::allTiers(),
+            'tiers' => [],
+            'plans' => $plans,
+        ]);
+    }
+
+    /**
+     * Live promo code validation for the registration wizard.
+     */
+    public function validatePromo(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'promo_code' => ['required', 'string', 'max:50'],
+            'plan_id' => ['required', 'string'],
+            'billing_interval' => ['nullable', 'string', 'in:month,year'],
+            'practitioners_count' => ['nullable', 'integer', 'min:1'],
+            'pending_id' => ['nullable', 'uuid'],
+        ]);
+
+        $plan = \App\Models\Plan::where('id', $data['plan_id'])
+            ->orWhere('slug', $data['plan_id'])
+            ->first();
+
+        if (! $plan) {
+            return response()->json([
+                'valid' => false,
+                'reason' => 'Plan not found.',
+            ], 422);
+        }
+
+        $code = strtoupper(trim($data['promo_code']));
+        $promo = \App\Models\PromoCode::where('code', $code)->first();
+
+        if (! $promo || ! $promo->is_active) {
+            return response()->json([
+                'valid' => false,
+                'reason' => 'That promo code is invalid.',
+            ], 422);
+        }
+
+        if ($promo->starts_at && $promo->starts_at->isFuture()) {
+            return response()->json([
+                'valid' => false,
+                'reason' => 'That promo code is not active yet.',
+            ], 422);
+        }
+
+        if ($promo->expires_at && $promo->expires_at->isPast()) {
+            return response()->json([
+                'valid' => false,
+                'reason' => 'That promo code has expired.',
+            ], 422);
+        }
+
+        if ($promo->max_redemptions !== null && $promo->times_redeemed >= $promo->max_redemptions) {
+            return response()->json([
+                'valid' => false,
+                'reason' => 'That promo code has reached its maximum redemptions.',
+            ], 422);
+        }
+
+        if (! $promo->isValidForPlan($plan->id)) {
+            return response()->json([
+                'valid' => false,
+                'reason' => "That promo code is not applicable to the {$plan->name} plan.",
+            ], 422);
+        }
+
+        $interval = $data['billing_interval'] ?? 'month';
+        $count = (int) ($data['practitioners_count'] ?? 1);
+
+        $breakdown = \App\Billing\DynamicPlanPricing::calculateBreakdown($plan, $interval, $count, [], $promo);
+
+        if (! empty($data['pending_id'])) {
+            $pending = PendingRegistration::query()->live()->find($data['pending_id']);
+            if ($pending) {
+                $pending->update([
+                    'promo_code_id' => $promo->id,
+                    'applied_promo_code' => $promo->code,
+                ]);
+            }
+        }
+
+        return response()->json([
+            'valid' => true,
+            'promo' => [
+                'id' => $promo->id,
+                'code' => $promo->code,
+                'discount_type' => $promo->discount_type,
+                'discount_value' => (float) $promo->discount_value,
+                'duration' => $promo->duration,
+                'duration_in_months' => $promo->duration_in_months,
+            ],
+            'breakdown' => $breakdown,
         ]);
     }
 
@@ -106,6 +206,13 @@ class ClinicRegistrationController extends Controller
         ]);
 
         $email = strtolower(trim($data['email']));
+
+        if (BlockedEmail::isBlocked($email)) {
+            return response()->json([
+                'sent' => false,
+                'reason' => "Applications from this email can't be accepted. Please contact support@umahz.com.",
+            ], 422);
+        }
 
         if (User::where('email', $email)->exists()) {
             return response()->json([
@@ -171,6 +278,13 @@ class ClinicRegistrationController extends Controller
         // not casing the user happened to type.
         $request->merge(['subdomain' => Tenancy::normalize($request->input('subdomain'))]);
 
+        $inputEmail = strtolower(trim((string) $request->input('email', '')));
+        if (BlockedEmail::isBlocked($inputEmail)) {
+            throw ValidationException::withMessages([
+                'email' => "Applications from this email can't be accepted. Please contact support@umahz.com.",
+            ]);
+        }
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class, new NotDisposableEmail()],
@@ -195,9 +309,13 @@ class ClinicRegistrationController extends Controller
             'custom_disciplines' => ['nullable', 'array', 'max:30'],
             'custom_disciplines.*' => ['nullable'],
 
-            'plan_tier' => ['required', 'string', Rule::in(\App\Billing\PlanPricing::TIERS)],
+            'plan_tier' => ['required', 'string'],
+            'plan_id' => ['nullable', 'string'],
+            'billing_interval' => ['nullable', 'string', 'in:month,year'],
+            'promo_code' => ['nullable', 'string', 'max:50'],
+            'extra_practitioner_seats' => ['nullable', 'integer', 'min:0', 'max:500'],
             'full_time_practitioners_count' => ['required', 'integer', 'min:1', 'max:500'],
-            'part_time_practitioners_count' => ['required', 'integer', 'min:0', 'max:500'],
+            'part_time_practitioners_count' => ['nullable', 'integer', 'min:0', 'max:500'],
             'estimated_practitioner_count' => ['nullable', 'integer', 'min:1', 'max:500'],
 
             'license_number' => ['required', 'string', 'max:100'],
@@ -205,7 +323,37 @@ class ClinicRegistrationController extends Controller
             'license_document' => ['required', 'file', 'extensions:pdf,jpg,jpeg,png', 'max:10240'],
         ]);
 
-        // Enforce Balance plan tier rule: 1 practitioner max, no add-ons
+        $data['part_time_practitioners_count'] = (int) ($data['part_time_practitioners_count'] ?? 0);
+        $data['full_time_practitioners_count'] = (int) ($data['full_time_practitioners_count'] ?? 1);
+
+        // Resolve plan from DB if provided or by slug
+        $plan = null;
+        if (! empty($data['plan_id'])) {
+            $plan = \App\Models\Plan::where('id', $data['plan_id'])->orWhere('slug', $data['plan_id'])->first();
+        }
+        if (! $plan && ! empty($data['plan_tier'])) {
+            $plan = \App\Models\Plan::where('slug', $data['plan_tier'])->first();
+        }
+
+        if ($plan) {
+            $totalPractitioners = (int) $data['full_time_practitioners_count'] + (int) $data['part_time_practitioners_count'];
+            if ($plan->max_practitioners !== null && $totalPractitioners > $plan->max_practitioners) {
+                throw ValidationException::withMessages([
+                    'plan_tier' => "The {$plan->name} plan allows a maximum of {$plan->max_practitioners} practitioner(s).",
+                ]);
+            }
+            if (! $plan->allows_extra_practitioners && $totalPractitioners > ($plan->included_practitioners ?? 1)) {
+                throw ValidationException::withMessages([
+                    'plan_tier' => "The {$plan->name} plan does not allow extra practitioner seats.",
+                ]);
+            }
+        } elseif (! in_array($data['plan_tier'], \App\Billing\PlanPricing::TIERS, true)) {
+            throw ValidationException::withMessages([
+                'plan_tier' => 'Invalid plan tier selected.',
+            ]);
+        }
+
+        // Enforce legacy Balance plan tier rule: 1 practitioner max, no add-ons
         if ($data['plan_tier'] === \App\Billing\PlanPricing::TIER_BALANCE) {
             if ((int) $data['full_time_practitioners_count'] !== 1 || (int) $data['part_time_practitioners_count'] !== 0) {
                 throw ValidationException::withMessages([
@@ -324,9 +472,35 @@ class ClinicRegistrationController extends Controller
         $payload['custom_disciplines'] = $processed['customDisciplines'];
         $payload['primary_discipline'] = $processed['primaryDiscipline'];
 
+        $plan = null;
+        if (! empty($data['plan_id'])) {
+            $plan = \App\Models\Plan::where('id', $data['plan_id'])->orWhere('slug', $data['plan_id'])->first();
+        }
+        if (! $plan && ! empty($data['plan_tier'])) {
+            $plan = \App\Models\Plan::where('slug', $data['plan_tier'])->first();
+        }
+
+        $promo = null;
+        if (! empty($data['promo_code'])) {
+            $promo = \App\Models\PromoCode::where('code', strtoupper(trim($data['promo_code'])))->first();
+            if ($promo && (! $promo->is_active || ($plan && ! $promo->isValidForPlan($plan->id)))) {
+                $promo = null;
+            }
+        }
+
+        $extraSeats = 0;
+        if ($plan && $plan->allows_extra_practitioners) {
+            $extraSeats = max(0, (int) $data['full_time_practitioners_count'] - ($plan->included_practitioners ?? 1));
+        }
+
         $pending->fill([
             'subdomain' => $data['subdomain'],
-            'plan_tier' => $data['plan_tier'],
+            'plan_tier' => $plan ? $plan->slug : $data['plan_tier'],
+            'plan_id' => $plan?->id,
+            'billing_interval' => $data['billing_interval'] ?? 'month',
+            'promo_code_id' => $promo?->id,
+            'applied_promo_code' => $promo?->code,
+            'extra_practitioner_seats' => $extraSeats,
             'full_time_practitioners_count' => $data['full_time_practitioners_count'],
             'part_time_practitioners_count' => $data['part_time_practitioners_count'],
             'ip_address' => $request->ip(),
@@ -364,6 +538,7 @@ class ClinicRegistrationController extends Controller
     {
         $validated = $request->validate([
             'pending_id' => ['required', 'uuid'],
+            'promo_code' => ['nullable', 'string', 'max:50'],
         ]);
 
         $pending = PendingRegistration::query()->live()->find($validated['pending_id']);
@@ -385,6 +560,12 @@ class ClinicRegistrationController extends Controller
 
         $payload = $pending->payload;
 
+        if (BlockedEmail::isBlocked($payload['email'])) {
+            throw ValidationException::withMessages([
+                'email' => "Applications from this email can't be accepted. Please contact support@umahz.com.",
+            ]);
+        }
+
         // Re-check uniqueness at the last moment (a race could have taken the
         // email or subdomain since prepare()).
         if (User::where('email', $payload['email'])->exists()) {
@@ -394,7 +575,18 @@ class ClinicRegistrationController extends Controller
             throw ValidationException::withMessages(['subdomain' => 'That subdomain has just been taken. Please choose another.']);
         }
 
-        $user = DB::transaction(function () use ($pending, $payload, $paymentMethodId) {
+        $promoCode = ! empty($validated['promo_code'])
+            ? strtoupper(trim($validated['promo_code']))
+            : ($pending->applied_promo_code ?? null);
+        $promo = null;
+        if (! empty($promoCode)) {
+            $promo = \App\Models\PromoCode::where('code', $promoCode)->first();
+            if ($promo && (! $promo->is_active || ($pending->plan_id && ! $promo->isValidForPlan($pending->plan_id)))) {
+                $promo = null;
+            }
+        }
+
+        $user = DB::transaction(function () use ($pending, $payload, $paymentMethodId, $promo) {
             $user = User::create([
                 'name' => $payload['name'],
                 'email' => $payload['email'],
@@ -409,8 +601,13 @@ class ClinicRegistrationController extends Controller
                 'subdomain' => $pending->subdomain,
                 'status' => Tenant::STATUS_PENDING_REVIEW,
                 'plan_tier' => $payload['plan_tier'] ?? $pending->plan_tier ?? \App\Billing\PlanPricing::TIER_PRACTICE,
+                'plan_id' => $pending->plan_id,
+                'billing_interval' => $pending->billing_interval ?? 'month',
+                'promo_code_id' => $promo?->id ?? $pending->promo_code_id,
+                'applied_promo_code' => $promo?->code ?? $pending->applied_promo_code,
                 'full_time_practitioners_count' => $payload['full_time_practitioners_count'] ?? $pending->full_time_practitioners_count ?? 1,
                 'part_time_practitioners_count' => $payload['part_time_practitioners_count'] ?? $pending->part_time_practitioners_count ?? 0,
+                'extra_practitioner_seats' => $pending->extra_practitioner_seats ?? 0,
                 'business_registration_number' => $payload['business_registration_number'] ?? null,
                 'address' => [
                     'line1' => $payload['address_line1'] ?? null,

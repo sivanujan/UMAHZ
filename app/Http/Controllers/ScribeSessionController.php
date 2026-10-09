@@ -70,9 +70,25 @@ class ScribeSessionController extends Controller
         }
 
         $membership = $this->membership($request, $tenantId);
+        $tenant = Tenant::findOrFail($tenantId);
+
+        $entitlements = app(\App\Services\PlanEntitlements::class);
+        $allowanceCheck = $entitlements->checkScribeAllowance($tenant, $membership);
+        if (! $allowanceCheck['allowed']) {
+            $entitlements->recordBlockedAction($tenant, 'scribe_allowance', [
+                'user_id' => $request->user()->id,
+                'used_minutes' => $allowanceCheck['used_minutes'],
+                'allowance_minutes' => $allowanceCheck['allowance_minutes'],
+            ]);
+            return response()->json([
+                'message' => $allowanceCheck['reason'] ?? 'Monthly AI Scribe minute allowance reached for your practitioner seat.',
+                'code' => 'scribe_allowance_exceeded',
+                'remaining_minutes' => 0,
+            ], 403);
+        }
 
         $session = $this->scribe->open(
-            Tenant::findOrFail($tenantId),
+            $tenant,
             $membership,
             $request->user(),
             $client,
@@ -170,6 +186,26 @@ class ScribeSessionController extends Controller
     {
         $this->authorizeSession($scribeSession, 'record');
 
+        // Check Scribe allowance if starting recording for a new session (STATUS_CONSENT_PENDING)
+        // In-progress sessions are never cut off.
+        if ($scribeSession->status === ScribeSession::STATUS_CONSENT_PENDING) {
+            $entitlements = app(\App\Services\PlanEntitlements::class);
+            $allowanceCheck = $entitlements->checkScribeAllowance($scribeSession->tenant, $scribeSession->staff_membership_id);
+            if (! $allowanceCheck['allowed']) {
+                $entitlements->recordBlockedAction($scribeSession->tenant, 'scribe_allowance', [
+                    'session_id' => $scribeSession->id,
+                    'user_id' => $request->user()->id,
+                    'used_minutes' => $allowanceCheck['used_minutes'],
+                    'allowance_minutes' => $allowanceCheck['allowance_minutes'],
+                ]);
+                return response()->json([
+                    'message' => $allowanceCheck['reason'] ?? 'Monthly AI Scribe minute allowance reached for your practitioner seat.',
+                    'code' => 'scribe_allowance_exceeded',
+                    'remaining_minutes' => 0,
+                ], 403);
+            }
+        }
+
         $language = $request->input('language');
         $noteOutputLanguage = $request->input('note_output_language');
         if ($language || $noteOutputLanguage) {
@@ -221,7 +257,11 @@ class ScribeSessionController extends Controller
     {
         $this->authorizeSession($scribeSession, 'record');
 
-        return $this->run($request, $scribeSession, fn () => $this->scribe->stop($scribeSession, $request->user(), $request->ip()));
+        $response = $this->run($request, $scribeSession, fn () => $this->scribe->stop($scribeSession, $request->user(), $request->ip()));
+
+        app(\App\Services\PlanEntitlements::class)->recordScribeUsage($scribeSession->fresh());
+
+        return $response;
     }
 
     public function uploadChunk(Request $request, ScribeSession $scribeSession): JsonResponse
@@ -495,6 +535,8 @@ class ScribeSessionController extends Controller
                     : "/app/notes/{$session->clinical_note_id}",
             ] : null,
             'handed_off_at' => $session->handed_off_at?->toIso8601String(),
+            'remaining_minutes' => $tenant ? (app(\App\Services\PlanEntitlements::class)->checkScribeAllowance($tenant, $session->staff_membership_id)['remaining_minutes'] ?? null) : null,
+            'scribe_allowance' => $tenant ? app(\App\Services\PlanEntitlements::class)->checkScribeAllowance($tenant, $session->staff_membership_id) : null,
         ];
     }
 

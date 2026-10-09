@@ -30,7 +30,7 @@ export default function VerifyEmail({ status, email }) {
                     </div>
 
                     <div>
-                        <h1 className="text-2xl font-bold text-[#0D1B2A] tracking-tight">Check your email</h1>
+                        <h1 className="text-2xl font-bold text-[#0D1B2A] tracking-normal">Check your email</h1>
                         <p className="mt-2 text-sm text-slate-500 leading-relaxed">
                             We sent a verification link to <span className="font-semibold text-[#0D1B2A]">{email}</span>. Click it to activate your account.
                         </p>

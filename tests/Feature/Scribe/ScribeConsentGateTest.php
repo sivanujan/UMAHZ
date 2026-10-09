@@ -87,8 +87,8 @@ class ScribeConsentGateTest extends ScribeTestCase
         $clinic = $this->clinic('lotus');
         [$practitioner, $membership] = $this->staff($clinic);
         $client = $this->client($clinic);
-        $apptA = $this->appointment($clinic, $client, $membership);
-        $apptB = $this->appointment($clinic, $client, $membership);
+        $apptA = $this->appointment($clinic, $client, $membership, 1);
+        $apptB = $this->appointment($clinic, $client, $membership, 3);
 
         $sessionA = $this->openSession($practitioner, $clinic, $client, $apptA)->json('session.id');
         $this->giveConsent($practitioner, $clinic, $sessionA)->assertOk();

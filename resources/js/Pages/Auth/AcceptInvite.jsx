@@ -109,7 +109,7 @@ export default function AcceptInvite({ staffMembership, name, email, tenantName,
 
                 <div className="bg-white rounded-3xl shadow-xl border border-purple-100 p-8 space-y-6">
                     <div className="text-center">
-                        <h1 className="text-2xl font-bold text-[#1E0B3C] tracking-tight">Join Your Team</h1>
+                        <h1 className="text-2xl font-bold text-[#1E0B3C] tracking-normal">Join Your Team</h1>
                         <p className="mt-1 text-sm text-slate-500">Set a password to activate your account.</p>
                     </div>
 

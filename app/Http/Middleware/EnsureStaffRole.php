@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\StaffMembership;
+use App\Models\Tenant;
 use App\Scopes\TenantScope;
 use Closure;
 use Illuminate\Http\Request;
@@ -52,15 +53,20 @@ class EnsureStaffRole
 
         $request->attributes->set('staffMembership', $membership);
 
-        // The clinic must be approved by a super admin before ANY /app or
-        // /portal route is reachable — checked here so every request that
-        // resolves a membership passes through this one gate. Exempt the
-        // status page itself, or an unapproved tenant could never reach it.
-        // Host-relative redirects: these routes now live on the clinic
-        // subdomain (a {tenant} domain parameter), so route() can't name them
-        // without that value — and a relative path correctly stays on the
-        // subdomain the request already arrived on.
-        if (!$membership->tenant->isApproved() && !$request->routeIs('clinic.status*')) {
+        // Explicit platform admin manual suspension for abuse: FULLY BLOCK ALL ACCESS
+        if ($membership->tenant->is_manually_suspended && !$request->routeIs('clinic.status*')) {
+            return redirect('/clinic/status');
+        }
+
+        // Clinic application pending initial review or rejected
+        $isPendingOrRejected = in_array($membership->tenant->status, [
+            Tenant::STATUS_PENDING_REVIEW,
+            Tenant::STATUS_NEEDS_MORE_INFO,
+            Tenant::STATUS_REJECTED,
+            Tenant::STATUS_PERMANENTLY_REJECTED,
+        ], true);
+
+        if ($isPendingOrRejected && !$request->routeIs('clinic.status*') && !$request->routeIs('clinic.reapply*')) {
             return redirect('/clinic/status');
         }
 

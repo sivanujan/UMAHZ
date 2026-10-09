@@ -6,11 +6,13 @@ import AddressPicker from '@/Components/AddressPicker';
 import { GlassCard } from '@/Components/UI/GlassCard';
 import { PageHeader } from '@/Components/UI/PageHeader';
 import { GlassButton } from '@/Components/UI/GlassButton';
+import { GlassModal } from '@/Components/UI/GlassModal';
 import { GlassInput, GlassSelect, GlassLabel, GlassError } from '@/Components/UI/FormControls';
 import {
     Building2, Mail, Phone, MapPin, Stethoscope, Palette, Upload,
     Check, ShieldCheck, ClipboardList, Plus, Trash2, Globe, ArrowRight,
-    Sparkles, Save, FileText, CheckCircle2, ChevronRight, Sliders, Mic, AlertTriangle
+    Sparkles, Save, FileText, CheckCircle2, ChevronRight, Sliders, Mic, AlertTriangle,
+    Lock, RefreshCw
 } from 'lucide-react';
 
 const DISCIPLINE_LABELS = {
@@ -66,11 +68,18 @@ const SETTINGS_TABS = [
         description: 'Encounter recording & audio retention',
         icon: Mic,
     },
+    {
+        id: 'danger_zone',
+        label: 'Danger Zone',
+        description: 'Permanent account & domain erasure',
+        icon: AlertTriangle,
+        danger: true,
+    },
 ];
 
 /* ----------------------------- Profile Section ----------------------------- */
 
-function ProfileSection({ tenant, timezones, currencies, provinces, countries, cities }) {
+function ProfileSection({ tenant, timezones, currencies, provinces, countries, cities, onOpenDeleteModal }) {
     const { data, setData, patch, processing, errors } = useForm({
         name: tenant.name || '',
         email: tenant.email || tenant.primary_contact_email || '',
@@ -264,6 +273,30 @@ function ProfileSection({ tenant, timezones, currencies, provinces, countries, c
                     </GlassButton>
                 </div>
             </form>
+
+            {/* Danger Zone: Clinic Account Deletion */}
+            <div className="mt-8 pt-6 border-t border-rose-500/20">
+                <div className="p-4 sm:p-5 rounded-2xl border border-rose-500/30 bg-rose-500/5 dark:bg-rose-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                            <h3 className="text-sm font-bold text-rose-900 dark:text-rose-200">Danger Zone: Delete Clinic Account</h3>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed max-w-xl">
+                            Permanently delete this clinic workspace. All data, medical charts, patients, and your subdomain <code className="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-700 dark:text-rose-300 font-mono text-[11px]">{tenant.subdomain}.umahz.test</code> will be permanently erased.
+                        </p>
+                    </div>
+                    <GlassButton
+                        type="button"
+                        variant="danger"
+                        onClick={onOpenDeleteModal}
+                        className="text-xs shrink-0 self-start sm:self-center font-semibold"
+                        icon={<Trash2 className="w-4 h-4" />}
+                    >
+                        Delete Clinic Account
+                    </GlassButton>
+                </div>
+            </div>
         </GlassCard>
     );
 }
@@ -651,12 +684,13 @@ function PublicPageSection() {
                                 <Sparkles className="w-4 h-4 text-[#8200db] dark:text-purple-300" />
                                 Visual Drag-and-Drop Page Builder
                             </span>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-800 dark:text-purple-300">
-                                Advanced
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 flex items-center gap-1">
+                                <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                Included in Basic Plan
                             </span>
                         </div>
                         <p className="text-xs text-slate-600 dark:text-slate-400 max-w-lg leading-relaxed">
-                            Build a custom marketing site with interactive blocks, treatment carousels, practitioner profiles, and Google reviews.
+                            Build a custom marketing site with interactive blocks, treatment carousels, practitioner profiles, and Google reviews. Fully included for Basic (Essential) and all plans.
                         </p>
                     </div>
                     <Link href="/app/settings/page-builder" className="shrink-0">
@@ -961,6 +995,269 @@ function ScribeSection({ settings, consentConfigured, provider, maxHours = 168, 
     );
 }
 
+/* ---------------------------- Danger Zone Section ---------------------------- */
+
+function DangerZoneSection({ tenant, onOpenDeleteModal }) {
+    return (
+        <GlassCard className="p-6 sm:p-8 space-y-6">
+            <div className="flex items-center gap-3.5 pb-5 border-b border-rose-500/20">
+                <div className="w-11 h-11 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 shadow-xs">
+                    <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                    <h2 className="text-lg font-bold text-rose-900 dark:text-rose-200">Danger Zone</h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Permanent and irreversible administrative actions for your clinic workspace.
+                    </p>
+                </div>
+            </div>
+
+            <div className="p-5 rounded-2xl border-2 border-rose-500/30 bg-gradient-to-br from-rose-500/10 via-rose-500/5 to-transparent space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    <div className="space-y-1.5">
+                        <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <span>Delete Clinic Account & Erase All Data</span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30">
+                                Irreversible
+                            </span>
+                        </h3>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed max-w-2xl">
+                            Permanently delete your clinic account, release your subdomain <strong className="font-mono text-rose-600 dark:text-rose-400 underline">{tenant?.subdomain}.umahz.test</strong>, cancel any active subscriptions, and immediately purge all patient medical records, SOAP notes, appointments, invoices, and settings.
+                        </p>
+                    </div>
+
+                    <GlassButton
+                        type="button"
+                        variant="danger"
+                        onClick={onOpenDeleteModal}
+                        className="text-xs shrink-0 self-start font-bold"
+                        icon={<Trash2 className="w-4 h-4" />}
+                    >
+                        Delete Clinic Account
+                    </GlassButton>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-rose-500/20 text-xs">
+                    <div className="p-3 rounded-xl bg-white/40 dark:bg-white/[0.02] border border-rose-500/20 space-y-1">
+                        <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <Globe className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                            Domain Erased
+                        </span>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
+                            Subdomain released immediately. Online booking and portal will shut down.
+                        </p>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-white/40 dark:bg-white/[0.02] border border-rose-500/20 space-y-1">
+                        <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <FileText className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                            All Data Purged
+                        </span>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
+                            All patient health records, clinical charts, intake forms, and invoices deleted.
+                        </p>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-white/40 dark:bg-white/[0.02] border border-rose-500/20 space-y-1">
+                        <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <Lock className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                            Zero Recovery
+                        </span>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
+                            There is no backup or grace period. Deletion takes effect immediately.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </GlassCard>
+    );
+}
+
+/* ----------------------------- Delete Account Modal ----------------------------- */
+
+function DeleteAccountModal({ isOpen, onClose, tenant }) {
+    const { data, setData, delete: destroy, processing, errors, reset } = useForm({
+        confirm_subdomain: '',
+        password: '',
+        confirmed_understand: false,
+    });
+
+    const subdomain = (tenant?.subdomain || '').toLowerCase().trim();
+    const clinicName = (tenant?.name || '').toLowerCase().trim();
+    const entered = (data.confirm_subdomain || '').toLowerCase().trim();
+    const isNameMatch = entered === subdomain || entered === clinicName;
+    const canSubmit = isNameMatch && data.password.length > 0 && data.confirmed_understand && !processing;
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!canSubmit) return;
+
+        destroy('/app/settings/account', {
+            preserveScroll: false,
+            onError: () => {
+                // Keep modal open, errors displayed
+            },
+        });
+    };
+
+    const handleClose = () => {
+        if (processing) return;
+        reset();
+        onClose();
+    };
+
+    return (
+        <GlassModal
+            isOpen={isOpen}
+            onClose={handleClose}
+            title="Permanently Delete Clinic Account"
+            maxWidth="max-w-xl"
+        >
+            <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Critical Warning Alert */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-rose-500/20 via-rose-500/10 to-orange-500/10 border-2 border-rose-500/40 flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                        <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 animate-pulse" />
+                    </div>
+                    <div className="space-y-1">
+                        <h4 className="font-extrabold text-sm text-rose-900 dark:text-rose-200 uppercase tracking-wide">
+                            Danger: Permanent & Irreversible Action
+                        </h4>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                            Deleting your clinic account will <strong className="text-rose-700 dark:text-rose-300">completely erase all records, domains, and configurations</strong>. This cannot be undone under any circumstances.
+                        </p>
+                    </div>
+                </div>
+
+                {/* Detailed Breakdown of what will be erased */}
+                <div className="space-y-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        Everything that will be completely erased:
+                    </span>
+
+                    <div className="space-y-2">
+                        {/* Domain / Subdomain */}
+                        <div className="p-3 rounded-xl bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/20 flex items-start gap-3">
+                            <div className="w-7 h-7 rounded-lg bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
+                                <Globe className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="text-xs space-y-0.5">
+                                <span className="font-bold text-slate-900 dark:text-white block">
+                                    Domain & Subdomain Erased & Released
+                                </span>
+                                <span className="text-slate-600 dark:text-slate-300 leading-relaxed block">
+                                    Your clinic subdomain <strong className="text-rose-600 dark:text-rose-400 underline font-mono">{tenant?.subdomain}.umahz.test</strong> and any custom domains will be immediately deleted and released. Your online booking page and patient portal will cease to exist.
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Medical records & patients */}
+                        <div className="p-3 rounded-xl bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/20 flex items-start gap-3">
+                            <div className="w-7 h-7 rounded-lg bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
+                                <FileText className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="text-xs space-y-0.5">
+                                <span className="font-bold text-slate-900 dark:text-white block">
+                                    All Patient Records & Clinical Charts Erased
+                                </span>
+                                <span className="text-slate-600 dark:text-slate-300 leading-relaxed block">
+                                    Every medical chart, SOAP encounter note, prescription record, uploaded file, intake submission, and consent agreement will be permanently wiped from the database.
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Subscriptions & Staff */}
+                        <div className="p-3 rounded-xl bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/20 flex items-start gap-3">
+                            <div className="w-7 h-7 rounded-lg bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
+                                <Lock className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="text-xs space-y-0.5">
+                                <span className="font-bold text-slate-900 dark:text-white block">
+                                    Staff Accounts & Platform Subscriptions Terminated
+                                </span>
+                                <span className="text-slate-600 dark:text-slate-300 leading-relaxed block">
+                                    All practitioner and receptionist accounts will be revoked. Active platform subscriptions and add-on seats will be canceled immediately with zero access remaining.
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Confirmation inputs */}
+                <div className="space-y-4 pt-2 border-t border-slate-200/60 dark:border-white/10">
+                    <div>
+                        <GlassLabel required>
+                            To confirm, type your clinic subdomain (<strong className="text-rose-600 dark:text-rose-400 font-mono">{tenant?.subdomain}</strong>) or clinic name:
+                        </GlassLabel>
+                        <GlassInput
+                            type="text"
+                            value={data.confirm_subdomain}
+                            onChange={(e) => setData('confirm_subdomain', e.target.value)}
+                            placeholder={`Type "${tenant?.subdomain}" to confirm`}
+                            className={data.confirm_subdomain && !isNameMatch ? 'border-rose-500 focus:border-rose-500' : ''}
+                            autoComplete="off"
+                        />
+                        <GlassError message={errors.confirm_subdomain} />
+                        {data.confirm_subdomain && !isNameMatch && (
+                            <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400 font-medium">
+                                Subdomain does not match. Please type exactly "{tenant?.subdomain}".
+                            </p>
+                        )}
+                    </div>
+
+                    <div>
+                        <GlassLabel required>Enter your account password to confirm identity:</GlassLabel>
+                        <GlassInput
+                            type="password"
+                            value={data.password}
+                            onChange={(e) => setData('password', e.target.value)}
+                            placeholder="Enter your current password"
+                            autoComplete="current-password"
+                        />
+                        <GlassError message={errors.password} />
+                    </div>
+
+                    {/* Mandatory Acknowledgment Checkbox */}
+                    <label className="p-3.5 rounded-xl border border-rose-500/40 bg-rose-500/10 flex items-start gap-3 cursor-pointer select-none hover:bg-rose-500/15 transition">
+                        <input
+                            type="checkbox"
+                            checked={data.confirmed_understand}
+                            onChange={(e) => setData('confirmed_understand', e.target.checked)}
+                            className="mt-0.5 w-4 h-4 rounded text-rose-600 border-rose-300 focus:ring-rose-500 dark:border-rose-600/50 dark:bg-black/40"
+                        />
+                        <div className="text-xs text-slate-800 dark:text-slate-200 leading-snug">
+                            <span className="font-bold text-rose-700 dark:text-rose-300">Final Confirmation:</span>{' '}
+                            I understand that this action is permanent. My clinic account, subdomain <strong className="underline font-mono">{tenant?.subdomain}</strong>, and all clinical/patient data will be <strong className="text-rose-600 dark:text-rose-400 font-semibold">permanently erased and cannot be recovered</strong>.
+                        </div>
+                    </label>
+                </div>
+
+                {/* Modal Action Buttons */}
+                <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5 pt-2 border-t border-slate-200/60 dark:border-white/10">
+                    <GlassButton
+                        type="button"
+                        variant="secondary"
+                        onClick={handleClose}
+                        disabled={processing}
+                        className="w-full sm:w-auto text-xs"
+                    >
+                        Cancel & Keep Account
+                    </GlassButton>
+                    <GlassButton
+                        type="submit"
+                        variant="danger"
+                        disabled={!canSubmit}
+                        className="w-full sm:w-auto text-xs font-bold"
+                        icon={processing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    >
+                        {processing ? 'Permanently Erasing Clinic...' : 'Permanently Delete Account & Erase All Data'}
+                    </GlassButton>
+                </div>
+            </form>
+        </GlassModal>
+    );
+}
+
 /* ------------------------------- Main Page ------------------------------- */
 
 export default function ClinicSettings({
@@ -995,8 +1292,13 @@ export default function ClinicSettings({
     };
 
     const [activeTab, setActiveTab] = useState(getInitialTab);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
     const handleTabChange = (tabId) => {
+        if (tabId === 'danger_zone') {
+            setIsDeleteModalOpen(true);
+            return;
+        }
         setActiveTab(tabId);
         if (typeof window !== 'undefined') {
             const url = new URL(window.location.href);
@@ -1028,6 +1330,7 @@ export default function ClinicSettings({
                     {SETTINGS_TABS.map((tab) => {
                         const Icon = tab.icon;
                         const isActive = activeTab === tab.id;
+                        const isDanger = Boolean(tab.danger);
                         return (
                             <button
                                 key={tab.id}
@@ -1035,11 +1338,15 @@ export default function ClinicSettings({
                                 onClick={() => handleTabChange(tab.id)}
                                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                                     isActive
-                                        ? 'bg-white dark:bg-white/15 text-[#8200db] dark:text-white shadow-sm border border-slate-200/50 dark:border-white/10'
-                                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                                        ? isDanger
+                                            ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300 shadow-sm border border-rose-500/30'
+                                            : 'bg-white dark:bg-white/15 text-[#8200db] dark:text-white shadow-sm border border-slate-200/50 dark:border-white/10'
+                                        : isDanger
+                                            ? 'text-rose-600 hover:bg-rose-500/10'
+                                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                                 }`}
                             >
-                                <Icon className={`w-4 h-4 ${isActive ? 'text-[#8200db] dark:text-purple-300' : ''}`} />
+                                <Icon className={`w-4 h-4 ${isActive ? (isDanger ? 'text-rose-600' : 'text-[#8200db] dark:text-purple-300') : (isDanger ? 'text-rose-500' : '')}`} />
                                 <span>{tab.label}</span>
                             </button>
                         );
@@ -1054,6 +1361,7 @@ export default function ClinicSettings({
                             {SETTINGS_TABS.map((tab) => {
                                 const Icon = tab.icon;
                                 const isActive = activeTab === tab.id;
+                                const isDanger = Boolean(tab.danger);
                                 return (
                                     <button
                                         key={tab.id}
@@ -1061,23 +1369,35 @@ export default function ClinicSettings({
                                         onClick={() => handleTabChange(tab.id)}
                                         className={`w-full text-left p-3.5 rounded-2xl transition-all duration-200 flex items-center justify-between group ${
                                             isActive
-                                                ? 'bg-white/80 dark:bg-white/15 shadow-sm border border-slate-200/60 dark:border-white/15'
-                                                : 'hover:bg-white/40 dark:hover:bg-white/[0.05] border border-transparent'
+                                                ? isDanger
+                                                    ? 'bg-rose-500/15 dark:bg-rose-500/20 shadow-sm border border-rose-500/30'
+                                                    : 'bg-white/80 dark:bg-white/15 shadow-sm border border-slate-200/60 dark:border-white/15'
+                                                : isDanger
+                                                    ? 'hover:bg-rose-500/10 border border-transparent'
+                                                    : 'hover:bg-white/40 dark:hover:bg-white/[0.05] border border-transparent'
                                         }`}
                                     >
                                         <div className="flex items-center gap-3.5 min-w-0">
                                             <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                                                 isActive
-                                                    ? 'bg-[#8200db] text-white shadow-xs'
-                                                    : 'bg-purple-500/10 dark:bg-purple-400/10 text-slate-600 dark:text-slate-400 group-hover:text-[#8200db] dark:group-hover:text-purple-300'
+                                                    ? isDanger
+                                                        ? 'bg-rose-600 text-white shadow-xs'
+                                                        : 'bg-[#8200db] text-white shadow-xs'
+                                                    : isDanger
+                                                        ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 group-hover:bg-rose-600 group-hover:text-white'
+                                                        : 'bg-purple-500/10 dark:bg-purple-400/10 text-slate-600 dark:text-slate-400 group-hover:text-[#8200db] dark:group-hover:text-purple-300'
                                             }`}>
                                                 <Icon className="w-4 h-4" />
                                             </div>
                                             <div className="min-w-0">
                                                 <span className={`text-xs font-bold block truncate transition-colors ${
                                                     isActive
-                                                        ? 'text-slate-900 dark:text-white font-extrabold'
-                                                        : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'
+                                                        ? isDanger
+                                                            ? 'text-rose-700 dark:text-rose-300 font-extrabold'
+                                                            : 'text-slate-900 dark:text-white font-extrabold'
+                                                        : isDanger
+                                                            ? 'text-rose-600 dark:text-rose-400 font-bold group-hover:text-rose-700'
+                                                            : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'
                                                 }`}>
                                                     {tab.label}
                                                 </span>
@@ -1088,8 +1408,12 @@ export default function ClinicSettings({
                                         </div>
                                         <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${
                                             isActive
-                                                ? 'text-[#8200db] dark:text-purple-300 translate-x-0.5'
-                                                : 'text-slate-300 dark:text-slate-600 group-hover:translate-x-0.5'
+                                                ? isDanger
+                                                    ? 'text-rose-600 dark:text-rose-400 translate-x-0.5'
+                                                    : 'text-[#8200db] dark:text-purple-300 translate-x-0.5'
+                                                : isDanger
+                                                    ? 'text-rose-400 group-hover:translate-x-0.5'
+                                                    : 'text-slate-300 dark:text-slate-600 group-hover:translate-x-0.5'
                                         }`} />
                                     </button>
                                 );
@@ -1115,6 +1439,7 @@ export default function ClinicSettings({
                                         provinces={provinces}
                                         countries={countries}
                                         cities={cities}
+                                        onOpenDeleteModal={() => setIsDeleteModalOpen(true)}
                                     />
                                 )}
 
@@ -1152,11 +1477,25 @@ export default function ClinicSettings({
                                         allLanguages={allScribeLanguages}
                                     />
                                 )}
+
+                                {activeTab === 'danger_zone' && (
+                                    <DangerZoneSection
+                                        tenant={tenant}
+                                        onOpenDeleteModal={() => setIsDeleteModalOpen(true)}
+                                    />
+                                )}
                             </motion.div>
                         </AnimatePresence>
                     </div>
                 </div>
             </div>
+
+            {/* Permanent Account Deletion Modal */}
+            <DeleteAccountModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                tenant={tenant}
+            />
         </AuthenticatedLayout>
     );
 }

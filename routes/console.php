@@ -14,3 +14,6 @@ Schedule::command('registrations:prune-expired')->everyTenMinutes();
 
 // Enforce each clinic's AI Scribe raw-audio retention (transcripts are kept).
 Schedule::command('scribe:purge-audio')->hourly()->withoutOverlapping();
+
+// Transition past_due clinic subscriptions to restricted_overdue after grace period
+Schedule::command('billing:check-overdue')->daily();

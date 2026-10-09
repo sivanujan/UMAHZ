@@ -219,7 +219,7 @@ export default function RevenueReport({
                         </div>
 
                         <div className="relative z-10 mt-5">
-                            <h3 className="text-4xl sm:text-5xl font-black tracking-tight text-white leading-none tabular-nums">
+                            <h3 className="text-4xl sm:text-5xl font-bold tracking-normal text-white leading-none tabular-nums">
                                 {formatCents(summary.net_collected_cents, currency)}
                             </h3>
                             <div className="flex items-center justify-between text-xs font-semibold text-emerald-100 mt-3 pt-2.5 border-t border-white/20">
@@ -279,7 +279,7 @@ export default function RevenueReport({
                                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                     Discounts Applied
                                 </p>
-                                <h4 className="text-xl font-bold mt-1 text-slate-900 dark:text-white tabular-nums">
+                                <h4 className="text-xl font-bold mt-1 text-slate-900 dark:text-white tabular-nums tracking-[-0.01em]">
                                     {formatCents(summary.discounts_cents, currency, true)}
                                 </h4>
                             </div>
@@ -299,7 +299,7 @@ export default function RevenueReport({
                                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                     Refunds Processed
                                 </p>
-                                <h4 className="text-xl font-bold mt-1 text-rose-600 dark:text-rose-400 tabular-nums">
+                                <h4 className="text-xl font-bold mt-1 text-rose-600 dark:text-rose-400 tabular-nums tracking-[-0.01em]">
                                     {formatCents(summary.refunds_cents, currency, true)}
                                 </h4>
                             </div>
@@ -319,7 +319,7 @@ export default function RevenueReport({
                                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                     Sales Tax / GST
                                 </p>
-                                <h4 className="text-xl font-bold mt-1 text-slate-900 dark:text-white tabular-nums">
+                                <h4 className="text-xl font-bold mt-1 text-slate-900 dark:text-white tabular-nums tracking-[-0.01em]">
                                     {formatCents(summary.taxes_cents || summary.tax_cents, currency, true)}
                                 </h4>
                             </div>
@@ -432,7 +432,7 @@ export default function RevenueReport({
                                         <User className="w-4 h-4" />
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                        <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white tracking-normal">
                                             Revenue by Practitioner
                                         </h3>
                                         <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -535,7 +535,7 @@ export default function RevenueReport({
                                     <CreditCard className="w-4 h-4" />
                                 </div>
                                 <div>
-                                    <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                    <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white tracking-normal">
                                         Collections by Payment Method
                                     </h3>
                                     <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -594,7 +594,7 @@ export default function RevenueReport({
                                         <Receipt className="w-4 h-4" />
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                        <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white tracking-normal">
                                             Revenue by Service
                                         </h3>
                                         <p className="text-xs text-slate-500 dark:text-slate-400">

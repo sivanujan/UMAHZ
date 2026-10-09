@@ -379,7 +379,7 @@ export default function ClientsShow({
                         </div>
                         <div>
                             <div className="flex items-center gap-3">
-                                <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{client.name}</h1>
+                                <h1 className="text-2xl sm:text-[28px] font-bold tracking-[-0.01em] text-slate-900 dark:text-white leading-tight">{client.name}</h1>
                                 <StatusPill active={client.is_active} />
                             </div>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2">

@@ -77,7 +77,7 @@ function Toast({ message, onClose }) {
 
 /* --------------------------------- Main Component --------------------------------- */
 
-export default function StaffIndex({ staff = [], roles = [] }) {
+export default function StaffIndex({ staff = [], roles = [], seatInfo = null }) {
     const { flash } = usePage().props;
 
     // Search and filter state
@@ -94,6 +94,7 @@ export default function StaffIndex({ staff = [], roles = [] }) {
     const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
         email: '',
         role: roles?.[0] || 'practitioner',
+        confirm_extra_seat: false,
     });
 
     const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim());
@@ -210,7 +211,7 @@ export default function StaffIndex({ staff = [], roles = [] }) {
                             <Users className="w-5 h-5" />
                         </div>
                         <div>
-                            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                            <div className="text-xl font-bold tracking-normal text-slate-900 dark:text-white leading-tight">
                                 {totalMembers}
                             </div>
                             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -224,7 +225,7 @@ export default function StaffIndex({ staff = [], roles = [] }) {
                             <UserCheck className="w-5 h-5" />
                         </div>
                         <div>
-                            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                            <div className="text-xl font-bold tracking-normal text-slate-900 dark:text-white leading-tight">
                                 {activeCount}
                             </div>
                             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -238,7 +239,7 @@ export default function StaffIndex({ staff = [], roles = [] }) {
                             <Clock className="w-5 h-5" />
                         </div>
                         <div>
-                            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                            <div className="text-xl font-bold tracking-normal text-slate-900 dark:text-white leading-tight">
                                 {invitedCount}
                             </div>
                             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -252,7 +253,7 @@ export default function StaffIndex({ staff = [], roles = [] }) {
                             <Sparkles className="w-5 h-5" />
                         </div>
                         <div>
-                            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                            <div className="text-xl font-bold tracking-normal text-slate-900 dark:text-white leading-tight">
                                 {practitionerCount}
                             </div>
                             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -321,10 +322,42 @@ export default function StaffIndex({ staff = [], roles = [] }) {
                                     </div>
                                 </div>
 
+                                {/* Extra Practitioner Seat Cost Warning & Confirmation */}
+                                {data.role === 'practitioner' && seatInfo?.requires_extra_seat && (
+                                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 space-y-2">
+                                        <div className="flex items-start gap-2 text-xs text-amber-800 dark:text-amber-200">
+                                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                            <div>
+                                                <span className="font-bold block">Extra Practitioner Seat Required</span>
+                                                <span className="text-[11px]">
+                                                    Your plan includes {seatInfo.included_count} practitioner seat{seatInfo.included_count > 1 ? 's' : ''}. Adding this practitioner will add an extra seat at{' '}
+                                                    <strong className="font-extrabold text-amber-900 dark:text-amber-100">
+                                                        +${seatInfo.extra_seat_price} CAD/{seatInfo.billing_interval === 'year' ? 'yr' : 'mo'}
+                                                    </strong>{' '}
+                                                    with immediate proration.
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <label className="flex items-center gap-2 pt-1 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={data.confirm_extra_seat}
+                                                onChange={(e) => setData('confirm_extra_seat', e.target.checked)}
+                                                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                            />
+                                            <span>I authorize adding this paid practitioner seat.</span>
+                                        </label>
+                                        {errors.confirm_extra_seat && (
+                                            <p className="text-[11px] text-rose-500 font-semibold">{errors.confirm_extra_seat}</p>
+                                        )}
+                                    </div>
+                                )}
+
                                 <GlassButton
                                     type="submit"
                                     variant="primary"
-                                    disabled={processing || !isEmailValid || isAlreadyMember}
+                                    disabled={processing || !isEmailValid || isAlreadyMember || (data.role === 'practitioner' && seatInfo?.requires_extra_seat && !data.confirm_extra_seat)}
                                     icon={<UserPlus className="w-4 h-4" />}
                                     className="w-full justify-center mt-2 shadow-sm"
                                 >
@@ -353,7 +386,7 @@ export default function StaffIndex({ staff = [], roles = [] }) {
                                             <Users className="w-4 h-4" />
                                         </div>
                                         <div>
-                                            <h2 className="text-sm font-extrabold text-slate-900 dark:text-white">Clinic Team</h2>
+                                            <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white tracking-normal">Clinic Team</h2>
                                             <p className="text-[11px] text-slate-500 dark:text-slate-400">
                                                 {filteredStaff.length} {filteredStaff.length === 1 ? 'member' : 'members'} found
                                             </p>

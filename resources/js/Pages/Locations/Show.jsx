@@ -182,10 +182,15 @@ function RoomModal({ locationId, room, onClose }) {
 /* --------------------------------- Main Component --------------------------------- */
 
 export default function LocationShow({ location, rooms = [], stats = {}, timezones = [], provinces = [] }) {
-    const { flash, errors } = usePage().props;
+    const { entitlements, flash, errors } = usePage().props;
     const [editLocation, setEditLocation] = useState(false);
     const [roomModal, setRoomModal] = useState(null); // null | 'new' | room object
     const [deleteRoomModal, setDeleteRoomModal] = useState(null); // null | room object
+    const [upgradeModal, setUpgradeModal] = useState(false);
+
+    const roomLimit = entitlements?.limits?.rooms?.limit;
+    const currentActiveRooms = entitlements?.limits?.rooms?.current ?? (stats.active_rooms ?? rooms.filter((r) => r.is_active).length);
+    const isRoomLimitReached = roomLimit !== null && roomLimit !== undefined && currentActiveRooms >= roomLimit;
 
     const toggleLocation = () => {
         router.patch(`/app/locations/${location.id}/toggle`, {}, { preserveScroll: true });
@@ -239,7 +244,13 @@ export default function LocationShow({ location, rooms = [], stats = {}, timezon
                                 <GlassButton
                                     variant="primary"
                                     icon={<Plus className="w-4 h-4" />}
-                                    onClick={() => setRoomModal('new')}
+                                    onClick={() => {
+                                        if (isRoomLimitReached) {
+                                            setUpgradeModal(true);
+                                        } else {
+                                            setRoomModal('new');
+                                        }
+                                    }}
                                 >
                                     Add Room
                                 </GlassButton>
@@ -268,7 +279,7 @@ export default function LocationShow({ location, rooms = [], stats = {}, timezon
                             <DoorOpen className="w-5 h-5" />
                         </div>
                         <div>
-                            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                            <div className="text-xl font-bold tracking-normal text-slate-900 dark:text-white leading-tight">
                                 {totalRooms}
                             </div>
                             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -282,7 +293,7 @@ export default function LocationShow({ location, rooms = [], stats = {}, timezon
                             <CheckCircle2 className="w-5 h-5" />
                         </div>
                         <div>
-                            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                            <div className="text-xl font-bold tracking-normal text-slate-900 dark:text-white leading-tight">
                                 {activeRooms}
                             </div>
                             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -296,7 +307,7 @@ export default function LocationShow({ location, rooms = [], stats = {}, timezon
                             <Users className="w-5 h-5" />
                         </div>
                         <div>
-                            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                            <div className="text-xl font-bold tracking-normal text-slate-900 dark:text-white leading-tight">
                                 {practitionersCount}
                             </div>
                             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -310,7 +321,7 @@ export default function LocationShow({ location, rooms = [], stats = {}, timezon
                             <Calendar className="w-5 h-5" />
                         </div>
                         <div>
-                            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                            <div className="text-xl font-bold tracking-normal text-slate-900 dark:text-white leading-tight">
                                 {upcomingVisits}
                             </div>
                             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -329,7 +340,7 @@ export default function LocationShow({ location, rooms = [], stats = {}, timezon
                             </div>
                             <div>
                                 <div className="flex items-center gap-2.5 flex-wrap">
-                                    <h2 className="text-xl font-black text-slate-900 dark:text-white">
+                                    <h2 className="text-xl font-semibold text-slate-900 dark:text-white tracking-normal">
                                         {location.name}
                                     </h2>
                                     <StatusBadge variant={location.is_active ? 'success' : 'neutral'}>
@@ -422,11 +433,16 @@ export default function LocationShow({ location, rooms = [], stats = {}, timezon
                                 <DoorOpen className="w-4 h-4" />
                             </div>
                             <div>
-                                <h2 className="text-base font-black text-slate-900 dark:text-white">
+                                <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white tracking-normal">
                                     Treatment Rooms & Suites
                                 </h2>
                                 <p className="text-xs text-slate-500 dark:text-slate-400">
                                     {rooms.length} room{rooms.length === 1 ? '' : 's'} available for bookings
+                                    {roomLimit !== null && roomLimit !== undefined && (
+                                        <span className="ml-2 font-medium text-purple-700 dark:text-purple-300">
+                                            ({currentActiveRooms}/{roomLimit} active room allowed on {entitlements?.plan?.name || 'Essential'} plan)
+                                        </span>
+                                    )}
                                 </p>
                             </div>
                         </div>
@@ -435,11 +451,35 @@ export default function LocationShow({ location, rooms = [], stats = {}, timezon
                             variant="primary"
                             size="sm"
                             icon={<Plus className="w-3.5 h-3.5" />}
-                            onClick={() => setRoomModal('new')}
+                            onClick={() => {
+                                if (isRoomLimitReached) {
+                                    setUpgradeModal(true);
+                                } else {
+                                    setRoomModal('new');
+                                }
+                            }}
                         >
                             Add Room
                         </GlassButton>
                     </div>
+
+                    {roomLimit !== null && roomLimit !== undefined && isRoomLimitReached && (
+                        <div className="p-4 rounded-2xl border border-purple-500/20 bg-purple-500/10 text-purple-900 dark:text-purple-200 text-xs sm:text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5">
+                                <Sparkles className="w-4 h-4 text-[#8200db] dark:text-purple-400 shrink-0" />
+                                <span>
+                                    <strong>{entitlements?.plan?.name || 'Essential'} Plan:</strong> Room allowance reached ({currentActiveRooms}/{roomLimit} room active). Upgrade to Professional for unlimited treatment rooms and suites.
+                                </span>
+                            </div>
+                            <GlassButton
+                                variant="primary"
+                                size="sm"
+                                onClick={() => router.visit('/app/billing')}
+                            >
+                                Upgrade Plan
+                            </GlassButton>
+                        </div>
+                    )}
 
                     {rooms.length === 0 ? (
                         <GlassCard className="p-12 text-center">
@@ -601,6 +641,49 @@ export default function LocationShow({ location, rooms = [], stats = {}, timezon
                                     onClick={confirmDeleteRoom}
                                 >
                                     Delete Room
+                                </GlassButton>
+                            </div>
+                        </div>
+                    </GlassModal>
+                )}
+
+                {/* Room Limit Upgrade Modal */}
+                {upgradeModal && (
+                    <GlassModal
+                        isOpen={true}
+                        onClose={() => setUpgradeModal(false)}
+                        title="Room Limit Reached"
+                        maxWidth="max-w-md"
+                    >
+                        <div className="space-y-4">
+                            <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-xs text-purple-900 dark:text-purple-200 flex items-start gap-3">
+                                <Sparkles className="w-5 h-5 text-[#8200db] dark:text-purple-400 shrink-0 mt-0.5" />
+                                <div className="space-y-1.5">
+                                    <p className="font-bold text-sm text-slate-900 dark:text-white">
+                                        Single Room Allowance
+                                    </p>
+                                    <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                                        Your current plan ({entitlements?.plan?.name || 'Essential'}) includes <strong>1 treatment room</strong> ({currentActiveRooms}/{roomLimit} active).
+                                    </p>
+                                    <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                                        Upgrade to <strong>Professional</strong> to unlock unlimited treatment rooms, suites, and multi-room scheduling.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200/50 dark:border-white/10">
+                                <GlassButton
+                                    variant="secondary"
+                                    onClick={() => setUpgradeModal(false)}
+                                >
+                                    Dismiss
+                                </GlassButton>
+                                <GlassButton
+                                    variant="primary"
+                                    icon={<Sparkles className="w-4 h-4" />}
+                                    onClick={() => router.visit('/app/billing')}
+                                >
+                                    View Plans & Upgrade
                                 </GlassButton>
                             </div>
                         </div>

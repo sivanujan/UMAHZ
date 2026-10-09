@@ -39,7 +39,7 @@ export default function DonutProgressCard({
             {/* Top row: Title and reference circular arrow button */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h3 className="font-bold text-base text-slate-900 dark:text-white tracking-tight">
+                    <h3 className="font-semibold text-lg text-slate-900 dark:text-white tracking-normal">
                         {title}
                     </h3>
                     <p className="text-xs text-slate-400 dark:text-slate-400 mt-0.5">
@@ -97,7 +97,7 @@ export default function DonutProgressCard({
 
                 {/* Center Content: High contrast in both light and dark */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <span className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white leading-none">
+                    <span className="text-3xl sm:text-4xl font-bold tracking-normal text-slate-900 dark:text-white leading-none">
                         {clampedPercentage}%
                     </span>
                     <span className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mt-1.5">
@@ -122,7 +122,7 @@ export default function DonutProgressCard({
                         <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block tracking-wide">
                             Paid Invoices
                         </span>
-                        <span className="text-xs font-extrabold text-slate-900 dark:text-white truncate block mt-0.5">
+                        <span className="text-xs font-bold tracking-normal text-slate-900 dark:text-white truncate block mt-0.5">
                             {paidCount} {paidCount === 1 ? 'invoice' : 'invoices'}
                         </span>
                     </div>
@@ -142,7 +142,7 @@ export default function DonutProgressCard({
                         <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block tracking-wide">
                             Outstanding
                         </span>
-                        <span className="text-xs font-extrabold text-slate-900 dark:text-white truncate block mt-0.5">
+                        <span className="text-xs font-bold tracking-normal text-slate-900 dark:text-white truncate block mt-0.5">
                             {openCount} {openCount === 1 ? 'pending' : 'pending'}
                         </span>
                     </div>

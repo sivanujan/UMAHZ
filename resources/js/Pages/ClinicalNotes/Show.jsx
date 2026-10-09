@@ -110,7 +110,7 @@ export default function ClinicalNoteShow({ client, appointment, note, clinic }) 
                         </Link>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+                                <h1 className="text-xl sm:text-2xl font-bold tracking-[-0.01em] text-slate-900 dark:text-white">
                                     {note.template_name || 'Clinical Encounter Note'}
                                 </h1>
                                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${

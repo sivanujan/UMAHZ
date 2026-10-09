@@ -8,11 +8,34 @@ if (!class_exists('finfo')) {
     class finfo {
         public function __construct(int $flags = 0, ?string $magicFile = null) {}
         public function buffer(string $string, int $flags = 0, $context = null): string|false {
-            return false;
+            $tmp = tempnam(sys_get_temp_dir(), 'finfo');
+            file_put_contents($tmp, $string);
+            $mime = $this->file($tmp, $flags, $context);
+            @unlink($tmp);
+            return $mime;
         }
         public function file(string $filename, int $flags = 0, $context = null): string|false {
-            return false;
+            if (class_exists(\App\Support\FallbackMimeTypeGuesser::class)) {
+                $guesser = new \App\Support\FallbackMimeTypeGuesser();
+                return $guesser->guessMimeType($filename) ?? false;
+            }
+            $img = @getimagesize($filename);
+            return $img['mime'] ?? false;
         }
+    }
+}
+if (!function_exists('finfo_open')) {
+    function finfo_open(int $flags = 0, ?string $magicFile = null) {
+        return new \finfo($flags, $magicFile);
+    }
+    function finfo_file($finfo, string $filename, int $flags = 0, $context = null) {
+        return $finfo instanceof \finfo ? $finfo->file($filename, $flags, $context) : false;
+    }
+    function finfo_buffer($finfo, string $string, int $flags = 0, $context = null) {
+        return $finfo instanceof \finfo ? $finfo->buffer($string, $flags, $context) : false;
+    }
+    function finfo_close($finfo): bool {
+        return true;
     }
 }
 

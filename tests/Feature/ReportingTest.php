@@ -156,15 +156,15 @@ class ReportingTest extends TestCase
             'timezone' => 'America/Toronto',
         ]);
 
-        // Create appointment in Clinic A
+        $nowTz = Carbon::now($tenantA->timezone ?: 'America/Toronto');
         Appointment::create([
             'tenant_id' => $tenantA->id,
             'client_id' => $clientA->id,
             'staff_membership_id' => $membershipA->id,
             'location_id' => $locationA->id,
             'service_name' => 'Physiotherapy Assessment',
-            'starts_at' => Carbon::today()->setTime(10, 0),
-            'ends_at' => Carbon::today()->setTime(11, 0),
+            'starts_at' => $nowTz->copy()->startOfDay()->addHours(10),
+            'ends_at' => $nowTz->copy()->startOfDay()->addHours(11),
             'status' => Appointment::STATUS_COMPLETED,
         ]);
 
@@ -205,7 +205,7 @@ class ReportingTest extends TestCase
         $invoice = Invoice::create([
             'tenant_id' => $tenant->id,
             'client_id' => $client->id,
-            'invoice_number' => 'INV-0001',
+            'invoice_number' => 1001,
             'status' => Invoice::STATUS_PAID,
             'currency' => 'cad',
             'due_date' => Carbon::today()->addDays(14),
@@ -265,13 +265,14 @@ class ReportingTest extends TestCase
             'email' => 'export@example.com',
         ]);
 
+        $nowExportTz = Carbon::now($tenant->timezone ?: 'America/Toronto');
         Appointment::create([
             'tenant_id' => $tenant->id,
             'client_id' => $client->id,
             'staff_membership_id' => $membership->id,
             'service_name' => 'Consultation Session',
-            'starts_at' => Carbon::today()->setTime(14, 0),
-            'ends_at' => Carbon::today()->setTime(15, 0),
+            'starts_at' => $nowExportTz->copy()->startOfDay()->addHours(14),
+            'ends_at' => $nowExportTz->copy()->startOfDay()->addHours(15),
             'status' => Appointment::STATUS_COMPLETED,
         ]);
 

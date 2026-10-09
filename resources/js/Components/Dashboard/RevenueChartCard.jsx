@@ -89,7 +89,7 @@ export default function RevenueChartCard({
             {/* Header: Title & Controls */}
             <div className="flex items-center justify-between gap-4 pb-3">
                 <div>
-                    <h3 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white tracking-tight">
+                    <h3 className="font-semibold text-lg sm:text-xl text-slate-900 dark:text-white tracking-normal">
                         Revenue Overview
                     </h3>
                     <p className="text-xs text-slate-400 dark:text-slate-400 mt-0.5">
@@ -147,7 +147,7 @@ export default function RevenueChartCard({
                             Current Month
                         </span>
                         <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                            <span className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-[-0.01em]">
                                 {monthlyRevenue}
                             </span>
                             <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
@@ -161,7 +161,7 @@ export default function RevenueChartCard({
                             Period Total
                         </span>
                         <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                            <span className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-[-0.01em]">
                                 ${totalInPeriod.toFixed(2)}
                             </span>
                             <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-500/10 text-violet-600 dark:text-violet-400">

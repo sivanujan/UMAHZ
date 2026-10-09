@@ -100,4 +100,36 @@ class PageBuilderGrapesTest extends TestCase
             ->assertSee('Grapes Public Headline')
             ->assertSee('/pay');
     }
+
+    public function test_essential_basic_plan_can_access_and_save_page_builder(): void
+    {
+        $this->seed(\Database\Seeders\SubscriptionPlansSeeder::class);
+        $essentialPlan = \App\Models\Plan::where('slug', 'essential')->firstOrFail();
+
+        $tenant = $this->tenant([
+            'plan_id' => $essentialPlan->id,
+            'subscription_status' => Tenant::SUBSCRIPTION_ACTIVE,
+        ]);
+        $owner = $this->member($tenant, StaffMembership::ROLE_CLINIC_OWNER);
+
+        $entitlements = app(\App\Services\PlanEntitlements::class);
+        $this->assertTrue($entitlements->isFeatureEnabled($tenant, 'website_builder'));
+
+        $this->actingAs($owner)
+            ->get('http://grapes-clinic.umahz.test/app/settings/page-builder')
+            ->assertOk();
+
+        $response = $this->actingAs($owner)
+            ->postJson('http://grapes-clinic.umahz.test/app/settings/page-layout', [
+                'gjs_project' => ['components' => []],
+                'gjs_html'    => '<section><h1>Essential Plan Header</h1></section>',
+                'gjs_css'     => 'h1 { color: #8200db; }',
+            ]);
+
+        $response->assertOk()
+            ->assertJson(['ok' => true]);
+
+        $tenant->refresh();
+        $this->assertStringContainsString('Essential Plan Header', $tenant->homepage_settings['gjs_html']);
+    }
 }

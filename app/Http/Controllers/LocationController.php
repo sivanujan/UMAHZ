@@ -87,6 +87,24 @@ class LocationController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $tenantId = TenantScope::getTenantId();
+        $tenant = \App\Models\Tenant::find($tenantId);
+
+        if ($tenant) {
+            $entitlements = app(\App\Services\PlanEntitlements::class);
+            $check = $entitlements->checkLocationLimit($tenant);
+            if (! $check['allowed']) {
+                $entitlements->recordBlockedAction(
+                    $tenant,
+                    $request->user(),
+                    'location_limit',
+                    $check['reason'] ?? 'Location limit reached'
+                );
+
+                return back()->withErrors(['location' => $check['reason']])->with('error', $check['reason']);
+            }
+        }
+
         $data = $this->validated($request);
 
         DB::transaction(function () use ($request, $data) {

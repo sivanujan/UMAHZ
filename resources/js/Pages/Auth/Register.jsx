@@ -6,7 +6,7 @@ import PasswordStrengthMeter from '@/Components/UI/PasswordStrengthMeter';
 
 const ROYAL_BLUE = '#5B2EFF';
 const DEEP_NAVY = '#1E0B3C';
-const UI_FONT = "'Satoshi', system-ui, -apple-system, sans-serif";
+const UI_FONT = "'Manrope', system-ui, -apple-system, sans-serif";
 
 const CONTACT_METHODS = [
     { value: 'email', label: 'Email' },
@@ -383,7 +383,7 @@ export default function Register({ tenants, preselectedTenantSlug, tosVersion })
                     }}
                 >
                     <div className="text-center">
-                        <h1 className="text-[26px] font-bold tracking-tight" style={{ color: DEEP_NAVY }}>Create Your Client Account</h1>
+                        <h1 className="text-2xl sm:text-[28px] font-bold tracking-[-0.01em]" style={{ color: DEEP_NAVY }}>Create Your Client Account</h1>
                         <p className="mt-2 text-sm text-slate-400">Book appointments, fill forms, and manage your care.</p>
                     </div>
 

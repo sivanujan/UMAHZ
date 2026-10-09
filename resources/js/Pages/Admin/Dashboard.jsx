@@ -118,7 +118,7 @@ export default function AdminDashboard({ stats, tenants = [] }) {
                 <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 flex items-center justify-between shadow-sm relative overflow-hidden group">
                     <div className="relative z-10">
                         <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Clinics</p>
-                        <h3 className="text-2xl font-bold text-white mt-1">{stats?.totalTenants ?? tenants.length}</h3>
+                        <h3 className="text-2xl font-bold tracking-[-0.01em] text-white mt-1">{stats?.totalTenants ?? tenants.length}</h3>
                         <p className="text-[11px] text-slate-400 mt-1">
                             <span className="text-emerald-400 font-semibold">{stats?.activeTenants ?? 0}</span> active
                             {stats?.pendingTenants ? ` · ${stats.pendingTenants} pending` : ''}
@@ -133,7 +133,7 @@ export default function AdminDashboard({ stats, tenants = [] }) {
                 <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 flex items-center justify-between shadow-sm relative overflow-hidden">
                     <div className="relative z-10">
                         <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Platform MRR (Earnings)</p>
-                        <h3 className="text-2xl font-bold text-emerald-400 mt-1">
+                        <h3 className="text-2xl font-bold tracking-[-0.01em] text-emerald-400 mt-1">
                             {formatMoney(stats?.totalMrr ?? 0)}
                             <span className="text-xs font-normal text-slate-400">/mo</span>
                         </h3>
@@ -150,7 +150,7 @@ export default function AdminDashboard({ stats, tenants = [] }) {
                 <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 flex items-center justify-between shadow-sm relative overflow-hidden">
                     <div className="relative z-10">
                         <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Clinics Patient Earnings</p>
-                        <h3 className="text-2xl font-bold text-sky-400 mt-1">
+                        <h3 className="text-2xl font-bold tracking-[-0.01em] text-sky-400 mt-1">
                             {formatMoney(stats?.totalPatientGrossVolume ?? 0)}
                         </h3>
                         <p className="text-[11px] text-slate-400 mt-1">Total patient billings processed</p>
@@ -164,7 +164,7 @@ export default function AdminDashboard({ stats, tenants = [] }) {
                 <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 flex items-center justify-between shadow-sm relative overflow-hidden">
                     <div className="relative z-10">
                         <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Platform Network</p>
-                        <h3 className="text-2xl font-bold text-amber-400 mt-1">
+                        <h3 className="text-2xl font-bold tracking-[-0.01em] text-amber-400 mt-1">
                             {stats?.totalClients ?? 0}
                             <span className="text-xs font-normal text-slate-400"> patients</span>
                         </h3>

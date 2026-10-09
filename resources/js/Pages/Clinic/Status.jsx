@@ -8,7 +8,7 @@ import Logo from '@/Components/Common/Logo';
 
 const ROYAL_BLUE = '#5B2EFF';
 const DEEP_NAVY = '#1E0B3C';
-const UI_FONT = "'Satoshi', system-ui, -apple-system, sans-serif";
+const UI_FONT = "'Manrope', system-ui, -apple-system, sans-serif";
 
 const DISCIPLINE_LABELS = {
     massage_therapy: 'Massage Therapy',
@@ -18,6 +18,14 @@ const DISCIPLINE_LABELS = {
     colon_hydrotherapy: 'Colon Hydrotherapy',
     physiotherapy: 'Physiotherapy',
     chiropractor: 'Chiropractor',
+};
+
+const SECTION_LABELS = {
+    clinic_details: 'Clinic details & registration',
+    documents_license: 'Licence & documentation',
+    disciplines: 'Disciplines & practitioners',
+    contact: 'Contact information',
+    other: 'Other requirements',
 };
 
 const STATUS_META = {
@@ -32,9 +40,19 @@ const STATUS_META = {
         body: 'Please review the note below, update your application, and resubmit — no need to sign up again.',
     },
     rejected: {
+        icon: AlertTriangle, color: '#D97706', bg: 'rgba(217,119,6,0.1)',
+        title: 'Your application needs changes',
+        body: 'Our review team requested updates before your application can be approved. Please review the feedback below and update your application to continue.',
+    },
+    rejected_final: {
         icon: XCircle, color: '#E11D48', bg: 'rgba(225,29,72,0.1)',
-        title: 'Your application was not approved',
-        body: 'See the reason below. If you believe this is a mistake, reply to the email we sent you.',
+        title: 'Application closed',
+        body: 'You have reached the maximum number of application attempts for this clinic. Further applications from this account cannot be accepted.',
+    },
+    permanently_rejected: {
+        icon: Ban, color: '#E11D48', bg: 'rgba(225,29,72,0.1)',
+        title: 'Application permanently declined',
+        body: 'We are unable to accept applications from this account. Applications from this email are permanently closed. Please contact support@umahz.com if you believe this is in error.',
     },
     suspended: {
         icon: Ban, color: '#64748B', bg: 'rgba(100,116,139,0.1)',
@@ -176,9 +194,20 @@ function ResubmitForm({ tenant, disciplines, disciplineLabels = {} }) {
     );
 }
 
-export default function ClinicStatus({ tenant, canEdit, disciplines = [], disciplineLabels = {} }) {
+export default function ClinicStatus({ tenant, canEdit, canReapply, disciplines = [], disciplineLabels = {} }) {
     const [editing, setEditing] = useState(false);
-    const meta = STATUS_META[tenant.status] || STATUS_META.pending_review;
+
+    let resolvedStatusKey = tenant.status;
+    if (tenant.status === 'rejected') {
+        if (!canReapply && !tenant.is_permanently_rejected) {
+            resolvedStatusKey = 'rejected_final';
+        }
+    }
+    if (tenant.is_permanently_rejected || tenant.status === 'permanently_rejected') {
+        resolvedStatusKey = 'permanently_rejected';
+    }
+
+    const meta = STATUS_META[resolvedStatusKey] || STATUS_META.pending_review;
     const Icon = meta.icon;
 
     return (
@@ -215,19 +244,52 @@ export default function ClinicStatus({ tenant, canEdit, disciplines = [], discip
                         <p className="text-sm text-slate-500 mt-2">{meta.body}</p>
                     </div>
 
+                    {tenant.status === 'rejected' && canReapply && (
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                            <span>Attempt {tenant.reapply_count} of {tenant.max_attempts}</span>
+                            <span className="text-amber-400">•</span>
+                            <span>{tenant.attempts_remaining} {tenant.attempts_remaining === 1 ? 'attempt' : 'attempts'} remaining</span>
+                        </div>
+                    )}
+
                     <div className="text-left rounded-xl border border-slate-200 bg-white/70 px-4 py-3.5 space-y-1.5">
                         <p className="text-sm font-bold" style={{ color: DEEP_NAVY }}>{tenant.name}</p>
                         {tenant.submitted_at && <p className="text-xs text-slate-500">Submitted {tenant.submitted_at}</p>}
                         {tenant.reviewed_at && <p className="text-xs text-slate-500">Reviewed {tenant.reviewed_at}</p>}
                     </div>
 
-                    {tenant.review_note && (tenant.status === 'needs_more_info' || tenant.status === 'rejected') && (
+                    {tenant.review_note && (tenant.status === 'needs_more_info' || tenant.status === 'rejected' || tenant.is_permanently_rejected) && (
                         <div
                             className="text-left rounded-xl px-4 py-3.5 text-sm"
                             style={{ background: meta.bg, color: meta.color }}
                         >
-                            {tenant.review_note}
+                            <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">Review Note</p>
+                            <p className="whitespace-pre-line">{tenant.review_note}</p>
                         </div>
+                    )}
+
+                    {tenant.status === 'rejected' && canReapply && tenant.rejection_sections && tenant.rejection_sections.length > 0 && (
+                        <div className="text-left rounded-xl border border-amber-200 bg-amber-50/60 p-4 space-y-2">
+                            <p className="text-xs font-bold text-amber-900 uppercase tracking-wider">Required changes</p>
+                            <ul className="space-y-1.5 text-xs text-amber-950 font-medium">
+                                {tenant.rejection_sections.map((sec) => (
+                                    <li key={sec} className="flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600 flex-shrink-0" />
+                                        <span>{SECTION_LABELS[sec] || sec}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
+                    {canReapply && (
+                        <Link
+                            href="/clinic/reapply"
+                            className="w-full py-3.5 px-4 text-white font-medium text-sm rounded-full transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]"
+                            style={{ background: `linear-gradient(135deg, ${ROYAL_BLUE} 0%, #2E9BE6 100%)`, boxShadow: '0 10px 30px -8px rgba(91,46,255,0.45)' }}
+                        >
+                            Update &amp; Re-apply
+                        </Link>
                     )}
 
                     {canEdit && !editing && (

@@ -75,8 +75,10 @@ export default function ReportLayout({
     exportRoute,
     children,
 }) {
-    const { auth } = usePage().props;
+    const { auth, entitlements } = usePage().props;
     const clinicName = auth?.tenant?.name || 'UMAHZ Clinic';
+    const lockedFeatures = entitlements?.locked_features || {};
+    const isFinancialLocked = Boolean(lockedFeatures['advanced_financial_reporting']);
 
     const practitionersList = options.practitioners || practitioners || [];
     const locationsList = options.locations || locations || [];
@@ -101,7 +103,8 @@ export default function ReportLayout({
             label: 'Revenue & Financials',
             href: '/app/reports/revenue',
             icon: DollarSign,
-            enabled: canViewFinancial,
+            enabled: canViewFinancial && !isFinancialLocked,
+            lockedMessage: isFinancialLocked ? `Available on ${lockedFeatures['advanced_financial_reporting'] || 'Professional or Signature'}` : 'Available to Clinic Owner only',
             ownerOnly: true,
         },
         {
@@ -296,7 +299,7 @@ export default function ReportLayout({
                                     <div
                                         key={tab.id}
                                         className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl text-slate-400 dark:text-slate-500 opacity-50 cursor-not-allowed select-none whitespace-nowrap"
-                                        title="Available to Clinic Owner only"
+                                        title={tab.lockedMessage || "Available to Clinic Owner only"}
                                     >
                                         <Icon className="w-3.5 h-3.5" />
                                         <span>{tab.label}</span>

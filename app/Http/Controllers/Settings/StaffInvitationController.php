@@ -28,6 +28,8 @@ class StaffInvitationController extends Controller
     public function index(Request $request): Response
     {
         $tenantId = TenantScope::getTenantId();
+        $tenant = \App\Models\Tenant::find($tenantId);
+        $seatCheck = $tenant ? app(\App\Services\PlanEntitlements::class)->checkPractitionerSeats($tenant) : null;
 
         $memberships = StaffMembership::with(['user', 'practitionerProfile'])
             ->where('tenant_id', $tenantId)
@@ -50,6 +52,15 @@ class StaffInvitationController extends Controller
         return Inertia::render('Settings/Staff/Index', [
             'staff' => $memberships,
             'roles' => self::INVITABLE_ROLES,
+            'seatInfo' => $seatCheck ? [
+                'allowed' => $seatCheck['allowed'],
+                'requires_extra_seat' => $seatCheck['requires_extra_seat'],
+                'extra_seat_price' => $seatCheck['extra_seat_price'],
+                'current_count' => $seatCheck['current_count'],
+                'included_count' => $seatCheck['included_count'],
+                'max_count' => $seatCheck['max_count'],
+                'billing_interval' => $tenant->billing_interval ?? 'month',
+            ] : null,
         ]);
     }
 
@@ -64,16 +75,31 @@ class StaffInvitationController extends Controller
             'email' => ['required', 'email'],
             'role' => ['required', 'string', 'in:'.implode(',', self::INVITABLE_ROLES)],
             'employment_type' => ['nullable', 'string', 'in:full_time,part_time'],
+            'confirm_extra_seat' => ['nullable', 'boolean'],
         ]);
 
         $tenantId = TenantScope::getTenantId();
         $tenant = \App\Models\Tenant::find($tenantId);
 
-        if ($data['role'] === StaffMembership::ROLE_PRACTITIONER && $tenant && ! $subscriptions->canAddPractitioner($tenant)) {
-            $limit = $tenant->maxPractitioners() ?? 1;
-            return back()->withErrors([
-                'role' => "Your current plan ({$tenant->planName()}) is limited to {$limit} practitioner(s). Please upgrade your clinic subscription plan to add more practitioners.",
-            ]);
+        if ($data['role'] === StaffMembership::ROLE_PRACTITIONER && $tenant) {
+            $seatCheck = app(\App\Services\PlanEntitlements::class)->checkPractitionerSeats($tenant);
+            if (! $seatCheck['allowed']) {
+                app(\App\Services\PlanEntitlements::class)->recordBlockedAction($tenant, 'practitioner_seat_limit', [
+                    'current' => $seatCheck['current_count'],
+                    'max' => $seatCheck['max_count'],
+                ]);
+                return back()->withErrors([
+                    'role' => $seatCheck['reason'] ?? "Your current plan ({$tenant->planName()}) limit reached. Please upgrade your clinic subscription plan to add more practitioners.",
+                ]);
+            }
+
+            // Requirement 2b: Extra seats on staff invite: owner sees the cost and confirms before the invite is sent
+            if ($seatCheck['requires_extra_seat'] && empty($data['confirm_extra_seat'])) {
+                $interval = $tenant->billing_interval === 'year' ? 'year' : 'month';
+                return back()->withErrors([
+                    'confirm_extra_seat' => "Adding this practitioner requires an additional seat at \${$seatCheck['extra_seat_price']} CAD/{$interval}. Please confirm to proceed.",
+                ]);
+            }
         }
 
         $user = User::firstOrCreate(

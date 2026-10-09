@@ -1,7 +1,7 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { ClipboardCheck, ArrowRight } from 'lucide-react';
+import { ClipboardCheck, ArrowRight, AlertTriangle } from 'lucide-react';
 
 const STATUS_LABELS = {
     pending_review: 'Pending Review',
@@ -71,7 +71,23 @@ export default function ClinicsIndex({ tenants, status, statuses }) {
                                 tenants.map((t) => (
                                     <tr key={t.id} className="hover:bg-slate-800/40 transition-colors">
                                         <td className="py-4 px-6">
-                                            <div className="font-medium text-white">{t.name}</div>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="font-medium text-white">{t.name}</span>
+                                                {t.is_reapplication && (
+                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/25">
+                                                        Re-application ({t.reapply_count} of {t.max_attempts})
+                                                    </span>
+                                                )}
+                                                {t.matches_blocked && (
+                                                    <span
+                                                        className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/15 text-rose-300 border border-rose-500/25 flex items-center gap-1"
+                                                        title={t.blocked_match_reason}
+                                                    >
+                                                        <AlertTriangle className="w-2.5 h-2.5" />
+                                                        Matches blocked clinic
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="py-4 px-6">
                                             <div className="text-slate-300">{t.primary_contact_name}</div>

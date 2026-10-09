@@ -4,7 +4,7 @@ import AdminLayout from '@/Layouts/AdminLayout';
 import {
     Settings, Shield, Sliders, Server, Bell, Save, RefreshCw, CheckCircle2,
     AlertCircle, Globe, Mail, Phone, Lock, Clock, FileCheck, Check,
-    AlertTriangle, Sparkles, Terminal, Database, Cpu
+    AlertTriangle, Sparkles, Terminal, Database, Cpu, CreditCard
 } from 'lucide-react';
 
 export default function PlatformSettingsIndex({ settings = {}, systemInfo = {} }) {
@@ -33,6 +33,13 @@ export default function PlatformSettingsIndex({ settings = {}, systemInfo = {} }
         enforce_2fa_staff: Boolean(settings.enforce_2fa_staff),
         session_timeout_minutes: Number(settings.session_timeout_minutes ?? 120),
         max_failed_login_attempts: Number(settings.max_failed_login_attempts ?? 5),
+
+        // Platform Billing Settings
+        grace_period_days: Number(settings.grace_period_days ?? 7),
+        stripe_automatic_tax: Boolean(settings.stripe_automatic_tax),
+        default_appointment_limit_behavior: settings.default_appointment_limit_behavior || 'warn',
+        default_scribe_limit_behavior: settings.default_scribe_limit_behavior || 'warn',
+        default_location_limit_behavior: settings.default_location_limit_behavior || 'block',
 
         // Announcements
         system_announcement: settings.system_announcement || '',
@@ -74,6 +81,7 @@ export default function PlatformSettingsIndex({ settings = {}, systemInfo = {} }
         { id: 'general', label: 'General Info', icon: Globe },
         { id: 'onboarding', label: 'Onboarding & Approvals', icon: Sliders },
         { id: 'security', label: 'Security & Access', icon: Shield },
+        { id: 'billing', label: 'Platform Billing', icon: CreditCard },
         { id: 'announcements', label: 'Announcements', icon: Bell },
         { id: 'system', label: 'System & Maintenance', icon: Server },
     ];
@@ -377,6 +385,102 @@ export default function PlatformSettingsIndex({ settings = {}, systemInfo = {} }
                                                     onChange={(e) => handleChange('max_failed_login_attempts', parseInt(e.target.value, 10) || 3)}
                                                     className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-slate-200 outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500"
                                                 />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Tab: Platform Billing */}
+                            {activeTab === 'billing' && (
+                                <div className="p-6 space-y-6">
+                                    <div className="border-b border-slate-800 pb-4">
+                                        <h3 className="text-base font-semibold text-white">Platform Subscription & Billing Rules</h3>
+                                        <p className="text-xs text-slate-400 mt-0.5">
+                                            Configure grace periods, Stripe automatic tax, and default limit enforcement behaviors.
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        {/* Grace period days */}
+                                        <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
+                                            <label className="block text-sm font-semibold text-white mb-1">
+                                                Subscription Grace Period (Days)
+                                            </label>
+                                            <p className="text-xs text-slate-400 mb-3">
+                                                Number of days clinics retain full platform access after a recurring payment failure before access is restricted.
+                                            </p>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="90"
+                                                value={form.grace_period_days}
+                                                onChange={(e) => handleChange('grace_period_days', parseInt(e.target.value, 10) || 0)}
+                                                className="w-48 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-slate-200 outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500 font-mono"
+                                            />
+                                        </div>
+
+                                        {/* Automatic Tax */}
+                                        <div className="flex items-center justify-between p-4 bg-slate-950 rounded-xl border border-slate-800">
+                                            <div>
+                                                <h4 className="text-sm font-semibold text-white">Stripe Automatic Tax</h4>
+                                                <p className="text-xs text-slate-400 mt-0.5">
+                                                    Automatically compute and collect sales taxes (GST/HST/PST/State tax) on platform subscription invoices based on clinic address.
+                                                </p>
+                                            </div>
+                                            <input
+                                                type="checkbox"
+                                                checked={form.stripe_automatic_tax}
+                                                onChange={(e) => handleChange('stripe_automatic_tax', e.target.checked)}
+                                                className="w-5 h-5 rounded border-slate-700 bg-slate-900 text-violet-600 focus:ring-violet-500/40 cursor-pointer"
+                                            />
+                                        </div>
+
+                                        {/* Default Limit Behaviors */}
+                                        <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-4">
+                                            <div>
+                                                <h4 className="text-sm font-semibold text-white">Default Limit Enforcement Behaviors</h4>
+                                                <p className="text-xs text-slate-400 mt-0.5">
+                                                    Default actions taken when plans do not override their own specific behavior.
+                                                </p>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div>
+                                                    <label className="block text-xs font-medium text-slate-300 mb-1">Appointment Limit</label>
+                                                    <select
+                                                        value={form.default_appointment_limit_behavior}
+                                                        onChange={(e) => handleChange('default_appointment_limit_behavior', e.target.value)}
+                                                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-violet-500"
+                                                    >
+                                                        <option value="warn">Warn Only</option>
+                                                        <option value="block">Hard Block</option>
+                                                    </select>
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-xs font-medium text-slate-300 mb-1">Scribe Allowance Limit</label>
+                                                    <select
+                                                        value={form.default_scribe_limit_behavior}
+                                                        onChange={(e) => handleChange('default_scribe_limit_behavior', e.target.value)}
+                                                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-violet-500"
+                                                    >
+                                                        <option value="warn">Warn Only</option>
+                                                        <option value="block">Hard Block</option>
+                                                    </select>
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-xs font-medium text-slate-300 mb-1">Location Limit</label>
+                                                    <select
+                                                        value={form.default_location_limit_behavior}
+                                                        onChange={(e) => handleChange('default_location_limit_behavior', e.target.value)}
+                                                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-violet-500"
+                                                    >
+                                                        <option value="warn">Warn Only</option>
+                                                        <option value="block">Hard Block</option>
+                                                    </select>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

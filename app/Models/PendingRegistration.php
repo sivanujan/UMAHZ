@@ -20,6 +20,11 @@ class PendingRegistration extends Model
         'email',
         'subdomain',
         'plan_tier',
+        'plan_id',
+        'billing_interval',
+        'promo_code_id',
+        'applied_promo_code',
+        'extra_practitioner_seats',
         'full_time_practitioners_count',
         'part_time_practitioners_count',
         'ip_address',
@@ -33,6 +38,16 @@ class PendingRegistration extends Model
         'card_saved_at',
         'expires_at',
     ];
+
+    public function plan(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Plan::class);
+    }
+
+    public function promoCode(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(PromoCode::class);
+    }
 
     protected function casts(): array
     {

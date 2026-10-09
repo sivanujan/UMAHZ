@@ -28,6 +28,8 @@ class Tenant extends Model
 
     public const STATUS_REJECTED = 'rejected';
 
+    public const STATUS_PERMANENTLY_REJECTED = 'permanently_rejected';
+
     public const STATUS_SUSPENDED = 'suspended';
 
     // Tier constants
@@ -50,6 +52,8 @@ class Tenant extends Model
     public const SUBSCRIPTION_ACTIVE = 'active';
 
     public const SUBSCRIPTION_PAST_DUE = 'past_due';
+
+    public const SUBSCRIPTION_RESTRICTED_OVERDUE = 'restricted_overdue';
 
     public const SUBSCRIPTION_CANCELED = 'canceled';
 
@@ -82,6 +86,16 @@ class Tenant extends Model
         'onboarding_completed_at',
         'status',
         'plan_tier',
+        'plan_id',
+        'plan_price_id',
+        'plan_started_at',
+        'billing_interval',
+        'promo_code_id',
+        'applied_promo_code',
+        'extra_practitioner_seats',
+        'has_scribe_plus',
+        'is_manually_suspended',
+        'manual_suspension_reason',
         'full_time_practitioners_count',
         'part_time_practitioners_count',
         'business_registration_number',
@@ -95,8 +109,16 @@ class Tenant extends Model
         'reviewed_at',
         'reviewed_by',
         'review_note',
+        'reapply_count',
+        'rejection_sections',
+        'rejection_history',
+        'is_permanently_rejected',
+        'rejected_at',
+        'subdomain_released_at',
+        'documents_purged_at',
         'subscription_status',
         'payment_failed_at',
+        'grace_period_ends_at',
         'stripe_pm_id',
         'stripe_connect_account_id',
         'stripe_connect_status',
@@ -104,6 +126,10 @@ class Tenant extends Model
         'stripe_connect_payouts_enabled',
         'stripe_connect_details_submitted',
         'scribe_settings',
+        'scheduled_plan_id',
+        'scheduled_billing_interval',
+        'scheduled_extra_seats',
+        'scheduled_change_at',
     ];
 
     protected function casts(): array
@@ -120,12 +146,73 @@ class Tenant extends Model
             'submitted_at' => 'datetime',
             'reviewed_at' => 'datetime',
             'payment_failed_at' => 'datetime',
+            'grace_period_ends_at' => 'datetime',
+            'scheduled_change_at' => 'datetime',
+            'plan_started_at' => 'datetime',
+            'scheduled_extra_seats' => 'integer',
             'full_time_practitioners_count' => 'integer',
             'part_time_practitioners_count' => 'integer',
+            'extra_practitioner_seats' => 'integer',
+            'has_scribe_plus' => 'boolean',
+            'is_manually_suspended' => 'boolean',
             'stripe_connect_charges_enabled' => 'boolean',
             'stripe_connect_payouts_enabled' => 'boolean',
             'stripe_connect_details_submitted' => 'boolean',
+            'reapply_count' => 'integer',
+            'rejection_sections' => 'array',
+            'rejection_history' => 'array',
+            'is_permanently_rejected' => 'boolean',
+            'rejected_at' => 'datetime',
+            'subdomain_released_at' => 'datetime',
+            'documents_purged_at' => 'datetime',
         ];
+    }
+
+    public function maxReapplyAttempts(): int
+    {
+        return (int) PlatformSetting::get('clinic_max_reapply_attempts', 3);
+    }
+
+    public function attemptsRemaining(): int
+    {
+        $currentAttempt = $this->reapply_count ?: 1;
+        return max(0, $this->maxReapplyAttempts() - $currentAttempt);
+    }
+
+    public function canReapply(): bool
+    {
+        if ($this->status !== self::STATUS_REJECTED) {
+            return false;
+        }
+
+        if ($this->is_permanently_rejected) {
+            return false;
+        }
+
+        $owner = $this->staffMemberships()->where('role', StaffMembership::ROLE_CLINIC_OWNER)->first()?->user;
+        if ($owner && BlockedEmail::isBlocked($owner->email)) {
+            return false;
+        }
+
+        return ($this->reapply_count ?: 1) < $this->maxReapplyAttempts();
+    }
+
+    public function isSubdomainHeld(): bool
+    {
+        if (empty($this->subdomain) || $this->subdomain_released_at !== null) {
+            return false;
+        }
+
+        if (! in_array($this->status, [self::STATUS_REJECTED, self::STATUS_PERMANENTLY_REJECTED], true)) {
+            return true;
+        }
+
+        if (! $this->rejected_at) {
+            return true;
+        }
+
+        $holdDays = (int) PlatformSetting::get('clinic_subdomain_hold_days', 30);
+        return $this->rejected_at->copy()->addDays($holdDays)->isFuture();
     }
 
     /**
@@ -145,8 +232,15 @@ class Tenant extends Model
         return $this->stripe_connect_account_id !== null;
     }
 
+    /**
+     * @deprecated Use $this->plan instead. Kept for legacy rollback compatibility.
+     */
     public function isBalancePlan(): bool
     {
+        if ($this->plan) {
+            return $this->plan->slug === 'balance' || $this->plan->slug === 'essential' || $this->plan->max_practitioners === 1;
+        }
+
         return ($this->plan_tier ?? self::PLAN_PRACTICE) === self::PLAN_BALANCE;
     }
 
@@ -162,6 +256,10 @@ class Tenant extends Model
 
     public function planName(): string
     {
+        if ($this->plan) {
+            return $this->plan->name;
+        }
+
         return config("billing.tiers.{$this->plan_tier}.name", ucfirst($this->plan_tier ?? 'practice'));
     }
 
@@ -172,6 +270,16 @@ class Tenant extends Model
 
     public function monthlyBillableBreakdown(): array
     {
+        if ($this->plan_id && $this->plan) {
+            return \App\Billing\DynamicPlanPricing::calculateBreakdown(
+                $this->plan,
+                $this->billing_interval ?? 'month',
+                $this->totalPractitionersCount(),
+                [],
+                $this->promoCode
+            );
+        }
+
         return PlanPricing::calculateBreakdown(
             $this->plan_tier ?? self::PLAN_PRACTICE,
             $this->full_time_practitioners_count ?? 1,
@@ -181,7 +289,9 @@ class Tenant extends Model
 
     public function monthlyBillableTotal(): float
     {
-        return $this->monthlyBillableBreakdown()['total_monthly'];
+        $breakdown = $this->monthlyBillableBreakdown();
+
+        return (float) ($breakdown['total'] ?? $breakdown['total_monthly'] ?? 0.0);
     }
 
     /**
@@ -248,6 +358,8 @@ class Tenant extends Model
 
     /**
      * Get the active subscription tier definition for this clinic.
+     *
+     * @deprecated Kept for legacy fallback / rollback. Use $this->plan instead.
      */
     public function tierConfig(): array
     {
@@ -255,10 +367,14 @@ class Tenant extends Model
     }
 
     /**
-     * Maximum allowed practitioners under current plan tier (null = unlimited).
+     * Maximum allowed practitioners under current plan (null = unlimited).
      */
     public function maxPractitioners(): ?int
     {
+        if ($this->plan) {
+            return $this->plan->max_practitioners;
+        }
+
         $config = $this->tierConfig();
         if (array_key_exists('max_practitioners', $config)) {
             return $config['max_practitioners'];
@@ -272,6 +388,10 @@ class Tenant extends Model
      */
     public function maxMonthlyAppointments(): ?int
     {
+        if ($this->plan) {
+            return $this->plan->appointment_limit;
+        }
+
         $config = $this->tierConfig();
         if (array_key_exists('max_appointments_per_month', $config)) {
             return $config['max_appointments_per_month'];
@@ -313,7 +433,10 @@ class Tenant extends Model
     {
         return StaffMembership::withoutGlobalScopes()
             ->where('tenant_id', $this->id)
-            ->where('role', StaffMembership::ROLE_PRACTITIONER)
+            ->where(function ($q) {
+                $q->where('role', StaffMembership::ROLE_PRACTITIONER)
+                    ->orWhereHas('practitionerProfile');
+            })
             ->whereIn('status', [
                 StaffMembership::STATUS_ACTIVE,
                 StaffMembership::STATUS_INVITED,
@@ -555,5 +678,55 @@ class Tenant extends Model
     public function allDisciplinesMap(): array
     {
         return $this->allDisciplineLabels();
+    }
+
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class);
+    }
+
+    public function planPrice(): BelongsTo
+    {
+        return $this->belongsTo(PlanPrice::class);
+    }
+
+    public function scheduledPlan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class, 'scheduled_plan_id');
+    }
+
+    public function promoCode(): BelongsTo
+    {
+        return $this->belongsTo(PromoCode::class);
+    }
+
+    public function tenantAddOns(): HasMany
+    {
+        return $this->hasMany(TenantAddOn::class);
+    }
+
+    public function addOns(): BelongsToMany
+    {
+        return $this->belongsToMany(AddOn::class, 'tenant_add_ons')
+            ->withPivot(['quantity', 'stripe_subscription_item_id', 'status'])
+            ->withTimestamps();
+    }
+
+    public function scribeUsageLedgers(): HasMany
+    {
+        return $this->hasMany(ScribeUsageLedger::class);
+    }
+
+    public function hasScribePlus(): bool
+    {
+        return $this->tenantAddOns()
+            ->whereHas('addOn', fn ($q) => $q->where('slug', 'scribe_plus'))
+            ->where('status', 'active')
+            ->exists();
+    }
+
+    public function isManuallySuspended(): bool
+    {
+        return (bool) $this->is_manually_suspended;
     }
 }

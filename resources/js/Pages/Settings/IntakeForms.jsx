@@ -159,7 +159,7 @@ export default function IntakeForms({ tenant, templates = [], offeredDisciplines
                             <ArrowLeft className="w-4 h-4" />
                         </Link>
                         <div>
-                            <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <h1 className="text-xl sm:text-2xl font-bold tracking-[-0.01em] text-slate-900 dark:text-white flex items-center gap-2">
                                 <ClipboardList className="w-5 h-5 text-violet-700 dark:text-violet-400" />
                                 Health History & Intake Form Templates
                             </h1>

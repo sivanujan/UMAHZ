@@ -509,7 +509,7 @@ export default function ConsentSettingsIndex({ consentTypes = [] }) {
                                 <ShieldCheck className="w-6 h-6" />
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+                                <h1 className="text-xl sm:text-2xl font-bold tracking-[-0.01em] text-slate-900 dark:text-white">
                                     Informed Consent Agreements
                                 </h1>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">

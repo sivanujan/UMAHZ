@@ -6,7 +6,9 @@ use App\Models\Appointment;
 use App\Models\AuditEvent;
 use App\Models\Location;
 use App\Models\Room;
+use App\Models\Tenant;
 use App\Scopes\TenantScope;
+use App\Services\PlanEntitlements;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +23,24 @@ class RoomController extends Controller
 {
     public function store(Request $request, Location $location): RedirectResponse
     {
+        $tenantId = TenantScope::getTenantId();
+        $tenant = Tenant::find($tenantId);
+
+        if ($tenant) {
+            $entitlements = app(PlanEntitlements::class);
+            $check = $entitlements->checkRoomLimit($tenant);
+            if (! $check['allowed']) {
+                $entitlements->recordBlockedAction(
+                    $tenant,
+                    $request->user(),
+                    'room_limit',
+                    $check['reason']
+                );
+
+                return back()->withErrors(['room' => $check['reason']])->with('error', $check['reason']);
+            }
+        }
+
         $data = $this->validated($request);
 
         DB::transaction(function () use ($request, $location, $data) {
@@ -47,6 +67,26 @@ class RoomController extends Controller
 
     public function toggle(Request $request, Room $room): RedirectResponse
     {
+        if (! $room->is_active) {
+            $tenantId = TenantScope::getTenantId();
+            $tenant = Tenant::find($tenantId);
+
+            if ($tenant) {
+                $entitlements = app(PlanEntitlements::class);
+                $check = $entitlements->checkRoomLimit($tenant, 1);
+                if (! $check['allowed']) {
+                    $entitlements->recordBlockedAction(
+                        $tenant,
+                        $request->user(),
+                        'room_limit',
+                        $check['reason']
+                    );
+
+                    return back()->withErrors(['room' => $check['reason']])->with('error', $check['reason']);
+                }
+            }
+        }
+
         DB::transaction(function () use ($request, $room) {
             $room->update(['is_active' => ! $room->is_active]);
             $this->audit($request, $room->is_active ? 'room.reactivated' : 'room.deactivated', $room);

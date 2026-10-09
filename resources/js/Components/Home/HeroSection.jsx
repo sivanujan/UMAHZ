@@ -100,7 +100,7 @@ export default function HeroSection() {
                         </motion.div>
 
                         {/* Staggered word-by-word headline */}
-                        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] dark:text-white leading-[1.14] tracking-tight">
+                        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] dark:text-white leading-[1.14] tracking-normal">
                             {words.map((w, idx) => (
                                 <motion.span
                                     key={idx}

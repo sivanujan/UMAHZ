@@ -93,7 +93,7 @@ export default function OnboardingSetup({ tenant, timezones, currencies, provinc
             {step === 1 && (
                 <form onSubmit={submitProfile} className="space-y-4">
                     <div className="text-center mb-2">
-                        <h1 className="text-xl font-bold text-[#1E0B3C]">Tell Us About Your Clinic</h1>
+                        <h1 className="text-xl sm:text-2xl font-bold tracking-[-0.01em] text-[#1E0B3C]">Tell Us About Your Clinic</h1>
                         <p className="text-sm text-slate-500 mt-1">This appears on your bookings, invoices, and client communications.</p>
                     </div>
 
@@ -237,7 +237,7 @@ export default function OnboardingSetup({ tenant, timezones, currencies, provinc
             {step === 2 && (
                 <form onSubmit={submitBranding} className="space-y-5">
                     <div className="text-center mb-2">
-                        <h1 className="text-xl font-bold text-[#1E0B3C]">Add Your Branding</h1>
+                        <h1 className="text-xl sm:text-2xl font-bold tracking-[-0.01em] text-[#1E0B3C]">Add Your Branding</h1>
                         <p className="text-sm text-slate-500 mt-1">Optional — you can always add this later from Clinic Settings.</p>
                     </div>
 
@@ -311,7 +311,7 @@ export default function OnboardingSetup({ tenant, timezones, currencies, provinc
                         <div className="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center mx-auto mb-3">
                             <Clock className="w-6 h-6 text-[#5B2EFF]" />
                         </div>
-                        <h1 className="text-xl font-bold text-[#1E0B3C]">Set Your Business Hours</h1>
+                        <h1 className="text-xl sm:text-2xl font-bold tracking-[-0.01em] text-[#1E0B3C]">Set Your Business Hours</h1>
                         <p className="text-sm text-slate-500 mt-1">Used as your clinic's default availability window.</p>
                     </div>
 

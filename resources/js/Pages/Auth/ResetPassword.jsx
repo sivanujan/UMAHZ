@@ -6,7 +6,7 @@ import PasswordStrengthMeter from '@/Components/UI/PasswordStrengthMeter';
 
 const ROYAL_BLUE = '#5B2EFF';
 const DEEP_NAVY = '#1E0B3C';
-const UI_FONT = "'Satoshi', system-ui, -apple-system, sans-serif";
+const UI_FONT = "'Manrope', system-ui, -apple-system, sans-serif";
 
 const labelStyle = { display: 'block', fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#64748b', marginBottom: 9 };
 
@@ -110,7 +110,7 @@ export default function ResetPassword({ email, token }) {
                     }}
                 >
                     <div className="text-center">
-                        <h1 className="text-[26px] font-bold tracking-tight" style={{ color: DEEP_NAVY }}>Reset Your Password</h1>
+                        <h1 className="text-2xl sm:text-[28px] font-bold tracking-normal" style={{ color: DEEP_NAVY }}>Reset Your Password</h1>
                         <p className="mt-2 text-sm text-slate-400">Choose a new password for {data.email || 'your account'}.</p>
                     </div>
 

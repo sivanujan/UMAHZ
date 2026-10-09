@@ -52,8 +52,9 @@ const STEP_FIELDS = {
     payment: [],
 };
 
-function RequiredDot({ required }) {
+function RequiredDot({ required, showOptional = true }) {
     if (!required) {
+        if (!showOptional) return null;
         return (
             <span className="text-[10px] font-normal normal-case tracking-normal text-slate-400 dark:text-slate-500 ml-1">
                 (optional)
@@ -102,6 +103,7 @@ function Field({
     placeholder,
     helper,
     required,
+    showOptional = true,
     autoComplete,
 }) {
     const showError = !!error;
@@ -111,10 +113,11 @@ function Field({
         <div>
             <label
                 htmlFor={id}
-                className="block text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5"
+                className="block text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5 whitespace-nowrap overflow-hidden text-ellipsis"
+                title={typeof label === 'string' ? label : undefined}
             >
                 {label}
-                <RequiredDot required={required} />
+                <RequiredDot required={required} showOptional={showOptional} />
             </label>
             <div className="relative group">
                 {Icon && (
@@ -806,8 +809,9 @@ function DocumentUpload({ file, onChange, serverError, helper, progress, process
     );
 }
 
-function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', provinces = [], tiers = {} }) {
+function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', provinces = [], tiers = {}, plans = [] }) {
     const shouldReduceMotion = useReducedMotion();
+    const defaultPlan = plans?.find((p) => p.slug === 'professional' || p.slug === 'practice') || plans?.[0];
     const { data, setData, post, processing, progress, errors } = useForm({
         name: '',
         email: '',
@@ -831,10 +835,14 @@ function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', 
         requested_disciplines: [],
         custom_disciplines: [],
 
-        plan_tier: 'practice',
-        full_time_practitioners_count: 1,
+        plan_tier: defaultPlan?.slug || 'practice',
+        plan_id: defaultPlan?.id || null,
+        billing_interval: 'month',
+        promo_code: '',
+        extra_practitioner_seats: 0,
+        full_time_practitioners_count: defaultPlan?.included_practitioners || 1,
         part_time_practitioners_count: 0,
-        estimated_practitioner_count: 1,
+        estimated_practitioner_count: defaultPlan?.included_practitioners || 1,
 
         license_number: '',
         licensing_body: '',
@@ -1100,7 +1108,10 @@ function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', 
     };
 
     const submit = (e) => {
-        e.preventDefault();
+        if (e) {
+            e.preventDefault?.();
+            e.stopPropagation?.();
+        }
         // Payment step handles final submit directly
     };
 
@@ -1113,7 +1124,7 @@ function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', 
             {/* Left Column: Form Surface */}
             <div
                 className={`flex flex-col justify-between p-6 sm:p-10 min-h-screen relative z-10 transition-all duration-300 ${
-                    currentStep === 5
+                    currentStep === 5 || currentStep === 6
                         ? 'lg:pl-8 lg:pr-10 xl:pl-12 xl:pr-14'
                         : 'lg:pl-12 lg:pr-14 xl:pl-16 xl:pr-20'
                 }`}
@@ -1141,12 +1152,12 @@ function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', 
                 {/* Form Center Container */}
                 <div
                     className={`w-full mx-auto my-auto py-6 space-y-6 transition-all duration-300 ${
-                        currentStep === 5 ? 'max-w-[780px] xl:max-w-[840px]' : 'max-w-[540px]'
+                        currentStep === 5 || currentStep === 6 ? 'max-w-[780px] xl:max-w-[860px]' : 'max-w-[540px]'
                     }`}
                 >
                     {/* Header with Title */}
                     <div className="space-y-1.5">
-                        <h1 className="text-2xl sm:text-3xl font-bold tracking-normal text-slate-900 dark:text-white flex items-center flex-wrap gap-x-2">
+                        <h1 className="text-2xl sm:text-[28px] font-bold tracking-[-0.01em] text-slate-900 dark:text-white flex items-center flex-wrap gap-x-2">
                             <span>Apply to Join</span>
                             <span className="text-indigo-600 dark:text-indigo-400">UMAHZ</span>
                         </h1>
@@ -1160,7 +1171,15 @@ function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', 
 
                     {/* Step Card Form */}
                     <div className="bg-white dark:bg-slate-900/90 rounded-2xl p-6 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-xl shadow-slate-900/5 dark:shadow-black/40">
-                        <form onSubmit={submit} className="space-y-6">
+                        <form
+                            onSubmit={submit}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+                                    e.preventDefault();
+                                }
+                            }}
+                            className="space-y-6"
+                        >
                             <AnimatePresence mode="wait" initial={false}>
                                 <motion.div
                                     key={currentStep}
@@ -1323,6 +1342,7 @@ function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', 
                                                     onChange={(e) => setData('address_region', e.target.value)}
                                                     error={errors.address_region}
                                                     placeholder="BC"
+                                                    showOptional={false}
                                                 />
                                                 <Field
                                                     id="address_country"
@@ -1331,6 +1351,7 @@ function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', 
                                                     onChange={(e) => setData('address_country', e.target.value)}
                                                     error={errors.address_country}
                                                     placeholder="Canada"
+                                                    showOptional={false}
                                                 />
                                             </div>
                                         </section>
@@ -1454,25 +1475,36 @@ function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', 
                                             />
                                             <PlanStep
                                                 selectedTier={data.plan_tier}
-                                                onSelectTier={(tier) => setData('plan_tier', tier)}
+                                                onSelectTier={(tier, planObj) => {
+                                                    const inc = planObj?.included_practitioners || 1;
+                                                    setData((prev) => ({
+                                                        ...prev,
+                                                        plan_tier: tier,
+                                                        plan_id: planObj?.id || prev.plan_id,
+                                                        full_time_practitioners_count: inc,
+                                                        extra_practitioner_seats: 0,
+                                                        part_time_practitioners_count: 0,
+                                                        estimated_practitioner_count: inc,
+                                                    }));
+                                                }}
+                                                billingInterval={data.billing_interval}
+                                                onChangeInterval={(interval) => setData('billing_interval', interval)}
                                                 ftCount={data.full_time_practitioners_count}
-                                                onChangeFt={(count) =>
+                                                onChangeFt={(count) => {
+                                                    const selectedPlan = plans?.find((p) => (p.slug === data.plan_tier || p.id === data.plan_id));
+                                                    const inc = selectedPlan?.included_practitioners || (data.plan_tier === 'signature' ? 3 : 1);
+                                                    const extraSeats = Math.max(0, count - inc);
                                                     setData((prev) => ({
                                                         ...prev,
                                                         full_time_practitioners_count: count,
-                                                        estimated_practitioner_count: count + (prev.part_time_practitioners_count || 0),
-                                                    }))
-                                                }
-                                                ptCount={data.part_time_practitioners_count}
-                                                onChangePt={(count) =>
-                                                    setData((prev) => ({
-                                                        ...prev,
-                                                        part_time_practitioners_count: count,
-                                                        estimated_practitioner_count: (prev.full_time_practitioners_count || 1) + count,
-                                                    }))
-                                                }
+                                                        extra_practitioner_seats: extraSeats,
+                                                        part_time_practitioners_count: 0,
+                                                        estimated_practitioner_count: count,
+                                                    }));
+                                                }}
                                                 error={errors.plan_tier}
                                                 tiers={tiers}
+                                                plans={plans}
                                             />
                                         </section>
                                     )}
@@ -1484,7 +1516,7 @@ function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', 
                                                 title="Secure your spot"
                                                 subtitle="Add a card to verify your clinic. You're only charged once we approve you."
                                             />
-                                            <PaymentStep data={data} tiers={tiers} />
+                                            <PaymentStep data={data} setData={setData} tiers={tiers} plans={plans} />
                                         </section>
                                     )}
                                 </motion.div>

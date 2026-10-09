@@ -36,7 +36,7 @@ export default function FAQ() {
                     <div className="mb-4">
                         <PillBadge text="Frequently Asked Questions" />
                     </div>
-                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-tight">
+                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-normal">
                         Questions,{' '}
                         <em className="not-italic font-light font-serif text-[#5B2EFF] dark:text-[#8B6BFF]">Answered</em>
                     </h1>

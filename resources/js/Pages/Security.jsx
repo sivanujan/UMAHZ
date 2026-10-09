@@ -67,7 +67,7 @@ export default function Security() {
                     <div className="mb-4">
                         <PillBadge text="Trust & Security" />
                     </div>
-                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-tight">
+                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-normal">
                         Security Built For{' '}
                         <em className="not-italic font-light font-serif text-[#5B2EFF] dark:text-[#8B6BFF]">Clinical</em> Data
                     </h1>
@@ -100,7 +100,7 @@ export default function Security() {
                                     <IconComponent className="w-6 h-6" strokeWidth={1.8} />
                                 </div>
                                 <div>
-                                    <h3 className="text-[#1E0B3C] dark:text-white font-bold text-lg mb-1.5 tracking-tight">{s.title}</h3>
+                                    <h3 className="text-[#1E0B3C] dark:text-white font-bold text-lg mb-1.5 tracking-normal">{s.title}</h3>
                                     <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed font-normal">{s.description}</p>
                                 </div>
                             </motion.div>

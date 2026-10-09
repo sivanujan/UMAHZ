@@ -41,6 +41,9 @@ class PlatformSetting extends Model
             'allow_self_registration' => true,
             'require_license_document' => true,
             'trial_period_days' => 14,
+            'clinic_max_reapply_attempts' => 3,
+            'clinic_subdomain_hold_days' => 30,
+            'clinic_rejected_document_retention_days' => 90,
 
             // Security
             'enforce_2fa_staff' => false,
@@ -50,6 +53,13 @@ class PlatformSetting extends Model
             // System & Announcements
             'system_announcement' => '',
             'show_announcement' => false,
+
+            // Platform Billing Defaults
+            'grace_period_days' => 7,
+            'stripe_automatic_tax' => false,
+            'default_appointment_limit_behavior' => 'warn',
+            'default_scribe_limit_behavior' => 'warn',
+            'default_location_limit_behavior' => 'block',
         ];
     }
 

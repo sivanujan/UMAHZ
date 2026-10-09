@@ -74,6 +74,9 @@ class HandleInertiaRequests extends Middleware
             'app' => [
                 'isLocal' => app()->environment('local'),
             ],
+            'entitlements' => ($membership?->tenant)
+                ? app(\App\Services\PlanEntitlements::class)->getSharedEntitlements($membership->tenant, $membership)
+                : null,
         ]);
     }
 }

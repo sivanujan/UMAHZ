@@ -55,6 +55,9 @@ class ClinicRegistrationPrepareTest extends TestCase
             'license_number' => 'LIC-123',
             'licensing_body' => 'CMTO',
             'license_document' => UploadedFile::fake()->create('license.pdf', 20, 'application/pdf'),
+            'plan_tier' => 'practice',
+            'full_time_practitioners_count' => 1,
+            'part_time_practitioners_count' => 0,
         ], $overrides);
     }
 

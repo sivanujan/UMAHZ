@@ -90,7 +90,7 @@ export default function About() {
                     <div className="mb-4">
                         <PillBadge text="About UMAHZ" />
                     </div>
-                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-tight">
+                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-normal">
                         Built By People Who{' '}
                         <em className="not-italic font-light font-serif text-[#5B2EFF] dark:text-[#8B6BFF]">Understand</em> Wellness Practices
                     </h1>
@@ -121,7 +121,7 @@ export default function About() {
                                 <Target className="w-7 h-7 text-white" strokeWidth={1.8} />
                             </div>
                             <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-purple-300 mb-3">Our Mission</p>
-                            <p className="text-white text-xl md:text-2xl font-bold leading-snug max-w-lg tracking-tight">
+                            <p className="text-white text-xl md:text-2xl font-bold leading-snug max-w-lg tracking-normal">
                                 Give every wellness practitioner one unified system of record — so administration never gets in the way of care.
                             </p>
                         </div>
@@ -138,7 +138,7 @@ export default function About() {
                             <div className="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-950/70 border border-violet-200/60 dark:border-violet-800/50 flex items-center justify-center mb-4 flex-shrink-0 text-[#5B2EFF] dark:text-[#8B6BFF] transition-transform duration-200 group-hover:scale-105">
                                 <Eye className="w-5 h-5" strokeWidth={1.8} />
                             </div>
-                            <h3 className="text-[#1E0B3C] dark:text-white font-bold text-base mb-2 tracking-tight">Our Vision</h3>
+                            <h3 className="text-[#1E0B3C] dark:text-white font-bold text-base mb-2 tracking-normal">Our Vision</h3>
                             <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed flex-1 font-normal">
                                 A world where every modality — from massage to TCM to nutrition — has documentation tools built for how it actually practices.
                             </p>
@@ -153,7 +153,7 @@ export default function About() {
                             <div className="w-10 h-10 rounded-xl bg-pink-100 dark:bg-pink-950/70 border border-pink-200/60 dark:border-pink-800/50 flex items-center justify-center mb-4 flex-shrink-0 text-[#db2777] dark:text-pink-400 transition-transform duration-200 group-hover:scale-105">
                                 <ShieldCheck className="w-5 h-5" strokeWidth={1.8} />
                             </div>
-                            <h3 className="text-[#1E0B3C] dark:text-white font-bold text-base mb-2 tracking-tight">Our Approach</h3>
+                            <h3 className="text-[#1E0B3C] dark:text-white font-bold text-base mb-2 tracking-normal">Our Approach</h3>
                             <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed flex-1 font-normal">
                                 Profession-specific charting, privacy-first consent, and multi-tenant architecture built from the ground up — not bolted on.
                             </p>
@@ -171,7 +171,7 @@ export default function About() {
                     variants={createFadeInUp(16, 0.45, shouldReduceMotion)}
                     className="max-w-3xl mx-auto text-center"
                 >
-                    <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-tight">
+                    <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-normal">
                         Why We Built{' '}
                         <em className="not-italic font-light font-serif text-[#5B2EFF] dark:text-[#8B6BFF]">UMAHZ</em>
                     </h2>
@@ -190,7 +190,7 @@ export default function About() {
                     variants={createFadeInUp(16, 0.45, shouldReduceMotion)}
                     className="max-w-3xl mx-auto text-center"
                 >
-                    <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-tight">
+                    <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-normal">
                         The Meaning Behind <em className="not-italic font-light font-serif text-[#5B2EFF] dark:text-[#8B6BFF]">UMAHZ</em>
                     </h2>
                     <p className="text-slate-600 dark:text-slate-300 text-base md:text-lg leading-relaxed mt-6 font-normal">
@@ -237,7 +237,7 @@ export default function About() {
                                 >
                                     {n.letter}
                                 </span>
-                                <h3 className="text-[#1E0B3C] dark:text-white font-bold text-sm md:text-base tracking-tight">{n.word}</h3>
+                                <h3 className="text-[#1E0B3C] dark:text-white font-bold text-sm md:text-base tracking-normal">{n.word}</h3>
                             </div>
                         </motion.li>
                     ))}
@@ -246,7 +246,7 @@ export default function About() {
                 <div className="max-w-2xl mx-auto mt-12">
                     <div className="rounded-2xl border border-purple-100/90 dark:border-slate-800 bg-white dark:bg-[#131B2B] px-6 py-5 shadow-sm text-center">
                         <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#5B2EFF] dark:text-[#8B6BFF] mb-2">In Full</p>
-                        <p className="text-lg md:text-xl font-bold text-[#1E0B3C] dark:text-white leading-snug tracking-tight">
+                        <p className="text-lg md:text-xl font-bold text-[#1E0B3C] dark:text-white leading-snug tracking-normal">
                             Unified Management, Assessment &amp; Healthcare at its{' '}
                             <em className="not-italic font-light font-serif text-[#5B2EFF] dark:text-[#8B6BFF]">Zenith</em>.
                         </p>
@@ -264,7 +264,7 @@ export default function About() {
                         variants={createFadeInUp(16, 0.45, shouldReduceMotion)}
                         className="text-center max-w-2xl mx-auto mb-12"
                     >
-                        <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-tight">
+                        <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-normal">
                             What We <em className="not-italic font-light font-serif text-[#5B2EFF] dark:text-[#8B6BFF]">Value</em>
                         </h2>
                     </motion.div>
@@ -289,7 +289,7 @@ export default function About() {
                                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 flex-shrink-0 shadow-2xs transition-transform duration-200 group-hover:scale-105 ${v.iconBg}`}>
                                         <IconComponent className="w-5 h-5" strokeWidth={1.8} />
                                     </div>
-                                    <h3 className="text-[#1E0B3C] dark:text-white font-bold text-base mb-2 tracking-tight">{v.title}</h3>
+                                    <h3 className="text-[#1E0B3C] dark:text-white font-bold text-base mb-2 tracking-normal">{v.title}</h3>
                                     <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed font-normal">{v.description}</p>
                                 </motion.div>
                             );
@@ -308,7 +308,7 @@ export default function About() {
                         variants={createFadeInUp(16, 0.45, shouldReduceMotion)}
                         className="text-center max-w-2xl mx-auto mb-12"
                     >
-                        <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-tight">
+                        <h2 className="text-3xl md:text-4xl font-bold text-[#1E0B3C] dark:text-white leading-tight tracking-normal">
                             Meet The <em className="not-italic font-light font-serif text-[#5B2EFF] dark:text-[#8B6BFF]">Team</em>
                         </h2>
                         <p className="text-slate-600 dark:text-slate-300 text-base md:text-lg leading-relaxed mt-4 font-normal">
@@ -337,7 +337,7 @@ export default function About() {
                                 >
                                     {t.initials}
                                 </div>
-                                <h3 className="text-[#1E0B3C] dark:text-white font-bold text-sm tracking-tight">{t.name}</h3>
+                                <h3 className="text-[#1E0B3C] dark:text-white font-bold text-sm tracking-normal">{t.name}</h3>
                                 <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 font-normal">{t.role}</p>
                             </motion.div>
                         ))}

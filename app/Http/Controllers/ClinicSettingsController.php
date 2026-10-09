@@ -6,7 +6,9 @@ use App\Http\Controllers\Onboarding\ClinicRegistrationController;
 use App\Models\AuditEvent;
 use App\Models\ConsentType;
 use App\Models\IntakeFormTemplate;
+use App\Models\StaffMembership;
 use App\Models\Tenant;
+use App\Models\User;
 use App\Scopes\TenantScope;
 use App\Support\ClinicOptions;
 use App\Support\Disciplines;
@@ -14,6 +16,7 @@ use App\Support\HtmlSanitizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -768,5 +771,109 @@ class ClinicSettingsController extends Controller
         $membership = $request->attributes->get('staffMembership');
 
         return $membership?->tenant ?? Tenant::findOrFail(TenantScope::getTenantId());
+    }
+
+    /**
+     * Permanently delete the clinic account, release its subdomain, wipe all data,
+     * and log the owner out.
+     */
+    public function deleteAccount(Request $request): \Symfony\Component\HttpFoundation\Response
+    {
+        $tenant = $this->currentTenant($request);
+        $user = $request->user();
+
+        // 1. Verify that the authenticated user is the clinic owner
+        $isOwner = $tenant->staffMemberships()
+            ->where('user_id', $user->id)
+            ->where('role', StaffMembership::ROLE_CLINIC_OWNER)
+            ->exists();
+
+        if (! $isOwner) {
+            abort(403, 'Only the clinic owner has authority to permanently delete this clinic account.');
+        }
+
+        // 2. Validate current password and confirmation text
+        $request->validate([
+            'password' => ['required', 'current_password'],
+            'confirm_subdomain' => ['required', 'string'],
+        ]);
+
+        $subdomain = strtolower(trim($tenant->subdomain));
+        $clinicName = strtolower(trim($tenant->name));
+        $entered = strtolower(trim($request->input('confirm_subdomain')));
+
+        if ($entered !== $subdomain && $entered !== $clinicName) {
+            throw ValidationException::withMessages([
+                'confirm_subdomain' => "The entered confirmation does not match the clinic subdomain '{$tenant->subdomain}' or name '{$tenant->name}'.",
+            ]);
+        }
+
+        $tenantId = $tenant->id;
+        $tenantName = $tenant->name;
+        $tenantSubdomain = $tenant->subdomain;
+
+        // 3. Cancel platform Stripe subscription immediately if active
+        try {
+            $subscription = $tenant->subscription(Tenant::PLATFORM_SUBSCRIPTION);
+            if ($subscription && $subscription->active()) {
+                $subscription->cancelNow();
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Failed to cancel Stripe subscription during clinic deletion: {$e->getMessage()}");
+        }
+
+        // 4. Log audit event before deletion
+        try {
+            AuditEvent::create([
+                'tenant_id' => $tenantId,
+                'user_id' => $user->id,
+                'action' => 'clinic.account_deleted',
+                'resource_type' => Tenant::class,
+                'resource_id' => $tenantId,
+                'ip_address' => $request->ip(),
+                'metadata' => [
+                    'clinic_name' => $tenantName,
+                    'subdomain' => $tenantSubdomain,
+                    'deleted_by' => $user->email,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            // Ignore if audit logging fails
+        }
+
+        // 5. Delete tenant storage directories
+        try {
+            Storage::disk('public')->deleteDirectory("tenants/{$tenantId}");
+            Storage::disk('public')->deleteDirectory("builder/{$tenantId}");
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Failed to delete tenant storage directories: {$e->getMessage()}");
+        }
+
+        // 6. Cascade delete tenant and clean up orphaned owner
+        $ownerIds = $tenant->staffMemberships()
+            ->where('role', StaffMembership::ROLE_CLINIC_OWNER)
+            ->pluck('user_id');
+
+        DB::transaction(function () use ($tenant, $ownerIds) {
+            // Cascade delete the tenant and all child tables in Postgres
+            $tenant->forceDelete();
+
+            // Delete owner account if orphaned (no other clinic memberships and no client accounts)
+            User::whereIn('id', $ownerIds)->get()->each(function (User $owner) {
+                if (! $owner->staffMemberships()->exists() && ! $owner->clients()->exists()) {
+                    $owner->delete();
+                }
+            });
+        });
+
+        // 7. Log out user and invalidate session
+        Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        // 8. Redirect out of the deleted subdomain to the central domain
+        $centralUrl = config('app.url') ?? '/';
+
+        return Inertia::location($centralUrl);
     }
 }
