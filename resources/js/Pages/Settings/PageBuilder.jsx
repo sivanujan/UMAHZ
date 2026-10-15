@@ -244,12 +244,47 @@ function PageBuilderContent({ tenant }) {
         const clinicName = tenant.name || 'Wellness Clinic';
         const brandColor = tenant.brand_color || '#6d28d9';
         const logoUrl = tenant.logo_url || '';
-        const phone = tenant.phone || '(555) 123-4567';
-        const email = tenant.email || 'info@clinic.com';
-        const address = tenant.address || '123 Health Ave, Suite 100';
-        const disciplines = (tenant.offeredDisciplineLabels && tenant.offeredDisciplineLabels.length > 0)
-            ? tenant.offeredDisciplineLabels
-            : ['Acupuncture', 'Chiropractic', 'Physiotherapy', 'Massage Therapy'];
+        // real contact details only; clear placeholders (not fake data) for the owner to fill in
+        const phone = tenant.phone || 'Add your phone number';
+        const email = tenant.email || 'Add your email address';
+        const address = tenant.address_text || 'Add your clinic address';
+        // the clinic's own offered disciplines ([{ code, label }]); no made-up fallback list
+        const disciplines = (Array.isArray(tenant.offeredDisciplines) ? tenant.offeredDisciplines : []).map((d) => d.label);
+        // the clinic's real opening hours (server-built rows; closed days say "Closed")
+        const hoursRows = Array.isArray(tenant.hours_rows) ? tenant.hours_rows : [];
+        const hoursRowsHtml =
+            hoursRows.length === 0
+                ? '<div style="padding: 12px 0; color: #64748b;">Add your business hours</div>'
+                : hoursRows
+                      .map(
+                          (r, i) => `
+                            <div style="display: flex; justify-content: space-between; padding: 12px 0;${i < hoursRows.length - 1 ? ' border-bottom: 1px solid #f1f5f9;' : ''}">
+                                <span style="font-weight: 600; color: #1e293b;">${r.days}</span>
+                                <span style="${r.closed ? 'color: #ef4444; font-weight: 600;' : 'color: #64748b;'}">${r.hours}</span>
+                            </div>`,
+                      )
+                      .join('');
+        const hoursSummary = tenant.hours_summary || 'Add your business hours';
+        // the starter page leaves the Services section out entirely when the clinic offers none
+        const servicesSection = disciplines.length === 0 ? '' : `
+            <section id="services" class="clinic-services" style="padding: 80px 20px; background: #f8fafc; color: #0f172a;">
+                <div style="max-width: 1100px; margin: 0 auto;">
+                    <div style="text-align: center; margin-bottom: 50px;">
+                        <h2 style="font-size: 2rem; font-weight: 700; color: #0f172a; margin-bottom: 12px;">Our Services & Treatments</h2>
+                        <p style="color: #64748b; font-size: 1.05rem;">Comprehensive holistic care tailored to your body's wellness.</p>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px;">
+                        ${disciplines.map(d => `
+                            <div style="background: white; border-radius: 12px; padding: 28px 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; text-align: left;">
+                                <div style="width: 44px; height: 44px; background: ${brandColor}15; color: ${brandColor}; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; margin-bottom: 16px;">✦</div>
+                                <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; color: #1e293b;">${d}</h3>
+                                <p style="color: #64748b; font-size: 0.92rem; line-height: 1.5;">Personalized treatment sessions designed to help you recover, strengthen, and thrive.</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </section>
+        `;
 
         // Default initial HTML if no project exists yet
         const defaultHtml = `
@@ -290,38 +325,16 @@ function PageBuilderContent({ tenant }) {
             </section>
 
             <!-- 2. Services Section (#services) -->
-            <section id="services" class="clinic-services" style="padding: 80px 20px; background: #f8fafc; color: #0f172a;">
-                <div style="max-width: 1100px; margin: 0 auto;">
-                    <div style="text-align: center; margin-bottom: 50px;">
-                        <h2 style="font-size: 2rem; font-weight: 700; color: #0f172a; margin-bottom: 12px;">Our Services & Treatments</h2>
-                        <p style="color: #64748b; font-size: 1.05rem;">Comprehensive holistic care tailored to your body's wellness.</p>
-                    </div>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px;">
-                        ${disciplines.map(d => `
-                            <div style="background: white; border-radius: 12px; padding: 28px 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; text-align: left;">
-                                <div style="width: 44px; height: 44px; background: ${brandColor}15; color: ${brandColor}; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; margin-bottom: 16px;">✦</div>
-                                <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; color: #1e293b;">${d}</h3>
-                                <p style="color: #64748b; font-size: 0.92rem; line-height: 1.5;">Personalized treatment sessions designed to help you recover, strengthen, and thrive.</p>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            </section>
-
+            ${servicesSection}
             <!-- 3. About Us Section (#about) -->
             <section id="about" class="clinic-about" style="padding: 80px 20px; background: #ffffff; color: #0f172a;">
                 <div style="max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 48px; align-items: center;">
                     <div>
                         <span style="color: ${brandColor}; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.85rem;">About Our Clinic</span>
-                        <h2 style="font-size: 2.2rem; font-weight: 800; margin: 8px 0 16px; color: #0f172a;">Dedicated to Your Recovery &amp; Long-Term Well-Being</h2>
-                        <p style="color: #475569; font-size: 1rem; line-height: 1.7; margin-bottom: 20px;">
-                            At ${clinicName}, our licensed practitioners blend evidence-based therapies with compassionate, patient-first care. Whether you are recovering from injury or optimizing your physical wellness, we build a care plan designed for you.
+                        <h2 style="font-size: 2.2rem; font-weight: 800; margin: 8px 0 16px; color: #0f172a;">About ${clinicName}</h2>
+                        <p style="color: #475569; font-size: 1rem; line-height: 1.7; margin-bottom: 24px;">
+                            Welcome to ${clinicName}. Tell your patients about your clinic, your team and your approach to care.
                         </p>
-                        <ul style="list-style: none; padding: 0; margin: 0 0 24px 0; display: flex; flex-direction: column; gap: 10px; color: #334155; font-size: 0.95rem;">
-                            <li>✓ <strong>Certified Specialists:</strong> Fully licensed and experienced healthcare team.</li>
-                            <li>✓ <strong>Modern Facilities:</strong> State-of-the-art treatment and rehabilitation equipment.</li>
-                            <li>✓ <strong>Direct Billing:</strong> Fast, hassle-free online invoice processing.</li>
-                        </ul>
                         <a href="/pay" style="display: inline-block; background: ${brandColor}; color: white; padding: 12px 28px; border-radius: 9999px; font-weight: 700; text-decoration: none;">Pay Online</a>
                     </div>
                     <div>
@@ -336,18 +349,7 @@ function PageBuilderContent({ tenant }) {
                     <span style="color: ${brandColor}; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.85rem;">Clinic Schedule</span>
                     <h2 style="font-size: 2rem; font-weight: 700; margin: 8px 0 32px; color: #0f172a;">Operating Hours &amp; Availability</h2>
                     <div style="background: white; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; box-shadow: 0 4px 16px rgba(0,0,0,0.04); max-width: 600px; margin: 0 auto; text-align: left;">
-                        <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9;">
-                            <span style="font-weight: 600; color: #1e293b;">Monday – Friday</span>
-                            <span style="color: #64748b;">9:00 AM – 6:00 PM</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9;">
-                            <span style="font-weight: 600; color: #1e293b;">Saturday</span>
-                            <span style="color: #64748b;">10:00 AM – 3:00 PM</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; padding: 12px 0;">
-                            <span style="font-weight: 600; color: #1e293b;">Sunday &amp; Holidays</span>
-                            <span style="color: #ef4444; font-weight: 600;">Closed</span>
-                        </div>
+                            ${hoursRowsHtml}
                     </div>
                 </div>
             </section>
@@ -1565,7 +1567,7 @@ function PageBuilderContent({ tenant }) {
                 if (comp?.view?.el) {
                     comp.view.el.querySelectorAll('li').forEach(li => items.push(li.innerText));
                 }
-                const initialText = items.length > 0 ? items.join('\n') : "Licensed healthcare specialists\nState-of-the-art clinical equipment\nFlexible scheduling";
+                const initialText = items.length > 0 ? items.join('\n') : "Your first point\nYour second point\nYour third point";
 
                 el.innerHTML = `
                     <div style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
@@ -2079,7 +2081,7 @@ function PageBuilderContent({ tenant }) {
             category: basicContentCat,
             content: `
                 <p class="umahz-text" style="font-size: 1rem; color: #475569; line-height: 1.65; margin: 0 0 16px 0;">
-                    We offer compassionate, evidence-based clinical care tailored to your recovery goals. Schedule a consultation to explore comprehensive treatments designed for you.
+                    Write something your patients should know: your services, your team or how to book.
                 </p>
             `,
         });
@@ -2176,9 +2178,9 @@ function PageBuilderContent({ tenant }) {
             category: basicContentCat,
             content: `
                 <ul class="umahz-list" style="list-style-type: disc; padding-left: 24px; color: #475569; font-size: 0.95rem; line-height: 1.8; margin: 12px 0;">
-                    <li>Licensed and accredited healthcare specialists</li>
-                    <li>State-of-the-art clinical technology and rehabilitation equipment</li>
-                    <li>Direct billing with all major insurance providers</li>
+                    <li>Your first point</li>
+                    <li>Your second point</li>
+                    <li>Your third point</li>
                 </ul>
             `,
         });
@@ -2278,7 +2280,7 @@ function PageBuilderContent({ tenant }) {
                                 <span>📞 ${phone}</span>
                             </div>
                             <div>
-                                <span>Mon - Fri: 9:00 AM - 6:00 PM</span>
+                                <span>${hoursSummary}</span>
                             </div>
                         </div>
                     </div>
@@ -2412,9 +2414,9 @@ function PageBuilderContent({ tenant }) {
                     <div style="max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 48px; align-items: center;">
                         <div>
                             <span style="color: ${brandColor}; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.85rem;">About Our Clinic</span>
-                            <h2 style="font-size: 2.2rem; font-weight: 800; margin: 8px 0 16px; color: #0f172a;">Dedicated to Your Recovery &amp; Long-Term Well-Being</h2>
+                            <h2 style="font-size: 2.2rem; font-weight: 800; margin: 8px 0 16px; color: #0f172a;">About ${clinicName}</h2>
                             <p style="color: #475569; font-size: 1rem; line-height: 1.7; margin-bottom: 20px;">
-                                At ${clinicName}, our licensed practitioners blend evidence-based therapies with compassionate, patient-first care.
+                                Welcome to ${clinicName}. Tell your patients about your clinic, your team and your approach to care.
                             </p>
                             <a href="/pay" style="display: inline-block; background: ${brandColor}; color: white; padding: 12px 28px; border-radius: 9999px; font-weight: 700; text-decoration: none;">Pay Online</a>
                         </div>
@@ -2436,18 +2438,7 @@ function PageBuilderContent({ tenant }) {
                         <span style="color: ${brandColor}; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.85rem;">Clinic Schedule</span>
                         <h2 style="font-size: 2rem; font-weight: 700; margin: 8px 0 32px; color: #0f172a;">Operating Hours &amp; Availability</h2>
                         <div style="background: white; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; box-shadow: 0 4px 16px rgba(0,0,0,0.04); max-width: 600px; margin: 0 auto; text-align: left;">
-                            <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9;">
-                                <span style="font-weight: 600; color: #1e293b;">Monday – Friday</span>
-                                <span style="color: #64748b;">9:00 AM – 6:00 PM</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9;">
-                                <span style="font-weight: 600; color: #1e293b;">Saturday</span>
-                                <span style="color: #64748b;">10:00 AM – 3:00 PM</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; padding: 12px 0;">
-                                <span style="font-weight: 600; color: #1e293b;">Sunday &amp; Holidays</span>
-                                <span style="color: #ef4444; font-weight: 600;">Closed</span>
-                            </div>
+                            ${hoursRowsHtml}
                         </div>
                     </div>
                 </section>
@@ -2910,10 +2901,24 @@ function PageBuilderContent({ tenant }) {
             }
         });
 
-        // Track changes
-        editor.on('component:update style:update block:drag:stop', () => {
-            setIsDirty(true);
+        // Track changes — real edits only. GrapesJS fires component/style updates while it
+        // builds the page on load, so updates count only after the user's first interaction
+        // (pointer / key / drop in the editor or its canvas). Dropping a block always counts.
+        let userActed = false;
+        const markActed = () => {
+            userActed = true;
+        };
+        const actionEvents = ['pointerdown', 'keydown', 'drop'];
+        let canvasDoc = null;
+        actionEvents.forEach((ev) => window.addEventListener(ev, markActed, true));
+        editor.on('load', () => {
+            canvasDoc = editor.Canvas.getDocument();
+            if (canvasDoc) actionEvents.forEach((ev) => canvasDoc.addEventListener(ev, markActed, true));
         });
+        editor.on('component:update style:update', () => {
+            if (userActed) setIsDirty(true);
+        });
+        editor.on('block:drag:stop', () => setIsDirty(true));
 
         // Delegated click listener for Block Categories accordion toggle
         const blocksContainer = document.getElementById('gjs-blocks');
@@ -2941,6 +2946,10 @@ function PageBuilderContent({ tenant }) {
             if (blocksContainer && handleCategoryClick) {
                 blocksContainer.removeEventListener('click', handleCategoryClick);
             }
+            actionEvents.forEach((ev) => {
+                window.removeEventListener(ev, markActed, true);
+                if (canvasDoc) canvasDoc.removeEventListener(ev, markActed, true);
+            });
             editor.destroy();
         };
     }, []);

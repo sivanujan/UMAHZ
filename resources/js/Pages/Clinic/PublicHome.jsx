@@ -10,6 +10,7 @@ import { Head } from '@inertiajs/react';
 export default function PublicHome({ clinic }) {
     const brandColor = clinic.brand_color || '#6d28d9';
     const hasCustomLayout = Boolean(clinic.gjs_html && clinic.gjs_html.trim().length > 0);
+    const services = Array.isArray(clinic.offeredDisciplines) ? clinic.offeredDisciplines : [];
 
     return (
         <>
@@ -76,7 +77,8 @@ export default function PublicHome({ clinic }) {
                             </div>
                         </section>
 
-                        {/* Services */}
+                        {/* Services: only the disciplines this clinic offers (hidden when none) */}
+                        {services.length > 0 && (
                         <section style={{ padding: '70px 20px', background: '#f8fafc' }}>
                             <div style={{ maxWidth: 1100, margin: '0 auto' }}>
                                 <div style={{ textAlign: 'center', marginBottom: 40 }}>
@@ -84,22 +86,23 @@ export default function PublicHome({ clinic }) {
                                     <p style={{ color: '#64748b' }}>Comprehensive care for your health and vitality.</p>
                                 </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 24 }}>
-                                    {(clinic.offeredDisciplineLabels || ['Acupuncture', 'Chiropractic', 'Physiotherapy']).map((d, i) => (
-                                        <div key={i} style={{ background: 'white', borderRadius: 12, padding: 24, border: '1px solid #e2e8f0' }}>
-                                            <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: 8, color: brandColor }}>{d}</h3>
+                                    {services.map((d) => (
+                                        <div key={d.code} style={{ background: 'white', borderRadius: 12, padding: 24, border: '1px solid #e2e8f0' }}>
+                                            <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: 8, color: brandColor }}>{d.label}</h3>
                                             <p style={{ color: '#64748b', fontSize: '0.92rem' }}>Personalized treatment sessions focused on recovery and health goals.</p>
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         </section>
+                        )}
 
                         {/* Contact */}
                         <section style={{ padding: '70px 20px', background: '#ffffff' }}>
                             <div style={{ maxWidth: 1000, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 32 }}>
                                 <div style={{ background: '#f8fafc', padding: 28, borderRadius: 12, border: '1px solid #e2e8f0' }}>
                                     <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: 12 }}>📍 Clinic Location</h3>
-                                    <p style={{ color: '#475569', margin: '0 0 6px' }}>{clinic.address || 'Address provided upon booking.'}</p>
+                                    <p style={{ color: '#475569', margin: '0 0 6px' }}>{clinic.address_text || 'Address provided upon booking.'}</p>
                                     {clinic.phone && <p style={{ color: '#475569', margin: '0 0 6px' }}>📞 {clinic.phone}</p>}
                                     {clinic.email && <p style={{ color: '#475569', margin: 0 }}>✉️ {clinic.email}</p>}
                                 </div>

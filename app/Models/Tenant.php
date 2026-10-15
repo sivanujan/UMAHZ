@@ -620,6 +620,95 @@ class Tenant extends Model
     }
 
     /**
+     * The clinic's real opening hours as display rows, consecutive days with the same hours
+     * grouped: [['days' => 'Monday – Friday', 'hours' => '9:00 AM – 5:00 PM', 'closed' => false],
+     * ['days' => 'Saturday – Sunday', 'hours' => 'Closed', 'closed' => true]]. Empty when the
+     * clinic has not set its hours.
+     *
+     * @return array<int, array{days: string, hours: string, closed: bool}>
+     */
+    public function businessHoursRows(): array
+    {
+        $hours = is_array($this->business_hours) ? $this->business_hours : [];
+        if (! $hours) {
+            return [];
+        }
+        $days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        $fmt = fn (?string $t) => $t ? \Carbon\Carbon::createFromFormat('H:i', substr($t, 0, 5))->format('g:i A') : null;
+
+        $groups = [];
+        foreach ($days as $day) {
+            $d = $hours[$day] ?? null;
+            $open = is_array($d) && empty($d['closed']) ? $fmt($d['open'] ?? null) : null;
+            $close = is_array($d) && empty($d['closed']) ? $fmt($d['close'] ?? null) : null;
+            $closed = ! ($open && $close);
+            $text = $closed ? 'Closed' : "{$open} – {$close}";
+            $last = count($groups) - 1;
+            if ($last >= 0 && $groups[$last]['hours'] === $text) {
+                $groups[$last]['to'] = $day;
+            } else {
+                $groups[] = ['from' => $day, 'to' => $day, 'hours' => $text, 'closed' => $closed];
+            }
+        }
+
+        return array_map(fn ($g) => [
+            'days' => $g['from'] === $g['to'] ? ucfirst($g['from']) : ucfirst($g['from']).' – '.ucfirst($g['to']),
+            'hours' => $g['hours'],
+            'closed' => $g['closed'],
+        ], $groups);
+    }
+
+    /**
+     * One short line for compact spots (e.g. a site's top bar): the first open period,
+     * "Mon – Fri: 9:00 AM – 5:00 PM". Null when the clinic has no open days on file.
+     */
+    public function businessHoursSummary(): ?string
+    {
+        foreach ($this->businessHoursRows() as $row) {
+            if (! $row['closed']) {
+                $days = preg_replace_callback('/[A-Z][a-z]+/', fn ($m) => substr($m[0], 0, 3), $row['days']);
+
+                return "{$days}: {$row['hours']}";
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The clinic's address as one display line ("1200 Main St, Vancouver, British Columbia"),
+     * or null when none is on file. `address` itself is a structured array (line1, city,
+     * region, country, lat, lng) and must not be rendered as text directly.
+     */
+    public function addressText(): ?string
+    {
+        $a = is_array($this->address) ? $this->address : [];
+        $parts = array_filter(array_map(
+            fn ($v) => is_string($v) ? trim($v) : '',
+            [$a['line1'] ?? null, $a['city'] ?? null, $a['region'] ?? null],
+        ));
+
+        return $parts ? implode(', ', $parts) : null;
+    }
+
+    /**
+     * The disciplines this clinic actually offers, as a list for the frontend:
+     * [['code' => 'massage_therapy', 'label' => 'Massage Therapy'], ...].
+     * No fallback: a clinic with none gets an empty list (its public pages hide the section).
+     *
+     * @return array<int, array{code: string, label: string}>
+     */
+    public function offeredDisciplineList(): array
+    {
+        $all = $this->allDisciplineLabels();
+
+        return array_values(array_map(
+            fn (string $code) => ['code' => $code, 'label' => $all[$code] ?? Disciplines::FIXED_LABELS[$code] ?? Str::headline($code)],
+            array_values($this->requested_disciplines ?? []),
+        ));
+    }
+
+    /**
      * Resolve a discipline code to its proper display label for this tenant.
      * Never returns a raw snake_case code or "unknown".
      */
@@ -657,7 +746,8 @@ class Tenant extends Model
      */
     public function offeredDisciplineCodes(): array
     {
-        return $this->requested_disciplines ?: Disciplines::fixedCodes();
+        // array_values: always a JSON list (a saved array with gaps would encode as an object)
+        return array_values($this->requested_disciplines ?: Disciplines::fixedCodes());
     }
 
     /**
