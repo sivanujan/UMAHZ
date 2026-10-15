@@ -49,7 +49,7 @@ class ClinicHomeController extends Controller
                 'address'      => $tenant->address,
                 // Hours & disciplines
                 'business_hours'         => $tenant->business_hours,
-                'offeredDisciplineLabels' => $tenant->offeredDisciplineLabels(),
+                'offeredDisciplines' => $tenant->offeredDisciplineList(),
                 // Homepage settings blob
                 'homepage_settings' => [
                     'cover_image_url' => $hp['cover_image_url'] ?? null,

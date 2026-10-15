@@ -620,6 +620,23 @@ class Tenant extends Model
     }
 
     /**
+     * The disciplines this clinic actually offers, as a list for the frontend:
+     * [['code' => 'massage_therapy', 'label' => 'Massage Therapy'], ...].
+     * No fallback: a clinic with none gets an empty list (its public pages hide the section).
+     *
+     * @return array<int, array{code: string, label: string}>
+     */
+    public function offeredDisciplineList(): array
+    {
+        $all = $this->allDisciplineLabels();
+
+        return array_values(array_map(
+            fn (string $code) => ['code' => $code, 'label' => $all[$code] ?? Disciplines::FIXED_LABELS[$code] ?? Str::headline($code)],
+            array_values($this->requested_disciplines ?? []),
+        ));
+    }
+
+    /**
      * Resolve a discipline code to its proper display label for this tenant.
      * Never returns a raw snake_case code or "unknown".
      */
@@ -657,7 +674,8 @@ class Tenant extends Model
      */
     public function offeredDisciplineCodes(): array
     {
-        return $this->requested_disciplines ?: Disciplines::fixedCodes();
+        // array_values: always a JSON list (a saved array with gaps would encode as an object)
+        return array_values($this->requested_disciplines ?: Disciplines::fixedCodes());
     }
 
     /**

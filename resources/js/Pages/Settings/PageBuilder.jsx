@@ -247,9 +247,28 @@ function PageBuilderContent({ tenant }) {
         const phone = tenant.phone || '(555) 123-4567';
         const email = tenant.email || 'info@clinic.com';
         const address = tenant.address || '123 Health Ave, Suite 100';
-        const disciplines = (tenant.offeredDisciplineLabels && tenant.offeredDisciplineLabels.length > 0)
-            ? tenant.offeredDisciplineLabels
-            : ['Acupuncture', 'Chiropractic', 'Physiotherapy', 'Massage Therapy'];
+        // the clinic's own offered disciplines ([{ code, label }]); no made-up fallback list
+        const disciplines = (Array.isArray(tenant.offeredDisciplines) ? tenant.offeredDisciplines : []).map((d) => d.label);
+        // the starter page leaves the Services section out entirely when the clinic offers none
+        const servicesSection = disciplines.length === 0 ? '' : `
+            <section id="services" class="clinic-services" style="padding: 80px 20px; background: #f8fafc; color: #0f172a;">
+                <div style="max-width: 1100px; margin: 0 auto;">
+                    <div style="text-align: center; margin-bottom: 50px;">
+                        <h2 style="font-size: 2rem; font-weight: 700; color: #0f172a; margin-bottom: 12px;">Our Services & Treatments</h2>
+                        <p style="color: #64748b; font-size: 1.05rem;">Comprehensive holistic care tailored to your body's wellness.</p>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px;">
+                        ${disciplines.map(d => `
+                            <div style="background: white; border-radius: 12px; padding: 28px 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; text-align: left;">
+                                <div style="width: 44px; height: 44px; background: ${brandColor}15; color: ${brandColor}; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; margin-bottom: 16px;">✦</div>
+                                <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; color: #1e293b;">${d}</h3>
+                                <p style="color: #64748b; font-size: 0.92rem; line-height: 1.5;">Personalized treatment sessions designed to help you recover, strengthen, and thrive.</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </section>
+        `;
 
         // Default initial HTML if no project exists yet
         const defaultHtml = `
@@ -290,24 +309,7 @@ function PageBuilderContent({ tenant }) {
             </section>
 
             <!-- 2. Services Section (#services) -->
-            <section id="services" class="clinic-services" style="padding: 80px 20px; background: #f8fafc; color: #0f172a;">
-                <div style="max-width: 1100px; margin: 0 auto;">
-                    <div style="text-align: center; margin-bottom: 50px;">
-                        <h2 style="font-size: 2rem; font-weight: 700; color: #0f172a; margin-bottom: 12px;">Our Services & Treatments</h2>
-                        <p style="color: #64748b; font-size: 1.05rem;">Comprehensive holistic care tailored to your body's wellness.</p>
-                    </div>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px;">
-                        ${disciplines.map(d => `
-                            <div style="background: white; border-radius: 12px; padding: 28px 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; text-align: left;">
-                                <div style="width: 44px; height: 44px; background: ${brandColor}15; color: ${brandColor}; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; margin-bottom: 16px;">✦</div>
-                                <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; color: #1e293b;">${d}</h3>
-                                <p style="color: #64748b; font-size: 0.92rem; line-height: 1.5;">Personalized treatment sessions designed to help you recover, strengthen, and thrive.</p>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            </section>
-
+            ${servicesSection}
             <!-- 3. About Us Section (#about) -->
             <section id="about" class="clinic-about" style="padding: 80px 20px; background: #ffffff; color: #0f172a;">
                 <div style="max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 48px; align-items: center;">
@@ -2910,10 +2912,24 @@ function PageBuilderContent({ tenant }) {
             }
         });
 
-        // Track changes
-        editor.on('component:update style:update block:drag:stop', () => {
-            setIsDirty(true);
+        // Track changes — real edits only. GrapesJS fires component/style updates while it
+        // builds the page on load, so updates count only after the user's first interaction
+        // (pointer / key / drop in the editor or its canvas). Dropping a block always counts.
+        let userActed = false;
+        const markActed = () => {
+            userActed = true;
+        };
+        const actionEvents = ['pointerdown', 'keydown', 'drop'];
+        let canvasDoc = null;
+        actionEvents.forEach((ev) => window.addEventListener(ev, markActed, true));
+        editor.on('load', () => {
+            canvasDoc = editor.Canvas.getDocument();
+            if (canvasDoc) actionEvents.forEach((ev) => canvasDoc.addEventListener(ev, markActed, true));
         });
+        editor.on('component:update style:update', () => {
+            if (userActed) setIsDirty(true);
+        });
+        editor.on('block:drag:stop', () => setIsDirty(true));
 
         // Delegated click listener for Block Categories accordion toggle
         const blocksContainer = document.getElementById('gjs-blocks');
@@ -2941,6 +2957,10 @@ function PageBuilderContent({ tenant }) {
             if (blocksContainer && handleCategoryClick) {
                 blocksContainer.removeEventListener('click', handleCategoryClick);
             }
+            actionEvents.forEach((ev) => {
+                window.removeEventListener(ev, markActed, true);
+                if (canvasDoc) canvasDoc.removeEventListener(ev, markActed, true);
+            });
             editor.destroy();
         };
     }, []);
