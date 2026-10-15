@@ -357,6 +357,7 @@ class ClinicSettingsController extends Controller
                 'email'                   => $tenant->email ?: $tenant->primary_contact_email,
                 'phone'                   => $tenant->phone ?: $tenant->primary_contact_phone,
                 'address'                 => $tenant->address,
+                'address_text'            => $tenant->addressText(),
                 'business_hours'          => $tenant->business_hours,
                 'offeredDisciplines'      => $tenant->offeredDisciplineList(),
                 'gjs_project'             => $hp['gjs_project'] ?? null,

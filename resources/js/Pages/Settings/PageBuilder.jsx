@@ -244,9 +244,10 @@ function PageBuilderContent({ tenant }) {
         const clinicName = tenant.name || 'Wellness Clinic';
         const brandColor = tenant.brand_color || '#6d28d9';
         const logoUrl = tenant.logo_url || '';
-        const phone = tenant.phone || '(555) 123-4567';
-        const email = tenant.email || 'info@clinic.com';
-        const address = tenant.address || '123 Health Ave, Suite 100';
+        // real contact details only; clear placeholders (not fake data) for the owner to fill in
+        const phone = tenant.phone || 'Add your phone number';
+        const email = tenant.email || 'Add your email address';
+        const address = tenant.address_text || 'Add your clinic address';
         // the clinic's own offered disciplines ([{ code, label }]); no made-up fallback list
         const disciplines = (Array.isArray(tenant.offeredDisciplines) ? tenant.offeredDisciplines : []).map((d) => d.label);
         // the starter page leaves the Services section out entirely when the clinic offers none

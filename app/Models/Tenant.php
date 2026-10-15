@@ -620,6 +620,22 @@ class Tenant extends Model
     }
 
     /**
+     * The clinic's address as one display line ("1200 Main St, Vancouver, British Columbia"),
+     * or null when none is on file. `address` itself is a structured array (line1, city,
+     * region, country, lat, lng) and must not be rendered as text directly.
+     */
+    public function addressText(): ?string
+    {
+        $a = is_array($this->address) ? $this->address : [];
+        $parts = array_filter(array_map(
+            fn ($v) => is_string($v) ? trim($v) : '',
+            [$a['line1'] ?? null, $a['city'] ?? null, $a['region'] ?? null],
+        ));
+
+        return $parts ? implode(', ', $parts) : null;
+    }
+
+    /**
      * The disciplines this clinic actually offers, as a list for the frontend:
      * [['code' => 'massage_therapy', 'label' => 'Massage Therapy'], ...].
      * No fallback: a clinic with none gets an empty list (its public pages hide the section).

@@ -105,6 +105,30 @@ class ClinicPublicDisciplinesTest extends TestCase
         ], $props['tenant']['offeredDisciplines']);
     }
 
+    public function test_both_pages_get_the_address_as_one_line_of_text(): void
+    {
+        // `address` is structured; rendering it directly crashed the public page (React #31)
+        $tenant = $this->clinic(['address' => [
+            'line1' => '1200 Demo Street, Suite 300', 'city' => 'Vancouver', 'region' => 'British Columbia',
+            'country' => 'Canada', 'lat' => 49.28, 'lng' => -123.12,
+        ]]);
+        $owner = User::factory()->create(['email_verified_at' => now()]);
+        StaffMembership::create([
+            'tenant_id' => $tenant->id, 'user_id' => $owner->id,
+            'role' => StaffMembership::ROLE_CLINIC_OWNER, 'status' => StaffMembership::STATUS_ACTIVE, 'joined_at' => now(),
+        ]);
+        $line = '1200 Demo Street, Suite 300, Vancouver, British Columbia';
+
+        $this->get('http://maple.umahz.test/')->assertInertia(fn ($p) => $p->where('clinic.address_text', $line));
+        $this->actingAs($owner)->get('http://maple.umahz.test/app/settings/page-builder')
+            ->assertInertia(fn ($p) => $p->where('tenant.address_text', $line));
+    }
+
+    public function test_address_text_is_null_without_an_address(): void
+    {
+        $this->assertNull($this->clinic(['address' => null])->addressText());
+    }
+
     public function test_offered_discipline_codes_are_always_a_list(): void
     {
         // a saved array with gaps (e.g. after removing an item) must still reach JS as an array

@@ -102,7 +102,7 @@ export default function PublicHome({ clinic }) {
                             <div style={{ maxWidth: 1000, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 32 }}>
                                 <div style={{ background: '#f8fafc', padding: 28, borderRadius: 12, border: '1px solid #e2e8f0' }}>
                                     <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: 12 }}>📍 Clinic Location</h3>
-                                    <p style={{ color: '#475569', margin: '0 0 6px' }}>{clinic.address || 'Address provided upon booking.'}</p>
+                                    <p style={{ color: '#475569', margin: '0 0 6px' }}>{clinic.address_text || 'Address provided upon booking.'}</p>
                                     {clinic.phone && <p style={{ color: '#475569', margin: '0 0 6px' }}>📞 {clinic.phone}</p>}
                                     {clinic.email && <p style={{ color: '#475569', margin: 0 }}>✉️ {clinic.email}</p>}
                                 </div>

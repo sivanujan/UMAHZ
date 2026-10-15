@@ -47,6 +47,7 @@ class ClinicHomeController extends Controller
                 'email'        => $tenant->email ?: $tenant->primary_contact_email,
                 'phone'        => $tenant->phone ?: $tenant->primary_contact_phone,
                 'address'      => $tenant->address,
+                'address_text' => $tenant->addressText(),
                 // Hours & disciplines
                 'business_hours'         => $tenant->business_hours,
                 'offeredDisciplines' => $tenant->offeredDisciplineList(),
