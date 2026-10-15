@@ -250,6 +250,21 @@ function PageBuilderContent({ tenant }) {
         const address = tenant.address_text || 'Add your clinic address';
         // the clinic's own offered disciplines ([{ code, label }]); no made-up fallback list
         const disciplines = (Array.isArray(tenant.offeredDisciplines) ? tenant.offeredDisciplines : []).map((d) => d.label);
+        // the clinic's real opening hours (server-built rows; closed days say "Closed")
+        const hoursRows = Array.isArray(tenant.hours_rows) ? tenant.hours_rows : [];
+        const hoursRowsHtml =
+            hoursRows.length === 0
+                ? '<div style="padding: 12px 0; color: #64748b;">Add your business hours</div>'
+                : hoursRows
+                      .map(
+                          (r, i) => `
+                            <div style="display: flex; justify-content: space-between; padding: 12px 0;${i < hoursRows.length - 1 ? ' border-bottom: 1px solid #f1f5f9;' : ''}">
+                                <span style="font-weight: 600; color: #1e293b;">${r.days}</span>
+                                <span style="${r.closed ? 'color: #ef4444; font-weight: 600;' : 'color: #64748b;'}">${r.hours}</span>
+                            </div>`,
+                      )
+                      .join('');
+        const hoursSummary = tenant.hours_summary || 'Add your business hours';
         // the starter page leaves the Services section out entirely when the clinic offers none
         const servicesSection = disciplines.length === 0 ? '' : `
             <section id="services" class="clinic-services" style="padding: 80px 20px; background: #f8fafc; color: #0f172a;">
@@ -316,15 +331,10 @@ function PageBuilderContent({ tenant }) {
                 <div style="max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 48px; align-items: center;">
                     <div>
                         <span style="color: ${brandColor}; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.85rem;">About Our Clinic</span>
-                        <h2 style="font-size: 2.2rem; font-weight: 800; margin: 8px 0 16px; color: #0f172a;">Dedicated to Your Recovery &amp; Long-Term Well-Being</h2>
-                        <p style="color: #475569; font-size: 1rem; line-height: 1.7; margin-bottom: 20px;">
-                            At ${clinicName}, our licensed practitioners blend evidence-based therapies with compassionate, patient-first care. Whether you are recovering from injury or optimizing your physical wellness, we build a care plan designed for you.
+                        <h2 style="font-size: 2.2rem; font-weight: 800; margin: 8px 0 16px; color: #0f172a;">About ${clinicName}</h2>
+                        <p style="color: #475569; font-size: 1rem; line-height: 1.7; margin-bottom: 24px;">
+                            Welcome to ${clinicName}. Tell your patients about your clinic, your team and your approach to care.
                         </p>
-                        <ul style="list-style: none; padding: 0; margin: 0 0 24px 0; display: flex; flex-direction: column; gap: 10px; color: #334155; font-size: 0.95rem;">
-                            <li>✓ <strong>Certified Specialists:</strong> Fully licensed and experienced healthcare team.</li>
-                            <li>✓ <strong>Modern Facilities:</strong> State-of-the-art treatment and rehabilitation equipment.</li>
-                            <li>✓ <strong>Direct Billing:</strong> Fast, hassle-free online invoice processing.</li>
-                        </ul>
                         <a href="/pay" style="display: inline-block; background: ${brandColor}; color: white; padding: 12px 28px; border-radius: 9999px; font-weight: 700; text-decoration: none;">Pay Online</a>
                     </div>
                     <div>
@@ -339,18 +349,7 @@ function PageBuilderContent({ tenant }) {
                     <span style="color: ${brandColor}; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.85rem;">Clinic Schedule</span>
                     <h2 style="font-size: 2rem; font-weight: 700; margin: 8px 0 32px; color: #0f172a;">Operating Hours &amp; Availability</h2>
                     <div style="background: white; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; box-shadow: 0 4px 16px rgba(0,0,0,0.04); max-width: 600px; margin: 0 auto; text-align: left;">
-                        <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9;">
-                            <span style="font-weight: 600; color: #1e293b;">Monday – Friday</span>
-                            <span style="color: #64748b;">9:00 AM – 6:00 PM</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9;">
-                            <span style="font-weight: 600; color: #1e293b;">Saturday</span>
-                            <span style="color: #64748b;">10:00 AM – 3:00 PM</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; padding: 12px 0;">
-                            <span style="font-weight: 600; color: #1e293b;">Sunday &amp; Holidays</span>
-                            <span style="color: #ef4444; font-weight: 600;">Closed</span>
-                        </div>
+                            ${hoursRowsHtml}
                     </div>
                 </div>
             </section>
@@ -1568,7 +1567,7 @@ function PageBuilderContent({ tenant }) {
                 if (comp?.view?.el) {
                     comp.view.el.querySelectorAll('li').forEach(li => items.push(li.innerText));
                 }
-                const initialText = items.length > 0 ? items.join('\n') : "Licensed healthcare specialists\nState-of-the-art clinical equipment\nFlexible scheduling";
+                const initialText = items.length > 0 ? items.join('\n') : "Your first point\nYour second point\nYour third point";
 
                 el.innerHTML = `
                     <div style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
@@ -2082,7 +2081,7 @@ function PageBuilderContent({ tenant }) {
             category: basicContentCat,
             content: `
                 <p class="umahz-text" style="font-size: 1rem; color: #475569; line-height: 1.65; margin: 0 0 16px 0;">
-                    We offer compassionate, evidence-based clinical care tailored to your recovery goals. Schedule a consultation to explore comprehensive treatments designed for you.
+                    Write something your patients should know: your services, your team or how to book.
                 </p>
             `,
         });
@@ -2179,9 +2178,9 @@ function PageBuilderContent({ tenant }) {
             category: basicContentCat,
             content: `
                 <ul class="umahz-list" style="list-style-type: disc; padding-left: 24px; color: #475569; font-size: 0.95rem; line-height: 1.8; margin: 12px 0;">
-                    <li>Licensed and accredited healthcare specialists</li>
-                    <li>State-of-the-art clinical technology and rehabilitation equipment</li>
-                    <li>Direct billing with all major insurance providers</li>
+                    <li>Your first point</li>
+                    <li>Your second point</li>
+                    <li>Your third point</li>
                 </ul>
             `,
         });
@@ -2281,7 +2280,7 @@ function PageBuilderContent({ tenant }) {
                                 <span>📞 ${phone}</span>
                             </div>
                             <div>
-                                <span>Mon - Fri: 9:00 AM - 6:00 PM</span>
+                                <span>${hoursSummary}</span>
                             </div>
                         </div>
                     </div>
@@ -2415,9 +2414,9 @@ function PageBuilderContent({ tenant }) {
                     <div style="max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 48px; align-items: center;">
                         <div>
                             <span style="color: ${brandColor}; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.85rem;">About Our Clinic</span>
-                            <h2 style="font-size: 2.2rem; font-weight: 800; margin: 8px 0 16px; color: #0f172a;">Dedicated to Your Recovery &amp; Long-Term Well-Being</h2>
+                            <h2 style="font-size: 2.2rem; font-weight: 800; margin: 8px 0 16px; color: #0f172a;">About ${clinicName}</h2>
                             <p style="color: #475569; font-size: 1rem; line-height: 1.7; margin-bottom: 20px;">
-                                At ${clinicName}, our licensed practitioners blend evidence-based therapies with compassionate, patient-first care.
+                                Welcome to ${clinicName}. Tell your patients about your clinic, your team and your approach to care.
                             </p>
                             <a href="/pay" style="display: inline-block; background: ${brandColor}; color: white; padding: 12px 28px; border-radius: 9999px; font-weight: 700; text-decoration: none;">Pay Online</a>
                         </div>
@@ -2439,18 +2438,7 @@ function PageBuilderContent({ tenant }) {
                         <span style="color: ${brandColor}; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.85rem;">Clinic Schedule</span>
                         <h2 style="font-size: 2rem; font-weight: 700; margin: 8px 0 32px; color: #0f172a;">Operating Hours &amp; Availability</h2>
                         <div style="background: white; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; box-shadow: 0 4px 16px rgba(0,0,0,0.04); max-width: 600px; margin: 0 auto; text-align: left;">
-                            <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9;">
-                                <span style="font-weight: 600; color: #1e293b;">Monday – Friday</span>
-                                <span style="color: #64748b;">9:00 AM – 6:00 PM</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9;">
-                                <span style="font-weight: 600; color: #1e293b;">Saturday</span>
-                                <span style="color: #64748b;">10:00 AM – 3:00 PM</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; padding: 12px 0;">
-                                <span style="font-weight: 600; color: #1e293b;">Sunday &amp; Holidays</span>
-                                <span style="color: #ef4444; font-weight: 600;">Closed</span>
-                            </div>
+                            ${hoursRowsHtml}
                         </div>
                     </div>
                 </section>

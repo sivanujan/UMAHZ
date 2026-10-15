@@ -359,6 +359,8 @@ class ClinicSettingsController extends Controller
                 'address'                 => $tenant->address,
                 'address_text'            => $tenant->addressText(),
                 'business_hours'          => $tenant->business_hours,
+                'hours_rows'              => $tenant->businessHoursRows(),
+                'hours_summary'           => $tenant->businessHoursSummary(),
                 'offeredDisciplines'      => $tenant->offeredDisciplineList(),
                 'gjs_project'             => $hp['gjs_project'] ?? null,
                 'gjs_html'                => $hp['gjs_html'] ?? null,
