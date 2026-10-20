@@ -99,6 +99,12 @@ export default function useScribeRecorder({
     const [interimText, setInterimText] = useState('');
     const [fallbackNotice, setFallbackNotice] = useState(null);
     const [isStreamingActive, setIsStreamingActive] = useState(false);
+    const [streamingMode, setStreamingMode] = useState(streamingEnabled ? 'ready' : 'standard');
+    const [streamingModeReason, setStreamingModeReason] = useState(
+        streamingEnabled
+            ? 'Real-time WebSocket streaming ready'
+            : 'Streaming disabled (SCRIBE_STREAMING=false). Standard 12s chunk transcription active.'
+    );
     const [streamSaveWarning, setStreamSaveWarning] = useState(null);
 
     const streamRef = useRef(null);
@@ -344,12 +350,14 @@ export default function useScribeRecorder({
         if (!isStreamingRef.current && !streamingModeActiveRef.current) return;
         if (intentionalStopRef.current) return;
 
-        console.warn('AI Scribe: Falling back to chunk uploads. Reason:', reason);
+        console.warn('[AI Scribe Streaming] Falling back to standard chunk uploads. Reason:', reason);
         isStreamingRef.current = false;
         streamingModeActiveRef.current = false;
         setIsStreamingActive(false);
+        setStreamingMode('standard');
+        setStreamingModeReason(reason);
         setInterimText('');
-        setFallbackNotice('Switched to standard transcription (live connection interrupted). Recording continued without loss.');
+        setFallbackNotice(`Switched to standard transcription (${reason}). Recording continued without loss.`);
 
         // Close WebSocket
         try {
@@ -443,6 +451,7 @@ export default function useScribeRecorder({
         if (!sessionId || haltedRef.current) return false;
 
         try {
+            console.log('[AI Scribe Streaming] Fetching temporary token from backend for session:', sessionId);
             // 1. Fetch short-lived token from backend
             const { data } = await axios.post(`/app/scribe/sessions/${sessionId}/token`);
             sessionTokenRef.current = data;
@@ -450,6 +459,13 @@ export default function useScribeRecorder({
             const speechModel = data.speech_model || 'universal-3-6-pro';
             const sampleRate = data.sample_rate || 16000;
             const mode = data.mode || 'balanced';
+
+            console.log('[AI Scribe Streaming] Token acquired successfully:', {
+                speech_model: speechModel,
+                sample_rate: sampleRate,
+                mode,
+                language: language || 'en',
+            });
 
             // Construct WebSocket URL with query params
             const wsBase = data.websocket_url || 'wss://streaming.assemblyai.com/v3/ws';
@@ -463,14 +479,19 @@ export default function useScribeRecorder({
                 query.append('language_codes', language);
             }
 
-            const ws = new WebSocket(`${wsBase}?${query.toString()}`);
+            const wsUrl = `${wsBase}?${query.toString()}`;
+            console.log('[AI Scribe Streaming] Connecting WebSocket to:', wsBase);
+            const ws = new WebSocket(wsUrl);
             ws.binaryType = 'arraybuffer';
             wsRef.current = ws;
 
             ws.onopen = () => {
+                console.log('[AI Scribe Streaming] WebSocket opened successfully!');
                 isStreamingRef.current = true;
                 streamingModeActiveRef.current = true;
                 setIsStreamingActive(true);
+                setStreamingMode('live');
+                setStreamingModeReason('Real-time WebSocket streaming active via AssemblyAI');
                 streamConnStartRef.current = Date.now();
 
                 // Setup 55-minute auto-reconnect timer for long sessions
@@ -491,13 +512,16 @@ export default function useScribeRecorder({
                 if (haltedRef.current) return;
                 try {
                     const msg = JSON.parse(event.data);
-                    if (msg.type === 'Turn') {
+                    if (msg.type === 'Begin') {
+                        console.log('[AI Scribe Streaming] Begin event received. Session ID:', msg.id);
+                    } else if (msg.type === 'Turn') {
                         const transcript = msg.transcript ? msg.transcript.trim() : '';
                         if (!msg.end_of_turn) {
                             // Sub-second partial live preview
                             setInterimText(transcript);
                         } else if (transcript.length > 0) {
                             // Finalized turn
+                            console.log('[AI Scribe Streaming] Final turn finalized:', transcript);
                             setInterimText('');
                             const nowElapsed = Math.max(0, offsetRef.current + Math.round(performance.now() - segmentStartRef.current));
                             const turnStart = Math.max(0, nowElapsed - 2000);
@@ -528,24 +552,27 @@ export default function useScribeRecorder({
                             }, 1000);
                         }
                     } else if (msg.type === 'Termination') {
+                        console.log('[AI Scribe Streaming] Termination summary received:', msg);
                         const connSec = msg.session_duration_seconds || (streamConnStartRef.current ? Math.round((Date.now() - streamConnStartRef.current) / 1000) : 0);
                         flushStreamingTurns({ connectionDurationSec: connSec });
                     }
                 } catch (e) {
-                    console.error('AI Scribe WS parse error:', e);
+                    console.error('[AI Scribe Streaming] WS parse error:', e);
                 }
             };
 
             ws.onerror = (e) => {
+                console.error('[AI Scribe Streaming] WebSocket error event:', e);
                 if (!intentionalStopRef.current) {
-                    fallbackToChunking('WebSocket error');
+                    fallbackToChunking('WebSocket error on streaming connection');
                 }
             };
 
             ws.onclose = (e) => {
+                console.log('[AI Scribe Streaming] WebSocket closed. Code:', e.code, 'Reason:', e.reason, 'wasClean:', e.wasClean);
                 if (intentionalStopRef.current) return;
                 if ((isStreamingRef.current || streamingModeActiveRef.current) && runningRef.current && e.code !== 1000) {
-                    fallbackToChunking(`WebSocket closed (${e.code})`);
+                    fallbackToChunking(`WebSocket closed (code ${e.code}: ${e.reason || 'abnormal closure'})`);
                 }
             };
 
@@ -553,11 +580,17 @@ export default function useScribeRecorder({
             const AudioCtx = window.AudioContext || window.webkitAudioContext;
             const audioCtx = new AudioCtx();
             audioContextRef.current = audioCtx;
+            console.log('[AI Scribe Streaming] AudioContext initialized. State:', audioCtx.state, 'sampleRate:', audioCtx.sampleRate);
             if (audioCtx.state === 'suspended') {
+                console.log('[AI Scribe Streaming] Resuming suspended AudioContext...');
                 await audioCtx.resume();
+                console.log('[AI Scribe Streaming] AudioContext state after resume:', audioCtx.state);
             }
 
             const stream = streamRef.current;
+            if (!stream) {
+                throw new Error('Microphone media stream not available for AudioContext');
+            }
             const source = audioCtx.createMediaStreamSource(stream);
             sourceNodeRef.current = source;
 
@@ -566,6 +599,7 @@ export default function useScribeRecorder({
             const processor = audioCtx.createScriptProcessor(bufferSize, 1, 1);
             processorNodeRef.current = processor;
 
+            let framesSent = 0;
             processor.onaudioprocess = (e) => {
                 if (!runningRef.current || !isStreamingRef.current) return;
                 const inputData = e.inputBuffer.getChannelData(0);
@@ -574,16 +608,26 @@ export default function useScribeRecorder({
 
                 if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
                     wsRef.current.send(pcmBuffer);
+                    framesSent++;
+                    if (framesSent === 1) {
+                        console.log('[AI Scribe Streaming] First PCM audio frame streamed to AssemblyAI');
+                    }
                 }
             };
 
+            // Route through a zero-gain node before destination to prevent speaker feedback loop
+            const muteGain = audioCtx.createGain();
+            muteGain.gain.value = 0;
             source.connect(processor);
-            processor.connect(audioCtx.destination);
+            processor.connect(muteGain);
+            muteGain.connect(audioCtx.destination);
 
             return true;
         } catch (err) {
+            const reason = err?.response?.data?.message || err?.message || 'Streaming initialization failed';
+            console.error('[AI Scribe Streaming] Initialization error:', reason, err);
             if (!intentionalStopRef.current) {
-                fallbackToChunking(err.message || 'Streaming initialization failed');
+                fallbackToChunking(reason);
             }
             return false;
         }
@@ -639,16 +683,21 @@ export default function useScribeRecorder({
         setFallbackNotice(null);
         setStreamSaveWarning(null);
 
+        console.log('[AI Scribe] begin() called with streamingEnabled =', streamingEnabled, 'sessionId =', sessionId);
         if (streamingEnabled) {
             streamingModeActiveRef.current = true;
+            setStreamingMode('connecting');
+            setStreamingModeReason('Connecting to real-time speech stream…');
             await startStreaming();
         } else {
             streamingModeActiveRef.current = false;
+            setStreamingMode('standard');
+            setStreamingModeReason('Streaming is disabled (SCRIBE_STREAMING=false). Standard 12s chunk transcription active.');
         }
 
         startSegment();
         startTicking();
-    }, [streamingEnabled, startStreaming, startSegment, startTicking]);
+    }, [streamingEnabled, startStreaming, startSegment, startTicking, sessionId]);
 
     /** Pause: terminate WebSocket to stop AssemblyAI billing, pause recorder. */
     const pause = useCallback(async () => {
@@ -752,6 +801,8 @@ export default function useScribeRecorder({
         interimText,
         fallbackNotice,
         isStreamingActive,
+        streamingMode,
+        streamingModeReason,
         acquireMic,
         begin,
         pause,

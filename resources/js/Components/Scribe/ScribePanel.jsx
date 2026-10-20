@@ -323,7 +323,16 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
     useEffect(() => {
         let cancelled = false;
         axios.post('/app/scribe/sessions', { client_id: clientId, appointment_id: appointmentId })
-            .then(({ data }) => !cancelled && applySession(data.session, { replaceSegments: true }))
+            .then(({ data }) => {
+                if (cancelled) return;
+                console.log('[AI Scribe Panel] Session opened from backend:', {
+                    sessionId: data.session?.id,
+                    streaming_enabled: data.session?.streaming_enabled,
+                    status: data.session?.status,
+                    language: data.session?.language,
+                });
+                applySession(data.session, { replaceSegments: true });
+            })
             .catch((err) => !cancelled && setLoadError(err?.response?.data?.message || 'AI Scribe could not be opened.'));
         return () => { cancelled = true; };
     }, [clientId, appointmentId, applySession]);
@@ -337,8 +346,14 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
         || session?.translation_status === 'translating';
 
     // Near-live transcript: poll for new segments while work is in flight.
+    // When live WebSocket streaming is active, turns arrive instantly via WS;
+    // reduce HTTP polling to a slow 15s heartbeat to prevent unnecessary overhead.
     useEffect(() => {
         if (!session?.id || !shouldPoll) return undefined;
+        const pollInterval = (recorder.isStreamingActive || session?.streaming_enabled) && ACTIVE_STATUSES.includes(status)
+            ? 15000
+            : POLL_MS;
+
         const id = setInterval(async () => {
             try {
                 const { data } = await axios.get(`/app/scribe/sessions/${session.id}`, { params: { after_sequence: lastSequence } });
@@ -349,9 +364,9 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                     setNotice('Consent was withdrawn. Recording has stopped.');
                 }
             } catch { /* transient; next poll retries */ }
-        }, POLL_MS);
+        }, pollInterval);
         return () => clearInterval(id);
-    }, [session?.id, shouldPoll, lastSequence, applySession]);
+    }, [session?.id, shouldPoll, lastSequence, applySession, recorder.isStreamingActive, session?.streaming_enabled, status]);
 
     useEffect(() => {
         transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight, behavior: 'smooth' });
@@ -663,6 +678,33 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                                             </span>
                                         )}
                                         <span className="font-mono text-lg font-bold text-slate-900 dark:text-white tabular-nums">{formatClock(elapsed)}</span>
+
+                                        {/* Status Indicator: Live (green) / Connecting... / Standard mode */}
+                                        {recorder.streamingMode === 'live' ? (
+                                            <span
+                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold cursor-help transition-all shadow-2xs"
+                                                title={recorder.streamingModeReason || 'Real-time WebSocket streaming active via AssemblyAI Universal-3'}
+                                            >
+                                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                                Live
+                                            </span>
+                                        ) : recorder.streamingMode === 'connecting' ? (
+                                            <span
+                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-bold cursor-help transition-all shadow-2xs"
+                                                title={recorder.streamingModeReason || 'Connecting to real-time speech stream…'}
+                                            >
+                                                <Loader2 className="w-3 h-3 animate-spin text-amber-600 dark:text-amber-400" />
+                                                Connecting…
+                                            </span>
+                                        ) : (
+                                            <span
+                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-500/10 border border-slate-500/20 text-slate-600 dark:text-slate-400 text-xs font-medium cursor-help transition-all"
+                                                title={recorder.streamingModeReason || (session?.streaming_enabled ? 'Standard 12s chunk transcription' : 'Real-time streaming disabled on server. Standard chunk mode active.')}
+                                            >
+                                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-500" />
+                                                Standard mode
+                                            </span>
+                                        )}
                                     </div>
 
                                     <div className="flex items-center gap-2">
