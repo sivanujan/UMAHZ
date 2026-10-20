@@ -18,6 +18,7 @@ class ScribeUsageLedger extends Model
         'period_start',
         'period_end',
         'recorded_ms',
+        'streaming_billed_ms',
         'session_count',
     ];
 
@@ -25,6 +26,7 @@ class ScribeUsageLedger extends Model
         'period_start' => 'date',
         'period_end' => 'date',
         'recorded_ms' => 'integer',
+        'streaming_billed_ms' => 'integer',
         'session_count' => 'integer',
     ];
 

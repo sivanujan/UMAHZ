@@ -17,6 +17,7 @@ class ScribeTranscriptSegment extends Model
     use BelongsToTenant, HasUuids;
 
     public const SOURCE_AI_TRANSCRIPTION = 'ai_transcription';
+    public const SOURCE_AI_STREAMING = 'ai_streaming';
 
     protected $fillable = [
         'tenant_id',

@@ -46,6 +46,22 @@ return [
     ],
 
     /*
+    | Real-Time Streaming (AssemblyAI v3 WebSocket).
+    | When enabled, audio is streamed directly from browser to AssemblyAI using
+    | a temporary token issued by the backend.
+    */
+    'streaming' => [
+        'enabled' => (bool) env('SCRIBE_STREAMING', false),
+        'speech_model' => env('SCRIBE_STREAMING_MODEL', 'universal-3-6-pro'),
+        'base_url' => env('SCRIBE_STREAMING_BASE_URL', 'https://streaming.assemblyai.com'),
+        'ws_url' => env('SCRIBE_STREAMING_WS_URL', 'wss://streaming.assemblyai.com/v3/ws'),
+        'token_expires_in_seconds' => (int) env('SCRIBE_STREAMING_TOKEN_TTL', 60),
+        'max_session_duration_seconds' => (int) env('SCRIBE_STREAMING_MAX_SESSION_SECONDS', 3600),
+        'sample_rate' => 16000,
+        'mode' => env('SCRIBE_STREAMING_MODE', 'balanced'),
+    ],
+
+    /*
     | Phase 2: profession-specific AI draft (DraftingProvider contract).
     | The transcript (never the client's name) is sent to OpenRouter and the
     | model host; requests ask OpenRouter to avoid providers that collect data.

@@ -301,8 +301,18 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
 
     const recorder = useScribeRecorder({
         sessionId: session?.id,
+        language: session?.language || 'en',
+        streamingEnabled: Boolean(session?.streaming_enabled),
+        audioRetentionMode: session?.audio_retention?.audio_retention_mode,
         chunkMs: session?.chunk_ms,
         onSessionUpdate: (s) => applySession(s),
+        onNewSegment: (seg) => {
+            setSegments((prev) => {
+                const bySeq = new Map(prev.map((s) => [s.sequence, s]));
+                bySeq.set(seg.sequence, seg);
+                return [...bySeq.values()].sort((a, b) => a.sequence - b.sequence);
+            });
+        },
         onConsentRevoked: (message) => setNotice(message || 'Consent is no longer valid. Recording has stopped.'),
     });
     // Stable handle for effects (the hook returns a new object every render).
@@ -345,7 +355,7 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
 
     useEffect(() => {
         transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight, behavior: 'smooth' });
-    }, [segments.length]);
+    }, [segments.length, recorder.interimText]);
 
     // Warn before leaving the page mid-recording.
     useEffect(() => {
@@ -596,6 +606,7 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                         </div>
 
                         {notice && <Banner tone="warn" icon={ShieldOff}>{notice}</Banner>}
+                        {recorder.fallbackNotice && <Banner tone="warn" icon={AlertTriangle}>{recorder.fallbackNotice}</Banner>}
                         {recorder.micError && <Banner tone="error" icon={Mic}>{recorder.micError}</Banner>}
                         {actionError && <Banner tone="error" icon={AlertTriangle}>{actionError}</Banner>}
                         {recorder.uploadError && (
@@ -718,6 +729,12 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                             <Banner tone="success" icon={Check}>Transcript ready. Generate an AI draft below, or write your note yourself. Nothing has been added to the record automatically.</Banner>
                         )}
 
+                        {recorder.streamSaveWarning && (
+                            <Banner tone="warn" icon={AlertTriangle}>
+                                {recorder.streamSaveWarning}
+                            </Banner>
+                        )}
+
                         {!needsConsent && (
                             <div>
                                 <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
@@ -796,47 +813,67 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                                 </div>
 
                                 <div ref={transcriptRef} className="h-64 overflow-y-auto rounded-2xl border border-slate-200/70 dark:border-white/10 bg-white/70 dark:bg-black/20 p-4 space-y-3" aria-live="polite">
-                                    {segments.length === 0 ? (
+                                    {segments.length === 0 && !recorder.interimText ? (
                                         <p className="text-xs text-slate-400 dark:text-slate-500 text-center pt-20">
-                                            {isRecording ? 'Listening… the first words appear about 15 seconds after you start.' : 'No transcript yet.'}
+                                            {isRecording
+                                                ? (session?.streaming_enabled
+                                                    ? 'Listening… words appear as you speak.'
+                                                    : 'Listening… the first words appear about 15 seconds after you start.')
+                                                : 'No transcript yet.'}
                                         </p>
-                                    ) : segments.map((s) => {
-                                        let text = s.text;
-                                        let isPendingTranslation = false;
-                                        let isFailedTranslation = false;
+                                    ) : (
+                                        <>
+                                            {segments.map((s) => {
+                                                let text = s.text;
+                                                let isPendingTranslation = false;
+                                                let isFailedTranslation = false;
 
-                                        if (transcriptTab === 'translated') {
-                                            if (s.translated_text) {
-                                                text = s.translated_text;
-                                            } else if (session.translation_status === 'translating') {
-                                                text = 'Translating…';
-                                                isPendingTranslation = true;
-                                            } else if (s.translation_status === 'failed' || session.translation_status === 'failed') {
-                                                text = s.text;
-                                                isFailedTranslation = true;
-                                            } else {
-                                                text = s.text;
-                                            }
-                                        }
+                                                if (transcriptTab === 'translated') {
+                                                    if (s.translated_text) {
+                                                        text = s.translated_text;
+                                                    } else if (session.translation_status === 'translating') {
+                                                        text = 'Translating…';
+                                                        isPendingTranslation = true;
+                                                    } else if (s.translation_status === 'failed' || session.translation_status === 'failed') {
+                                                        text = s.text;
+                                                        isFailedTranslation = true;
+                                                    } else {
+                                                        text = s.text;
+                                                    }
+                                                }
 
-                                        return (
-                                            <div key={s.sequence} data-seq={s.sequence} className={`flex gap-3 rounded-lg transition-colors ${highlightSeq === s.sequence ? 'bg-purple-500/15' : ''}`}>
-                                                <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 pt-0.5 shrink-0 tabular-nums">{formatClock(s.start_ms)}</span>
-                                                <div className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">
-                                                    {isPendingTranslation ? (
-                                                        <span className="text-slate-400 dark:text-slate-500 italic">Translating…</span>
-                                                    ) : isFailedTranslation ? (
-                                                        <span>
-                                                            <span className="text-[11px] font-semibold text-rose-500 mr-2">[Translation failed]</span>
-                                                            {text}
-                                                        </span>
-                                                    ) : (
-                                                        <span>{text}</span>
-                                                    )}
+                                                return (
+                                                    <div key={s.sequence} data-seq={s.sequence} className={`flex gap-3 rounded-lg transition-colors ${highlightSeq === s.sequence ? 'bg-purple-500/15' : ''}`}>
+                                                        <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 pt-0.5 shrink-0 tabular-nums">{formatClock(s.start_ms)}</span>
+                                                        <div className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">
+                                                            {isPendingTranslation ? (
+                                                                <span className="text-slate-400 dark:text-slate-500 italic">Translating…</span>
+                                                            ) : isFailedTranslation ? (
+                                                                <span>
+                                                                    <span className="text-[11px] font-semibold text-rose-500 mr-2">[Translation failed]</span>
+                                                                    {text}
+                                                                </span>
+                                                            ) : (
+                                                                <span>{text}</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+
+                                            {recorder.interimText && (
+                                                <div className="flex gap-3 rounded-lg bg-purple-500/10 border border-purple-500/20 p-2.5 animate-pulse">
+                                                    <span className="text-[10px] font-mono text-purple-600 dark:text-purple-400 pt-0.5 shrink-0 tabular-nums">
+                                                        {formatClock(recorder.elapsedMs)}
+                                                    </span>
+                                                    <div className="text-sm text-purple-900 dark:text-purple-200 leading-relaxed italic flex items-center gap-1.5">
+                                                        <span>{recorder.interimText}</span>
+                                                        <span className="inline-block w-1.5 h-3 bg-purple-600 dark:bg-purple-400 animate-ping rounded-full shrink-0" />
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        );
-                                    })}
+                                            )}
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         )}

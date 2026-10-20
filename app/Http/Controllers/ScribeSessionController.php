@@ -22,6 +22,7 @@ use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
@@ -239,9 +240,188 @@ class ScribeSessionController extends Controller
         }, status: 202);
     }
 
+    public function streamingToken(Request $request, ScribeSession $scribeSession): JsonResponse
+    {
+        if ($request->user() && ! $request->user()->can('record', $scribeSession)) {
+            return response()->json([
+                'message' => 'You do not have permission to record.',
+                'error' => 'unauthorized_role',
+                'code' => 'unauthorized_role',
+            ], 403);
+        }
+
+        $this->authorizeSession($scribeSession, 'record');
+
+        if (! config('scribe.streaming.enabled', false)) {
+            return response()->json([
+                'message' => 'Real-time streaming is currently disabled.',
+                'code' => 'streaming_disabled',
+                'error' => 'streaming_disabled',
+            ], 403);
+        }
+
+        if (! $scribeSession->hasValidConsent()) {
+            return response()->json([
+                'message' => 'Recording consent has not been recorded or was withdrawn.',
+                'code' => 'consent_required',
+                'error' => 'consent_required',
+            ], 403);
+        }
+
+        if (! $scribeSession->tenant->scribeEnabled()) {
+            return response()->json([
+                'message' => 'AI Scribe is not enabled for this clinic.',
+                'code' => 'scribe_disabled',
+                'error' => 'scribe_disabled',
+            ], 403);
+        }
+
+        if ($scribeSession->status === ScribeSession::STATUS_CONSENT_PENDING) {
+            $this->scribe->start($scribeSession, $request->user(), $request->ip());
+        }
+
+        $scribeSession->forceFill([
+            'is_streaming' => true,
+            'streaming_active_token_at' => now(),
+        ])->save();
+
+        $service = app(\App\Scribe\AssemblyAiStreamingService::class);
+        $tokenData = $service->createTemporaryToken(
+            expiresInSeconds: (int) config('scribe.streaming.token_expires_in_seconds', 60),
+            maxSessionDurationSeconds: (int) config('scribe.streaming.max_session_duration_seconds', 3600),
+        );
+
+        $tokenData['language'] = $scribeSession->language ?? 'en';
+        $tokenData['language_codes'] = [$scribeSession->language ?? 'en'];
+        $tokenData['session'] = $this->payload($scribeSession->fresh(), $request);
+
+        return response()->json($tokenData);
+    }
+
+    public function storeStreamingTurns(Request $request, ScribeSession $scribeSession): JsonResponse
+    {
+        $this->authorizeSession($scribeSession, 'record');
+
+        if (! $scribeSession->hasValidConsent()) {
+            return response()->json([
+                'error' => 'consent_revoked',
+                'message' => 'Recording consent is no longer valid.',
+                'code' => 'no_valid_consent',
+            ], 403);
+        }
+
+        $data = $request->validate([
+            'turns' => ['nullable', 'array'],
+            'turns.*.sequence' => ['nullable', 'numeric', 'min:0'],
+            'turns.*.turn_order' => ['nullable', 'numeric', 'min:0'],
+            'turns.*.text' => ['nullable', 'string', 'max:65535'],
+            'turns.*.start_ms' => ['nullable', 'numeric', 'min:0'],
+            'turns.*.start' => ['nullable', 'numeric', 'min:0'],
+            'turns.*.end_ms' => ['nullable', 'numeric', 'min:0'],
+            'turns.*.end' => ['nullable', 'numeric', 'min:0'],
+            'turns.*.language' => ['nullable', 'string', 'max:20'],
+            'client_recorded_ms' => ['nullable', 'numeric', 'min:0'],
+            'connection_duration_seconds' => ['nullable', 'numeric', 'min:0'],
+            'connection_duration_sec' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $rawTurns = $data['turns'] ?? [];
+        $savedCount = 0;
+
+        DB::transaction(function () use ($scribeSession, $data, $rawTurns, &$savedCount, $request) {
+            $maxTurnEndMs = 0;
+            $nextSeq = (int) (ScribeTranscriptSegment::where('scribe_session_id', $scribeSession->id)->max('sequence') ?? -1) + 1;
+
+            // Deduplicate incoming turns by sequence if provided
+            $dedupedTurns = [];
+            foreach ($rawTurns as $idx => $turn) {
+                $seq = isset($turn['sequence']) && is_numeric($turn['sequence'])
+                    ? (int) $turn['sequence']
+                    : (isset($turn['turn_order']) && is_numeric($turn['turn_order']) ? (int) $turn['turn_order'] : null);
+                $key = $seq !== null ? "seq_{$seq}" : "idx_{$idx}";
+                $dedupedTurns[$key] = $turn;
+            }
+
+            foreach ($dedupedTurns as $turn) {
+                $text = trim((string) ($turn['text'] ?? ''));
+                if ($text === '') {
+                    continue;
+                }
+
+                $seq = isset($turn['sequence']) && is_numeric($turn['sequence'])
+                    ? (int) $turn['sequence']
+                    : (isset($turn['turn_order']) && is_numeric($turn['turn_order']) ? (int) $turn['turn_order'] : $nextSeq++);
+
+                $startMs = (int) round((float) ($turn['start_ms'] ?? $turn['start'] ?? 0));
+                $endMs = (int) round((float) ($turn['end_ms'] ?? $turn['end'] ?? $startMs));
+                if ($endMs < $startMs) {
+                    $endMs = $startMs;
+                }
+
+                if ($endMs > $maxTurnEndMs) {
+                    $maxTurnEndMs = $endMs;
+                }
+
+                $lang = ! empty($turn['language']) && $turn['language'] !== 'auto'
+                    ? (string) $turn['language']
+                    : ($scribeSession->language ?? 'en');
+
+                ScribeTranscriptSegment::withoutGlobalScopes()->updateOrCreate(
+                    [
+                        'scribe_session_id' => $scribeSession->id,
+                        'sequence' => $seq,
+                    ],
+                    [
+                        'tenant_id' => $scribeSession->tenant_id,
+                        'text' => $text,
+                        'start_ms' => $startMs,
+                        'end_ms' => $endMs,
+                        'source' => ScribeTranscriptSegment::SOURCE_AI_STREAMING,
+                        'provider' => 'assemblyai_streaming',
+                        'provider_model' => config('scribe.streaming.speech_model', 'universal-3-6-pro'),
+                        'language' => $lang,
+                    ]
+                );
+
+                $savedCount++;
+            }
+
+            $updates = ['is_streaming' => true];
+            $candidateMs = max((int) round((float) ($data['client_recorded_ms'] ?? 0)), $maxTurnEndMs);
+            if ($candidateMs > $scribeSession->recorded_ms) {
+                $updates['recorded_ms'] = $candidateMs;
+            }
+            $connSec = $data['connection_duration_seconds'] ?? $request->input('connection_duration_sec');
+            if (! empty($connSec)) {
+                $updates['streaming_billed_ms'] = $scribeSession->streaming_billed_ms + ((int) $connSec * 1000);
+            }
+            $scribeSession->forceFill($updates)->save();
+        });
+
+        return response()->json([
+            'saved' => $savedCount,
+            'saved_turns' => $savedCount,
+            'session' => $this->payload($scribeSession->fresh(), $request),
+        ]);
+    }
+
     public function pause(Request $request, ScribeSession $scribeSession): JsonResponse
     {
         $this->authorizeSession($scribeSession, 'record');
+
+        $connSec = $request->input('connection_duration_seconds') ?? $request->input('connection_duration_sec');
+        if ($connSec !== null) {
+            $scribeSession->forceFill([
+                'streaming_billed_ms' => $scribeSession->streaming_billed_ms + ((int) $connSec * 1000),
+                'streaming_active_token_at' => null,
+            ])->save();
+        } elseif ($scribeSession->streaming_active_token_at) {
+            $elapsedMs = (int) now()->diffInMilliseconds($scribeSession->streaming_active_token_at);
+            $scribeSession->forceFill([
+                'streaming_billed_ms' => $scribeSession->streaming_billed_ms + max(0, $elapsedMs),
+                'streaming_active_token_at' => null,
+            ])->save();
+        }
 
         return $this->run($request, $scribeSession, fn () => $this->scribe->pause($scribeSession, $request->user(), $request->ip()));
     }
@@ -250,12 +430,36 @@ class ScribeSessionController extends Controller
     {
         $this->authorizeSession($scribeSession, 'record');
 
+        if ($scribeSession->is_streaming) {
+            $scribeSession->forceFill([
+                'streaming_active_token_at' => now(),
+            ])->save();
+        }
+
         return $this->run($request, $scribeSession, fn () => $this->scribe->resume($scribeSession, $request->user(), $request->ip()));
     }
 
     public function stop(Request $request, ScribeSession $scribeSession): JsonResponse
     {
         $this->authorizeSession($scribeSession, 'record');
+
+        if ($request->has('turns')) {
+            $this->storeStreamingTurns($request, $scribeSession);
+        }
+
+        $connSec = $request->input('connection_duration_seconds') ?? $request->input('connection_duration_sec');
+        if ($connSec !== null) {
+            $scribeSession->forceFill([
+                'streaming_billed_ms' => $scribeSession->streaming_billed_ms + ((int) $connSec * 1000),
+                'streaming_active_token_at' => null,
+            ])->save();
+        } elseif ($scribeSession->streaming_active_token_at) {
+            $elapsedMs = (int) now()->diffInMilliseconds($scribeSession->streaming_active_token_at);
+            $scribeSession->forceFill([
+                'streaming_billed_ms' => $scribeSession->streaming_billed_ms + max(0, $elapsedMs),
+                'streaming_active_token_at' => null,
+            ])->save();
+        }
 
         $response = $this->run($request, $scribeSession, fn () => $this->scribe->stop($scribeSession, $request->user(), $request->ip()));
 
@@ -506,8 +710,14 @@ class ScribeSessionController extends Controller
                 'pdf_url' => $consentType->pdf_path ? url("/app/consent-types/{$consentType->id}/document") : null,
             ] : null,
             'recorded_ms' => $session->recorded_ms,
-            // Lets a reloaded panel continue chunk numbering without collisions.
-            'next_sequence' => (int) (ScribeAudioChunk::where('scribe_session_id', $session->id)->max('sequence') ?? -1) + 1,
+            'is_streaming' => (bool) $session->is_streaming,
+            'streaming_billed_ms' => (int) $session->streaming_billed_ms,
+            'streaming_enabled' => (bool) config('scribe.streaming.enabled', false),
+            // Lets a reloaded panel continue chunk/turn numbering without collisions.
+            'next_sequence' => max(
+                (int) (ScribeAudioChunk::where('scribe_session_id', $session->id)->max('sequence') ?? -1) + 1,
+                (int) (ScribeTranscriptSegment::where('scribe_session_id', $session->id)->max('sequence') ?? -1) + 1
+            ),
             'started_at' => $session->started_at?->toIso8601String(),
             'stopped_at' => $session->stopped_at?->toIso8601String(),
             'transcript_ready_at' => $session->transcript_ready_at?->toIso8601String(),

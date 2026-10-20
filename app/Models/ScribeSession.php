@@ -68,7 +68,10 @@ class ScribeSession extends Model
         'clinical_note_id',
         'transcription_provider',
         'provider_model',
+        'is_streaming',
         'recorded_ms',
+        'streaming_billed_ms',
+        'streaming_active_token_at',
         'last_error',
         'started_at',
         'paused_at',
@@ -108,7 +111,10 @@ class ScribeSession extends Model
     protected function casts(): array
     {
         return [
+            'is_streaming' => 'boolean',
             'recorded_ms' => 'integer',
+            'streaming_billed_ms' => 'integer',
+            'streaming_active_token_at' => 'datetime',
             'started_at' => 'datetime',
             'paused_at' => 'datetime',
             'stopped_at' => 'datetime',

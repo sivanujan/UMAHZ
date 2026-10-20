@@ -518,15 +518,21 @@ class PlanEntitlements
         }
 
         $usedMinutes = $this->calculateScribeUsageMinutes($tenant, $practitioner);
+        $streamingBilledMinutes = $this->calculateStreamingBilledMinutes($tenant, $practitioner);
 
         if ($practitionerHasScribePlus) {
+            $allowanceMinutes = 600.0;
+            $remainingMinutes = max(0.0, round($allowanceMinutes - $usedMinutes, 1));
             return [
                 'allowed' => true,
-                'unlimited' => true,
+                'unlimited' => false,
+                'has_scribe_plus' => true,
                 'behavior' => 'none',
                 'used_minutes' => $usedMinutes,
-                'allowance_minutes' => null,
-                'remaining_minutes' => null,
+                'used_seconds' => round($usedMinutes * 60, 1),
+                'streaming_billed_minutes' => $streamingBilledMinutes,
+                'allowance_minutes' => $allowanceMinutes,
+                'remaining_minutes' => $remainingMinutes,
                 'reason' => null,
             ];
         }
@@ -543,6 +549,8 @@ class PlanEntitlements
                     'unlimited' => false,
                     'behavior' => 'block',
                     'used_minutes' => $usedMinutes,
+                    'used_seconds' => round($usedMinutes * 60, 1),
+                    'streaming_billed_minutes' => $streamingBilledMinutes,
                     'allowance_minutes' => $allowanceMinutes,
                     'remaining_minutes' => 0.0,
                     'reason' => "You have reached your monthly AI Scribe allowance ({$allowanceMinutes} mins) on {$tenant->plan->name}. Please upgrade to Scribe+ for unlimited minutes.",
@@ -554,6 +562,8 @@ class PlanEntitlements
                 'unlimited' => false,
                 'behavior' => 'warn',
                 'used_minutes' => $usedMinutes,
+                'used_seconds' => round($usedMinutes * 60, 1),
+                'streaming_billed_minutes' => $streamingBilledMinutes,
                 'allowance_minutes' => $allowanceMinutes,
                 'remaining_minutes' => 0.0,
                 'reason' => $isUnderReview
@@ -567,6 +577,8 @@ class PlanEntitlements
             'unlimited' => false,
             'behavior' => 'none',
             'used_minutes' => $usedMinutes,
+            'used_seconds' => round($usedMinutes * 60, 1),
+            'streaming_billed_minutes' => $streamingBilledMinutes,
             'allowance_minutes' => $allowanceMinutes,
             'remaining_minutes' => $remainingMinutes,
             'reason' => null,
@@ -601,11 +613,38 @@ class PlanEntitlements
     }
 
     /**
-     * Record recorded_ms to ScribeUsageLedger upon session completion.
+     * Calculate Scribe billed streaming minutes for the current calendar month.
+     */
+    public static function calculateStreamingBilledMinutes(Tenant $tenant, StaffMembership|string|null $practitioner = null): float
+    {
+        $tz = $tenant->timezone ?: 'America/Toronto';
+        $now = Carbon::now($tz);
+        $startOfMonth = $now->copy()->startOfMonth()->utc();
+        $endOfMonth = $now->copy()->endOfMonth()->utc();
+
+        $practitionerId = is_string($practitioner)
+            ? $practitioner
+            : ($practitioner instanceof StaffMembership ? $practitioner->id : null);
+
+        $query = ScribeSession::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->whereBetween('created_at', [$startOfMonth, $endOfMonth]);
+
+        if ($practitionerId) {
+            $query->where('staff_membership_id', $practitionerId);
+        }
+
+        $totalBilledMs = (int) $query->sum('streaming_billed_ms');
+
+        return round($totalBilledMs / 60000, 1);
+    }
+
+    /**
+     * Record recorded_ms and streaming_billed_ms to ScribeUsageLedger upon session completion.
      */
     public function recordScribeUsage(ScribeSession $session): void
     {
-        if ($session->recorded_ms <= 0) {
+        if ($session->recorded_ms <= 0 && $session->streaming_billed_ms <= 0) {
             return;
         }
 
@@ -623,11 +662,15 @@ class PlanEntitlements
             ],
             [
                 'recorded_ms' => 0,
+                'streaming_billed_ms' => 0,
                 'session_count' => 0,
             ]
         );
 
         $ledger->increment('recorded_ms', (int) $session->recorded_ms);
+        if ($session->streaming_billed_ms > 0) {
+            $ledger->increment('streaming_billed_ms', (int) $session->streaming_billed_ms);
+        }
         $ledger->increment('session_count', 1);
     }
 

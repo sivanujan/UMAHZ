@@ -48,6 +48,13 @@ class EnsureStaffRole
         }
 
         if (!empty($roles) && !in_array($membership->role, $roles, true)) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Your role does not have access to this area.',
+                    'error' => 'unauthorized_role',
+                    'code' => 'unauthorized_role',
+                ], 403);
+            }
             abort(403, 'Your role does not have access to this area.');
         }
 
