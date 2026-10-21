@@ -39,6 +39,8 @@ abstract class ScribeTestCase extends TestCase
 
         $this->drafter = new FakeDraftingProvider;
         $this->app->instance(DraftingProvider::class, $this->drafter);
+
+        \App\Scribe\AssemblyAiStreamingService::$fakeToken = 'fake-test-streaming-token';
     }
 
     protected function clinic(string $sub, array $scribe = ['enabled' => true]): Tenant

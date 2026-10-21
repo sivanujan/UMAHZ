@@ -421,6 +421,8 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
             Route::post('/sessions/{scribeSession}/pause', [ScribeSessionController::class, 'pause'])->name('sessions.pause');
             Route::post('/sessions/{scribeSession}/resume', [ScribeSessionController::class, 'resume'])->name('sessions.resume');
             Route::post('/sessions/{scribeSession}/stop', [ScribeSessionController::class, 'stop'])->name('sessions.stop');
+            Route::post('/sessions/{scribeSession}/token', [ScribeSessionController::class, 'streamingToken'])->name('sessions.streaming-token');
+            Route::post('/sessions/{scribeSession}/streaming-turns', [ScribeSessionController::class, 'storeStreamingTurns'])->middleware('throttle:120,1')->name('sessions.streaming-turns');
             Route::post('/sessions/{scribeSession}/chunks', [ScribeSessionController::class, 'uploadChunk'])->middleware('throttle:60,1')->name('sessions.chunks');
             Route::post('/sessions/{scribeSession}/chunks/retry', [ScribeSessionController::class, 'retryFailed'])->name('sessions.chunks.retry');
             Route::patch('/sessions/{scribeSession}/language', [ScribeSessionController::class, 'updateLanguage'])->name('sessions.language');

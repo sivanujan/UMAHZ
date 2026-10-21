@@ -301,8 +301,18 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
 
     const recorder = useScribeRecorder({
         sessionId: session?.id,
+        language: session?.language || 'en',
+        streamingEnabled: Boolean(session?.streaming_enabled),
+        audioRetentionMode: session?.audio_retention?.audio_retention_mode,
         chunkMs: session?.chunk_ms,
         onSessionUpdate: (s) => applySession(s),
+        onNewSegment: (seg) => {
+            setSegments((prev) => {
+                const bySeq = new Map(prev.map((s) => [s.sequence, s]));
+                bySeq.set(seg.sequence, seg);
+                return [...bySeq.values()].sort((a, b) => a.sequence - b.sequence);
+            });
+        },
         onConsentRevoked: (message) => setNotice(message || 'Consent is no longer valid. Recording has stopped.'),
     });
     // Stable handle for effects (the hook returns a new object every render).
@@ -313,7 +323,16 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
     useEffect(() => {
         let cancelled = false;
         axios.post('/app/scribe/sessions', { client_id: clientId, appointment_id: appointmentId })
-            .then(({ data }) => !cancelled && applySession(data.session, { replaceSegments: true }))
+            .then(({ data }) => {
+                if (cancelled) return;
+                console.log('[AI Scribe Panel] Session opened from backend:', {
+                    sessionId: data.session?.id,
+                    streaming_enabled: data.session?.streaming_enabled,
+                    status: data.session?.status,
+                    language: data.session?.language,
+                });
+                applySession(data.session, { replaceSegments: true });
+            })
             .catch((err) => !cancelled && setLoadError(err?.response?.data?.message || 'AI Scribe could not be opened.'));
         return () => { cancelled = true; };
     }, [clientId, appointmentId, applySession]);
@@ -327,8 +346,14 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
         || session?.translation_status === 'translating';
 
     // Near-live transcript: poll for new segments while work is in flight.
+    // When live WebSocket streaming is active, turns arrive instantly via WS;
+    // reduce HTTP polling to a slow 15s heartbeat to prevent unnecessary overhead.
     useEffect(() => {
         if (!session?.id || !shouldPoll) return undefined;
+        const pollInterval = (recorder.isStreamingActive || session?.streaming_enabled) && ACTIVE_STATUSES.includes(status)
+            ? 15000
+            : POLL_MS;
+
         const id = setInterval(async () => {
             try {
                 const { data } = await axios.get(`/app/scribe/sessions/${session.id}`, { params: { after_sequence: lastSequence } });
@@ -339,13 +364,13 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                     setNotice('Consent was withdrawn. Recording has stopped.');
                 }
             } catch { /* transient; next poll retries */ }
-        }, POLL_MS);
+        }, pollInterval);
         return () => clearInterval(id);
-    }, [session?.id, shouldPoll, lastSequence, applySession]);
+    }, [session?.id, shouldPoll, lastSequence, applySession, recorder.isStreamingActive, session?.streaming_enabled, status]);
 
     useEffect(() => {
         transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight, behavior: 'smooth' });
-    }, [segments.length]);
+    }, [segments.length, recorder.interimText]);
 
     // Warn before leaving the page mid-recording.
     useEffect(() => {
@@ -596,6 +621,7 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                         </div>
 
                         {notice && <Banner tone="warn" icon={ShieldOff}>{notice}</Banner>}
+                        {recorder.fallbackNotice && <Banner tone="warn" icon={AlertTriangle}>{recorder.fallbackNotice}</Banner>}
                         {recorder.micError && <Banner tone="error" icon={Mic}>{recorder.micError}</Banner>}
                         {actionError && <Banner tone="error" icon={AlertTriangle}>{actionError}</Banner>}
                         {recorder.uploadError && (
@@ -652,6 +678,33 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                                             </span>
                                         )}
                                         <span className="font-mono text-lg font-bold text-slate-900 dark:text-white tabular-nums">{formatClock(elapsed)}</span>
+
+                                        {/* Status Indicator: Live (green) / Connecting... / Standard mode */}
+                                        {recorder.streamingMode === 'live' ? (
+                                            <span
+                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold cursor-help transition-all shadow-2xs"
+                                                title={recorder.streamingModeReason || 'Real-time WebSocket streaming active via AssemblyAI Universal-3'}
+                                            >
+                                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                                Live
+                                            </span>
+                                        ) : recorder.streamingMode === 'connecting' ? (
+                                            <span
+                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-bold cursor-help transition-all shadow-2xs"
+                                                title={recorder.streamingModeReason || 'Connecting to real-time speech stream…'}
+                                            >
+                                                <Loader2 className="w-3 h-3 animate-spin text-amber-600 dark:text-amber-400" />
+                                                Connecting…
+                                            </span>
+                                        ) : (
+                                            <span
+                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-500/10 border border-slate-500/20 text-slate-600 dark:text-slate-400 text-xs font-medium cursor-help transition-all"
+                                                title={recorder.streamingModeReason || (session?.streaming_enabled ? 'Standard 12s chunk transcription' : 'Real-time streaming disabled on server. Standard chunk mode active.')}
+                                            >
+                                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-500" />
+                                                Standard mode
+                                            </span>
+                                        )}
                                     </div>
 
                                     <div className="flex items-center gap-2">
@@ -716,6 +769,12 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                         )}
                         {status === 'transcript_ready' && failed === 0 && !session.draft?.status && (
                             <Banner tone="success" icon={Check}>Transcript ready. Generate an AI draft below, or write your note yourself. Nothing has been added to the record automatically.</Banner>
+                        )}
+
+                        {recorder.streamSaveWarning && (
+                            <Banner tone="warn" icon={AlertTriangle}>
+                                {recorder.streamSaveWarning}
+                            </Banner>
                         )}
 
                         {!needsConsent && (
@@ -796,47 +855,67 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                                 </div>
 
                                 <div ref={transcriptRef} className="h-64 overflow-y-auto rounded-2xl border border-slate-200/70 dark:border-white/10 bg-white/70 dark:bg-black/20 p-4 space-y-3" aria-live="polite">
-                                    {segments.length === 0 ? (
+                                    {segments.length === 0 && !recorder.interimText ? (
                                         <p className="text-xs text-slate-400 dark:text-slate-500 text-center pt-20">
-                                            {isRecording ? 'Listening… the first words appear about 15 seconds after you start.' : 'No transcript yet.'}
+                                            {isRecording
+                                                ? (session?.streaming_enabled
+                                                    ? 'Listening… words appear as you speak.'
+                                                    : 'Listening… the first words appear about 15 seconds after you start.')
+                                                : 'No transcript yet.'}
                                         </p>
-                                    ) : segments.map((s) => {
-                                        let text = s.text;
-                                        let isPendingTranslation = false;
-                                        let isFailedTranslation = false;
+                                    ) : (
+                                        <>
+                                            {segments.map((s) => {
+                                                let text = s.text;
+                                                let isPendingTranslation = false;
+                                                let isFailedTranslation = false;
 
-                                        if (transcriptTab === 'translated') {
-                                            if (s.translated_text) {
-                                                text = s.translated_text;
-                                            } else if (session.translation_status === 'translating') {
-                                                text = 'Translating…';
-                                                isPendingTranslation = true;
-                                            } else if (s.translation_status === 'failed' || session.translation_status === 'failed') {
-                                                text = s.text;
-                                                isFailedTranslation = true;
-                                            } else {
-                                                text = s.text;
-                                            }
-                                        }
+                                                if (transcriptTab === 'translated') {
+                                                    if (s.translated_text) {
+                                                        text = s.translated_text;
+                                                    } else if (session.translation_status === 'translating') {
+                                                        text = 'Translating…';
+                                                        isPendingTranslation = true;
+                                                    } else if (s.translation_status === 'failed' || session.translation_status === 'failed') {
+                                                        text = s.text;
+                                                        isFailedTranslation = true;
+                                                    } else {
+                                                        text = s.text;
+                                                    }
+                                                }
 
-                                        return (
-                                            <div key={s.sequence} data-seq={s.sequence} className={`flex gap-3 rounded-lg transition-colors ${highlightSeq === s.sequence ? 'bg-purple-500/15' : ''}`}>
-                                                <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 pt-0.5 shrink-0 tabular-nums">{formatClock(s.start_ms)}</span>
-                                                <div className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">
-                                                    {isPendingTranslation ? (
-                                                        <span className="text-slate-400 dark:text-slate-500 italic">Translating…</span>
-                                                    ) : isFailedTranslation ? (
-                                                        <span>
-                                                            <span className="text-[11px] font-semibold text-rose-500 mr-2">[Translation failed]</span>
-                                                            {text}
-                                                        </span>
-                                                    ) : (
-                                                        <span>{text}</span>
-                                                    )}
+                                                return (
+                                                    <div key={s.sequence} data-seq={s.sequence} className={`flex gap-3 rounded-lg transition-colors ${highlightSeq === s.sequence ? 'bg-purple-500/15' : ''}`}>
+                                                        <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 pt-0.5 shrink-0 tabular-nums">{formatClock(s.start_ms)}</span>
+                                                        <div className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">
+                                                            {isPendingTranslation ? (
+                                                                <span className="text-slate-400 dark:text-slate-500 italic">Translating…</span>
+                                                            ) : isFailedTranslation ? (
+                                                                <span>
+                                                                    <span className="text-[11px] font-semibold text-rose-500 mr-2">[Translation failed]</span>
+                                                                    {text}
+                                                                </span>
+                                                            ) : (
+                                                                <span>{text}</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+
+                                            {recorder.interimText && (
+                                                <div className="flex gap-3 rounded-lg bg-purple-500/10 border border-purple-500/20 p-2.5 animate-pulse">
+                                                    <span className="text-[10px] font-mono text-purple-600 dark:text-purple-400 pt-0.5 shrink-0 tabular-nums">
+                                                        {formatClock(recorder.elapsedMs)}
+                                                    </span>
+                                                    <div className="text-sm text-purple-900 dark:text-purple-200 leading-relaxed italic flex items-center gap-1.5">
+                                                        <span>{recorder.interimText}</span>
+                                                        <span className="inline-block w-1.5 h-3 bg-purple-600 dark:bg-purple-400 animate-ping rounded-full shrink-0" />
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        );
-                                    })}
+                                            )}
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         )}
