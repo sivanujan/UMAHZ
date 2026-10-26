@@ -121,6 +121,9 @@ export default function useScribeRecorder({
     const haltedRef = useRef(false);
 
     // Streaming state & Web Audio refs
+    const sessionStartTimeRef = useRef(null);
+    const sessionElapsedBaseRef = useRef(0);
+    const interimTextRef = useRef('');
     const audioContextRef = useRef(null);
     const sourceNodeRef = useRef(null);
     const processorNodeRef = useRef(null);
@@ -139,6 +142,10 @@ export default function useScribeRecorder({
 
     // Parallel fallback ring-buffer (in-memory only, not uploaded unless stream fails)
     const fallbackBufferRef = useRef([]);
+
+    const getSessionElapsedMs = useCallback(() => {
+        return sessionElapsedBaseRef.current + (sessionStartTimeRef.current !== null && runningRef.current ? Math.round(performance.now() - sessionStartTimeRef.current) : 0);
+    }, []);
 
     const callbacks = useRef({ onConsentRevoked, onSessionUpdate, onNewSegment });
     callbacks.current = { onConsentRevoked, onSessionUpdate, onNewSegment };
@@ -236,8 +243,9 @@ export default function useScribeRecorder({
                         start_ms: Math.max(0, Math.round(t.start_ms || 0)),
                         end_ms: Math.max(Math.max(0, Math.round(t.start_ms || 0)), Math.round(t.end_ms || 0)),
                         language: t.language && t.language !== 'auto' ? String(t.language) : (language || 'en'),
+                        detected_language: t.detected_language || null,
                     })),
-                    client_recorded_ms: Math.max(0, offsetRef.current + (runningRef.current ? Math.round(performance.now() - segmentStartRef.current) : 0)),
+                    client_recorded_ms: Math.max(0, getSessionElapsedMs()),
                 };
                 if (connectionDurationSec !== null) {
                     payload.connection_duration_seconds = Math.max(0, Math.round(connectionDurationSec));
@@ -518,22 +526,57 @@ export default function useScribeRecorder({
                         const transcript = msg.transcript ? msg.transcript.trim() : '';
                         if (!msg.end_of_turn) {
                             // Sub-second partial live preview
+                            interimTextRef.current = transcript;
                             setInterimText(transcript);
                         } else if (transcript.length > 0) {
                             // Finalized turn
                             console.log('[AI Scribe Streaming] Final turn finalized:', transcript);
+                            interimTextRef.current = '';
                             setInterimText('');
-                            const nowElapsed = Math.max(0, offsetRef.current + Math.round(performance.now() - segmentStartRef.current));
-                            const turnStart = Math.max(0, nowElapsed - 2000);
-                            const turnEnd = Math.max(turnStart, nowElapsed);
+
+                            const sessionNow = getSessionElapsedMs();
+                            let turnStart = null;
+                            let turnEnd = null;
+
+                            if (Array.isArray(msg.words) && msg.words.length > 0) {
+                                const firstWord = msg.words[0];
+                                const lastWord = msg.words[msg.words.length - 1];
+                                if (typeof firstWord?.start === 'number') {
+                                    turnStart = sessionElapsedBaseRef.current + firstWord.start;
+                                }
+                                if (typeof lastWord?.end === 'number') {
+                                    turnEnd = sessionElapsedBaseRef.current + lastWord.end;
+                                }
+                            }
+                            if (turnStart === null && typeof msg.audio_start === 'number') {
+                                turnStart = sessionElapsedBaseRef.current + msg.audio_start;
+                            }
+                            if (turnEnd === null && typeof msg.audio_end === 'number') {
+                                turnEnd = sessionElapsedBaseRef.current + msg.audio_end;
+                            }
+                            if (turnStart === null && typeof msg.start === 'number') {
+                                turnStart = sessionElapsedBaseRef.current + msg.start;
+                            }
+                            if (turnEnd === null && typeof msg.end === 'number') {
+                                turnEnd = sessionElapsedBaseRef.current + msg.end;
+                            }
+                            if (turnStart === null) {
+                                turnStart = Math.max(lastSavedStreamMsRef.current, sessionNow - 2000);
+                                turnEnd = Math.max(turnStart, sessionNow);
+                            } else if (turnEnd === null) {
+                                turnEnd = Math.max(turnStart, sessionNow);
+                            }
+
                             const segmentSeq = sequenceRef.current++;
+                            const detectedLang = msg.language_code || msg.language || null;
 
                             const newSegment = {
                                 sequence: segmentSeq,
                                 text: transcript,
-                                start_ms: turnStart,
-                                end_ms: turnEnd,
+                                start_ms: Math.max(0, Math.round(turnStart)),
+                                end_ms: Math.max(Math.max(0, Math.round(turnStart)), Math.round(turnEnd)),
                                 language: language && language !== 'auto' ? String(language) : (language || 'en'),
+                                detected_language: detectedLang,
                                 source: 'ai_streaming',
                             };
 
@@ -631,14 +674,14 @@ export default function useScribeRecorder({
             }
             return false;
         }
-    }, [sessionId, language, fallbackToChunking, flushStreamingTurns]);
+    }, [sessionId, language, fallbackToChunking, flushStreamingTurns, getSessionElapsedMs]);
 
     const startTicking = useCallback(() => {
         clearInterval(tickRef.current);
         tickRef.current = setInterval(() => {
-            setElapsedMs(offsetRef.current + (runningRef.current ? performance.now() - segmentStartRef.current : 0));
+            setElapsedMs(getSessionElapsedMs());
         }, 500);
-    }, []);
+    }, [getSessionElapsedMs]);
 
     /** Request microphone access. */
     const acquireMic = useCallback(async () => {
@@ -675,7 +718,9 @@ export default function useScribeRecorder({
     const begin = useCallback(async ({ nextSequence = 0, offsetMs = 0 } = {}) => {
         sequenceRef.current = Math.max(sequenceRef.current, nextSequence);
         offsetRef.current = Math.max(offsetRef.current, offsetMs);
-        lastSavedStreamMsRef.current = offsetRef.current;
+        sessionElapsedBaseRef.current = Math.max(sessionElapsedBaseRef.current, offsetMs);
+        sessionStartTimeRef.current = performance.now();
+        lastSavedStreamMsRef.current = sessionElapsedBaseRef.current;
         haltedRef.current = false;
         intentionalStopRef.current = false;
         runningRef.current = true;
@@ -707,6 +752,11 @@ export default function useScribeRecorder({
             ? Math.round((Date.now() - streamConnStartRef.current) / 1000)
             : 0;
 
+        if (sessionStartTimeRef.current !== null) {
+            sessionElapsedBaseRef.current += Math.round(performance.now() - sessionStartTimeRef.current);
+            sessionStartTimeRef.current = null;
+        }
+
         if (isStreamingRef.current || streamingModeActiveRef.current) {
             try {
                 if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -717,12 +767,13 @@ export default function useScribeRecorder({
             isStreamingRef.current = false;
             streamingModeActiveRef.current = false;
             setIsStreamingActive(false);
+            interimTextRef.current = '';
             setInterimText('');
         }
 
         await flushSegment();
         setMicState('paused');
-        setElapsedMs(offsetRef.current);
+        setElapsedMs(sessionElapsedBaseRef.current);
 
         await flushStreamingTurns({ connectionDurationSec: streamConnDuration, maxRetries: 3 });
         if (!streamingEnabled && queueRef.current.length) {
@@ -734,6 +785,7 @@ export default function useScribeRecorder({
     const resume = useCallback(async () => {
         intentionalStopRef.current = false;
         runningRef.current = true;
+        sessionStartTimeRef.current = performance.now();
         setMicState('live');
 
         if (streamingEnabled) {
@@ -754,6 +806,31 @@ export default function useScribeRecorder({
             ? Math.round((Date.now() - streamConnStartRef.current) / 1000)
             : 0;
 
+        // If there is any remaining interim text when user stops, flush it as the final turn
+        // with the correct session-elapsed timestamp
+        const finalInterim = (interimTextRef.current || '').trim();
+        if (finalInterim.length > 0 && (isStreamingRef.current || streamingModeActiveRef.current)) {
+            const sessionElapsed = getSessionElapsedMs();
+            const finalTurn = {
+                sequence: sequenceRef.current++,
+                text: finalInterim,
+                start_ms: Math.max(lastSavedStreamMsRef.current, Math.max(0, sessionElapsed - 2000)),
+                end_ms: sessionElapsed,
+                language: language && language !== 'auto' ? String(language) : (language || 'en'),
+                source: 'ai_streaming',
+            };
+            lastSavedStreamMsRef.current = finalTurn.end_ms;
+            callbacks.current.onNewSegment?.(finalTurn);
+            unpersistedTurnsMapRef.current.set(finalTurn.sequence, finalTurn);
+            interimTextRef.current = '';
+            setInterimText('');
+        }
+
+        if (sessionStartTimeRef.current !== null) {
+            sessionElapsedBaseRef.current += Math.round(performance.now() - sessionStartTimeRef.current);
+            sessionStartTimeRef.current = null;
+        }
+
         if (isStreamingRef.current || streamingModeActiveRef.current) {
             try {
                 if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -763,19 +840,21 @@ export default function useScribeRecorder({
                 }
             } catch (_) {}
             isStreamingRef.current = false;
-            streamingModeActiveRef.current = false;
             setIsStreamingActive(false);
+            interimTextRef.current = '';
             setInterimText('');
         }
 
         await flushSegment();
 
+        // In streaming mode, audio is already transcribed via live stream.
+        // Discard in-memory fallback buffer and mark streaming mode inactive
+        // so that the stop segment is NOT uploaded to the chunk endpoint!
+        fallbackBufferRef.current = [];
+        streamingModeActiveRef.current = false;
+
         // Flush all unpersisted turns with up to 3 retries
         await flushStreamingTurns({ connectionDurationSec: streamConnDuration, maxRetries: 3 });
-
-        // In streaming mode, audio is already transcribed via live stream.
-        // Discard in-memory fallback buffer so we NEVER double-bill!
-        fallbackBufferRef.current = [];
 
         // Only drain classic chunking queue if classic mode or if fallback was triggered
         if (queueRef.current.length) {
@@ -783,10 +862,10 @@ export default function useScribeRecorder({
         }
 
         releaseMic();
-        setElapsedMs(offsetRef.current);
+        setElapsedMs(sessionElapsedBaseRef.current);
         setMicState('stopped');
         return queueRef.current.length === 0;
-    }, [flushSegment, flushStreamingTurns, drain, releaseMic]);
+    }, [flushSegment, flushStreamingTurns, drain, releaseMic, getSessionElapsedMs, language]);
 
     useEffect(() => () => halt(), [halt]);
 

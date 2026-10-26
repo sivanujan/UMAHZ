@@ -273,6 +273,43 @@ function SessionLanguageSelector({ session, onSelectLanguage, disabled }) {
     );
 }
 
+function normalizeText(text) {
+    if (!text) return '';
+    return text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim();
+}
+
+function deduplicateAndSortSegments(segmentsList) {
+    const sorted = [...segmentsList].sort((a, b) => ((a.start_ms ?? 0) - (b.start_ms ?? 0)) || ((a.sequence ?? 0) - (b.sequence ?? 0)));
+    const deduped = [];
+
+    for (const segment of sorted) {
+        const normCurrent = normalizeText(segment.text);
+        if (!normCurrent) continue;
+
+        const isDup = deduped.some((existing) => {
+            if (existing.id && segment.id && existing.id === segment.id) return true;
+            if (existing.sequence === segment.sequence && existing.source === segment.source) return true;
+
+            const normExisting = normalizeText(existing.text);
+            const textMatches = (normExisting === normCurrent)
+                || (normExisting.length > 10 && normCurrent.length > 10 && (normExisting.includes(normCurrent) || normCurrent.includes(normExisting)));
+
+            if (!textMatches) return false;
+
+            const overlap = Math.max(existing.start_ms || 0, segment.start_ms || 0) <= (Math.min(existing.end_ms || 0, segment.end_ms || 0) + 3000);
+            const closeStarts = Math.abs((existing.start_ms || 0) - (segment.start_ms || 0)) <= 5000;
+
+            return overlap || closeStarts;
+        });
+
+        if (!isDup) {
+            deduped.push(segment);
+        }
+    }
+
+    return deduped;
+}
+
 export default function ScribePanel({ clientId, clientName, appointmentId = null, onClose }) {
     const { auth } = usePage().props;
     const isOwner = auth?.user?.role === 'clinic_owner';
@@ -292,10 +329,8 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
         if (!next) return;
         setSession(next);
         setSegments((prev) => {
-            if (replaceSegments) return next.segments || [];
-            const bySeq = new Map(prev.map((s) => [s.sequence, s]));
-            (next.segments || []).forEach((s) => bySeq.set(s.sequence, s));
-            return [...bySeq.values()].sort((a, b) => a.sequence - b.sequence);
+            if (replaceSegments) return deduplicateAndSortSegments(next.segments || []);
+            return deduplicateAndSortSegments([...prev, ...(next.segments || [])]);
         });
     }, []);
 
@@ -307,11 +342,7 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
         chunkMs: session?.chunk_ms,
         onSessionUpdate: (s) => applySession(s),
         onNewSegment: (seg) => {
-            setSegments((prev) => {
-                const bySeq = new Map(prev.map((s) => [s.sequence, s]));
-                bySeq.set(seg.sequence, seg);
-                return [...bySeq.values()].sort((a, b) => a.sequence - b.sequence);
-            });
+            setSegments((prev) => deduplicateAndSortSegments([...prev, seg]));
         },
         onConsentRevoked: (message) => setNotice(message || 'Consent is no longer valid. Recording has stopped.'),
     });
@@ -337,7 +368,7 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
         return () => { cancelled = true; };
     }, [clientId, appointmentId, applySession]);
 
-    const lastSequence = segments.length ? segments[segments.length - 1].sequence : -1;
+    const lastSequence = segments.length ? Math.max(...segments.map((s) => s.sequence), -1) : -1;
     const status = session?.status;
     // Poll while capture/transcription runs, while draft generates, and while translation runs.
     const shouldPoll = ACTIVE_STATUSES.includes(status)
@@ -605,7 +636,7 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                                 ) : (
                                     <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
                                         <Globe className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
-                                        <span>Spoken: <strong>{session.language_label || 'English'}</strong></span>
+                                        <span>Spoken: <strong>{session.language_label || session.detected_language_label || 'English'}</strong></span>
                                     </div>
                                 )}
                             </div>
@@ -622,6 +653,11 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
 
                         {notice && <Banner tone="warn" icon={ShieldOff}>{notice}</Banner>}
                         {recorder.fallbackNotice && <Banner tone="warn" icon={AlertTriangle}>{recorder.fallbackNotice}</Banner>}
+                        {session?.has_language_mismatch && (
+                            <Banner tone="warn" icon={AlertTriangle}>
+                                Spoken language detected as <strong>{session.detected_language_label || session.language_label}</strong>, but recording was set to <strong>{session.selected_language_label || 'English'}</strong>.
+                            </Banner>
+                        )}
                         {recorder.micError && <Banner tone="error" icon={Mic}>{recorder.micError}</Banner>}
                         {actionError && <Banner tone="error" icon={AlertTriangle}>{actionError}</Banner>}
                         {recorder.uploadError && (

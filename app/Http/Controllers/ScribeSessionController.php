@@ -320,6 +320,7 @@ class ScribeSessionController extends Controller
             'turns.*.end_ms' => ['nullable', 'numeric', 'min:0'],
             'turns.*.end' => ['nullable', 'numeric', 'min:0'],
             'turns.*.language' => ['nullable', 'string', 'max:20'],
+            'turns.*.detected_language' => ['nullable', 'string', 'max:20'],
             'client_recorded_ms' => ['nullable', 'numeric', 'min:0'],
             'connection_duration_seconds' => ['nullable', 'numeric', 'min:0'],
             'connection_duration_sec' => ['nullable', 'numeric', 'min:0'],
@@ -366,6 +367,10 @@ class ScribeSessionController extends Controller
                     ? (string) $turn['language']
                     : ($scribeSession->language ?? 'en');
 
+                $detectedLang = ! empty($turn['detected_language']) && $turn['detected_language'] !== 'auto'
+                    ? (string) $turn['detected_language']
+                    : null;
+
                 ScribeTranscriptSegment::withoutGlobalScopes()->updateOrCreate(
                     [
                         'scribe_session_id' => $scribeSession->id,
@@ -380,6 +385,7 @@ class ScribeSessionController extends Controller
                         'provider' => 'assemblyai_streaming',
                         'provider_model' => config('scribe.streaming.speech_model', 'universal-3-6-pro'),
                         'language' => $lang,
+                        'detected_language' => $detectedLang,
                     ]
                 );
 
@@ -626,22 +632,29 @@ class ScribeSessionController extends Controller
             ->where('code', ConsentType::CODE_AI_SCRIBE_RECORDING)
             ->first();
 
-        $segments = ScribeTranscriptSegment::where('scribe_session_id', $session->id)
-            ->where('sequence', '>', $afterSequence)
+        $segmentsQuery = ScribeTranscriptSegment::where('scribe_session_id', $session->id);
+        if ($afterSequence >= 0) {
+            $segmentsQuery->where('sequence', '>', $afterSequence);
+        }
+        $rawSegments = $segmentsQuery
+            ->orderBy('start_ms')
             ->orderBy('sequence')
-            ->get()
-            ->map(fn (ScribeTranscriptSegment $s) => [
-                'id' => $s->id,
-                'sequence' => $s->sequence,
-                'text' => $s->text,
-                'translated_text' => $s->translated_text,
-                'language' => $s->language,
-                'detected_language' => $s->detected_language,
-                'translation_status' => $s->translation_status,
-                'start_ms' => $s->start_ms,
-                'end_ms' => $s->end_ms,
-                'source' => $s->source,
-            ]);
+            ->get();
+
+        $deduped = ScribeTranscriptSegment::deduplicateSegments($rawSegments);
+
+        $segments = $deduped->map(fn (ScribeTranscriptSegment $s) => [
+            'id' => $s->id,
+            'sequence' => $s->sequence,
+            'text' => $s->text,
+            'translated_text' => $s->translated_text,
+            'language' => $s->language,
+            'detected_language' => $s->detected_language,
+            'translation_status' => $s->translation_status,
+            'start_ms' => $s->start_ms,
+            'end_ms' => $s->end_ms,
+            'source' => $s->source,
+        ]);
 
         $totalChunks = (int) ScribeAudioChunk::where('scribe_session_id', $session->id)->count();
         $chunkCounts = ScribeAudioChunk::where('scribe_session_id', $session->id)
@@ -679,6 +692,12 @@ class ScribeSessionController extends Controller
             'discipline_label' => $session->discipline_label,
             'language' => $session->language ?? 'en',
             'language_label' => $session->languageLabel(),
+            'selected_language' => $session->language ?? 'en',
+            'selected_language_label' => $session->selectedLanguageLabel(),
+            'actual_language' => $session->actualLanguage(),
+            'detected_language' => $session->detectedLanguage(),
+            'detected_language_label' => $session->detectedLanguageLabel(),
+            'has_language_mismatch' => ($session->detectedLanguage() !== null && $session->detectedLanguage() !== ($session->language ?? 'en')),
             'note_output_language' => $session->note_output_language ?? 'en',
             'note_output_language_label' => $session->noteOutputLanguageLabel(),
             'note_output_languages' => $noteOutputLanguages,
