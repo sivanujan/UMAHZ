@@ -39,6 +39,7 @@ abstract class ScribeTestCase extends TestCase
 
         $this->drafter = new FakeDraftingProvider;
         $this->app->instance(DraftingProvider::class, $this->drafter);
+        config(['scribe.drafting.driver' => 'fake']);
 
         \App\Scribe\AssemblyAiStreamingService::$fakeToken = 'fake-test-streaming-token';
     }

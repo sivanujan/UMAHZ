@@ -52,4 +52,70 @@ class ScribeTranscriptSegment extends Model
     {
         return $this->belongsTo(ScribeSession::class, 'scribe_session_id');
     }
+
+    /**
+     * Deduplicate segments that come from both the realtime stream and chunk fallback.
+     * Uses turn ID or normalized text + overlapping time range.
+     *
+     * @param  \Illuminate\Support\Collection<int, ScribeTranscriptSegment>  $segments
+     * @return \Illuminate\Support\Collection<int, ScribeTranscriptSegment>
+     */
+    public static function deduplicateSegments(\Illuminate\Support\Collection $segments): \Illuminate\Support\Collection
+    {
+        $sorted = $segments->sortBy([
+            ['start_ms', 'asc'],
+            ['sequence', 'asc'],
+        ])->values();
+
+        $deduped = collect();
+
+        foreach ($sorted as $segment) {
+            $normalizedCurrent = self::normalizeText($segment->text);
+            if ($normalizedCurrent === '') {
+                continue;
+            }
+
+            $isDuplicate = $deduped->contains(function (ScribeTranscriptSegment $existing) use ($segment, $normalizedCurrent) {
+                if ($existing->id && $segment->id && $existing->id === $segment->id) {
+                    return true;
+                }
+
+                if ($existing->sequence === $segment->sequence && $existing->source === $segment->source) {
+                    return true;
+                }
+
+                $normalizedExisting = self::normalizeText($existing->text);
+                $textMatches = ($normalizedExisting === $normalizedCurrent)
+                    || (mb_strlen($normalizedExisting) > 10 && mb_strlen($normalizedCurrent) > 10 && (
+                        str_contains($normalizedExisting, $normalizedCurrent) || str_contains($normalizedCurrent, $normalizedExisting)
+                    ));
+
+                if (! $textMatches) {
+                    return false;
+                }
+
+                $overlap = max((int) $existing->start_ms, (int) $segment->start_ms) <= (min((int) $existing->end_ms, (int) $segment->end_ms) + 3000);
+                $closeStarts = abs((int) $existing->start_ms - (int) $segment->start_ms) <= 5000;
+
+                return $overlap || $closeStarts;
+            });
+
+            if (! $isDuplicate) {
+                $deduped->push($segment);
+            }
+        }
+
+        return $deduped->values();
+    }
+
+    public static function normalizeText(?string $text): string
+    {
+        if ($text === null) {
+            return '';
+        }
+        $text = mb_strtolower(trim($text));
+        $text = preg_replace('/[^\p{L}\p{N}\s]/u', '', $text);
+
+        return preg_replace('/\s+/', ' ', $text ?? '') ?? '';
+    }
 }

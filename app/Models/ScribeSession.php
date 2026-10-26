@@ -130,11 +130,49 @@ class ScribeSession extends Model
         ];
     }
 
+    public function detectedLanguage(): ?string
+    {
+        return ScribeTranscriptSegment::withoutGlobalScopes()
+            ->where('scribe_session_id', $this->id)
+            ->whereNotNull('detected_language')
+            ->where('detected_language', '!=', '')
+            ->selectRaw('detected_language, count(*) as count')
+            ->groupBy('detected_language')
+            ->orderByDesc('count')
+            ->value('detected_language');
+    }
+
+    public function actualLanguage(): string
+    {
+        return $this->detectedLanguage() ?: ($this->language ?? 'en');
+    }
+
+    public function detectedLanguageLabel(): ?string
+    {
+        $code = $this->detectedLanguage();
+        if (! $code) {
+            return null;
+        }
+
+        $registryLang = app(\App\Scribe\LanguageRegistry::class)->findByCode($code);
+
+        return $registryLang?->label ?? config("scribe.languages.{$code}.label") ?? strtoupper($code);
+    }
+
+    public function selectedLanguageLabel(): string
+    {
+        $code = $this->language ?? 'en';
+        $registryLang = app(\App\Scribe\LanguageRegistry::class)->findByCode($code);
+
+        return $registryLang?->label ?? config("scribe.languages.{$code}.label") ?? strtoupper($code);
+    }
+
     public function languageLabel(): string
     {
-        $registryLang = app(\App\Scribe\LanguageRegistry::class)->findByCode($this->language ?? 'en');
+        $code = $this->actualLanguage();
+        $registryLang = app(\App\Scribe\LanguageRegistry::class)->findByCode($code);
 
-        return $registryLang?->label ?? config("scribe.languages.{$this->language}.label") ?? strtoupper($this->language ?? 'en');
+        return $registryLang?->label ?? config("scribe.languages.{$code}.label") ?? strtoupper($code);
     }
 
     public function noteOutputLanguageLabel(): string
@@ -147,7 +185,7 @@ class ScribeSession extends Model
 
     public function isNonEnglish(): bool
     {
-        return ($this->language ?? 'en') !== 'en';
+        return ($this->language ?? 'en') !== 'en' || ($this->detectedLanguage() !== null && $this->detectedLanguage() !== 'en');
     }
 
     public function client(): BelongsTo
@@ -182,7 +220,9 @@ class ScribeSession extends Model
 
     public function segments(): HasMany
     {
-        return $this->hasMany(ScribeTranscriptSegment::class)->orderBy('sequence');
+        return $this->hasMany(ScribeTranscriptSegment::class)
+            ->orderBy('start_ms')
+            ->orderBy('sequence');
     }
 
     public function draftItems(): HasMany

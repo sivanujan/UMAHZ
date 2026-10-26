@@ -98,21 +98,49 @@ class TranscribeAudioChunk implements ShouldQueue
             }
 
             if ($result->text !== '') {
-                ScribeTranscriptSegment::withoutGlobalScopes()->updateOrCreate(
-                    ['scribe_session_id' => $session->id, 'sequence' => $chunk->sequence],
-                    [
-                        'tenant_id' => $session->tenant_id,
-                        'scribe_audio_chunk_id' => $chunk->id,
-                        'text' => $result->text,
-                        'start_ms' => $chunk->offset_ms,
-                        'end_ms' => $chunk->offset_ms + $chunk->duration_ms,
-                        'source' => ScribeTranscriptSegment::SOURCE_AI_TRANSCRIPTION,
-                        'provider' => $provider->name(),
-                        'provider_model' => $result->model,
-                        'language' => $result->language ?: ($session->language ?? 'en'),
-                        'detected_language' => $result->language,
-                    ]
-                );
+                // Deduplicate if existing streaming segment already covers this audio range with matching text
+                $chunkStart = $chunk->offset_ms;
+                $chunkEnd = $chunk->offset_ms + $chunk->duration_ms;
+                $normalizedChunkText = ScribeTranscriptSegment::normalizeText($result->text);
+
+                $streamingSegments = ScribeTranscriptSegment::withoutGlobalScopes()
+                    ->where('scribe_session_id', $session->id)
+                    ->where('source', ScribeTranscriptSegment::SOURCE_AI_STREAMING)
+                    ->get();
+
+                $isDuplicate = false;
+                foreach ($streamingSegments as $sSeg) {
+                    $normalizedStreamText = ScribeTranscriptSegment::normalizeText($sSeg->text);
+                    if ($normalizedStreamText !== '' && (
+                        $normalizedStreamText === $normalizedChunkText
+                        || (mb_strlen($normalizedStreamText) > 10 && (str_contains($normalizedStreamText, $normalizedChunkText) || str_contains($normalizedChunkText, $normalizedStreamText)))
+                    )) {
+                        $timeOverlap = max((int) $sSeg->start_ms, (int) $chunkStart) <= (min((int) $sSeg->end_ms, (int) $chunkEnd) + 3000)
+                            || abs((int) $sSeg->start_ms - (int) $chunkStart) <= 5000;
+                        if ($timeOverlap) {
+                            $isDuplicate = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (! $isDuplicate) {
+                    ScribeTranscriptSegment::withoutGlobalScopes()->updateOrCreate(
+                        ['scribe_session_id' => $session->id, 'sequence' => $chunk->sequence],
+                        [
+                            'tenant_id' => $session->tenant_id,
+                            'scribe_audio_chunk_id' => $chunk->id,
+                            'text' => $result->text,
+                            'start_ms' => $chunk->offset_ms,
+                            'end_ms' => $chunk->offset_ms + $chunk->duration_ms,
+                            'source' => ScribeTranscriptSegment::SOURCE_AI_TRANSCRIPTION,
+                            'provider' => $provider->name(),
+                            'provider_model' => $result->model,
+                            'language' => $result->language ?: ($session->language ?? 'en'),
+                            'detected_language' => $result->language,
+                        ]
+                    );
+                }
             }
 
             if ($result->model && empty($session->provider_model)) {
