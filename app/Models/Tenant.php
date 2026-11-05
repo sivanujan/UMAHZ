@@ -558,22 +558,60 @@ class Tenant extends Model
                     $list[] = [
                         'slug' => (string) $val['slug'],
                         'label' => (string) $val['label'],
+                        'recognized_profession' => isset($val['recognized_profession']) && $val['recognized_profession'] !== '' ? (string) $val['recognized_profession'] : null,
                     ];
                 } elseif (is_string($key) && is_string($val)) {
                     $list[] = [
                         'slug' => $key,
                         'label' => $val,
+                        'recognized_profession' => null,
                     ];
                 } elseif (is_string($val)) {
                     $list[] = [
                         'slug' => Disciplines::slugify($val),
                         'label' => Disciplines::sanitizeLabel($val),
+                        'recognized_profession' => null,
                     ];
                 }
             }
         }
 
         return $list;
+    }
+
+    /**
+     * Map a discipline code (standard or custom) to its recognized Canadian insurance profession.
+     * Returns null if not mapped or not insurance billable.
+     */
+    public function professionForDiscipline(?string $code): ?string
+    {
+        if (! $code) {
+            return null;
+        }
+
+        // Check standard disciplines
+        if (array_key_exists($code, \App\Insurance\InsuranceProfessions::STANDARD_DISCIPLINE_MAP)) {
+            return \App\Insurance\InsuranceProfessions::STANDARD_DISCIPLINE_MAP[$code];
+        }
+
+        // Check custom disciplines
+        foreach ($this->customDisciplinesList() as $custom) {
+            if ($custom['slug'] === $code) {
+                return $custom['recognized_profession'] ?? null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get human-readable display label for the recognized profession of a discipline.
+     */
+    public function professionLabelForDiscipline(?string $code): ?string
+    {
+        $profession = $this->professionForDiscipline($code);
+
+        return \App\Insurance\InsuranceProfessions::label($profession);
     }
 
     /**
@@ -773,6 +811,21 @@ class Tenant extends Model
     public function plan(): BelongsTo
     {
         return $this->belongsTo(Plan::class);
+    }
+
+    public function clientInsurancePolicies(): HasMany
+    {
+        return $this->hasMany(ClientInsurancePolicy::class);
+    }
+
+    public function insuranceClaims(): HasMany
+    {
+        return $this->hasMany(InsuranceClaim::class);
+    }
+
+    public function customInsuranceProviders(): HasMany
+    {
+        return $this->hasMany(InsuranceProvider::class);
     }
 
     public function planPrice(): BelongsTo

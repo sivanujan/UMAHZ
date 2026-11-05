@@ -171,4 +171,39 @@ class ClinicStaffManagementTest extends TestCase
         $tenant->refresh();
         $this->assertSame(0, $tenant->extra_practitioner_seats);
     }
+
+    public function test_inviting_practitioner_with_demo_subscription_does_not_crash_on_stripe_sync(): void
+    {
+        $tenant = $this->tenant('democlinic');
+        $tenant->update([
+            'subscription_status' => Tenant::SUBSCRIPTION_ACTIVE,
+            'stripe_id' => 'cus_demo_democlinic',
+        ]);
+
+        \Illuminate\Support\Facades\DB::table('subscriptions')->insert([
+            'tenant_id' => $tenant->id,
+            'type' => Tenant::PLATFORM_SUBSCRIPTION,
+            'stripe_id' => 'sub_demo_democlinic',
+            'stripe_status' => 'active',
+            'stripe_price' => 'price_demo_monthly',
+            'quantity' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $owner = $this->member($tenant, StaffMembership::ROLE_CLINIC_OWNER);
+
+        $response = $this->actingAs($owner->user)
+            ->post($this->url($tenant, '/app/staff'), [
+                'email' => 'newprac_demo@acme.test',
+                'role' => StaffMembership::ROLE_PRACTITIONER,
+            ]);
+
+        $response->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('staff_memberships', [
+            'tenant_id' => $tenant->id,
+            'role' => StaffMembership::ROLE_PRACTITIONER,
+            'status' => StaffMembership::STATUS_INVITED,
+        ]);
+    }
 }

@@ -11,6 +11,7 @@ use App\PatientBilling\InvoiceService;
 use App\Scopes\TenantScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -68,11 +69,18 @@ class InvoiceController extends Controller
     public function show(Request $request, Invoice $invoice): Response
     {
         $this->guardTenant($invoice, $request);
-        $invoice->load(['lineItems', 'client', 'appointment', 'payments' => fn ($q) => $q->latest('created_at')]);
+        $invoice->load([
+            'lineItems',
+            'client.insurancePolicies.provider',
+            'appointment.staffMembership.user',
+            'appointment.staffMembership.practitionerProfile',
+            'payments' => fn ($q) => $q->latest('created_at'),
+            'insuranceClaims.policy.provider',
+        ]);
         $tenant = $this->currentTenant($request);
 
         return Inertia::render('PatientBilling/InvoiceShow', [
-            'invoice' => $this->presentInvoice($invoice),
+            'invoice' => $this->presentInvoice($invoice, $tenant),
             'canAcceptCards' => $tenant->canAcceptCardPayments(),
             'stripePublishableKey' => config('cashier.key'),
         ]);
@@ -81,15 +89,23 @@ class InvoiceController extends Controller
     public function receipt(Request $request, Invoice $invoice): Response
     {
         $this->guardTenant($invoice, $request);
-        $invoice->load(['lineItems', 'client', 'payments' => fn ($q) => $q->where('status', 'succeeded')->latest('processed_at')]);
+        $invoice->load([
+            'lineItems',
+            'client.insurancePolicies.provider',
+            'appointment.staffMembership.user',
+            'appointment.staffMembership.practitionerProfile',
+            'payments' => fn ($q) => $q->where('status', 'succeeded')->latest('processed_at'),
+            'insuranceClaims.policy.provider',
+        ]);
         $tenant = $this->currentTenant($request);
 
         return Inertia::render('PatientBilling/Receipt', [
-            'invoice' => $this->presentInvoice($invoice),
+            'invoice' => $this->presentInvoice($invoice, $tenant),
             'clinic' => [
                 'name' => $tenant->name,
                 'email' => $tenant->email,
                 'phone' => $tenant->phone,
+                'address_text' => $tenant->addressText(),
             ],
         ]);
     }
@@ -118,8 +134,134 @@ class InvoiceController extends Controller
         return back()->with('success', "Invoice {$invoice->reference()} voided.");
     }
 
-    private function presentInvoice(Invoice $invoice): array
+    private function presentInvoice(Invoice $invoice, ?Tenant $tenant = null): array
     {
+        $tenant = $tenant ?? Tenant::find($invoice->tenant_id);
+
+        $clientPolicies = [];
+        $activePolicy = null;
+        if ($invoice->relationLoaded('client') && $invoice->client && $invoice->client->relationLoaded('insurancePolicies')) {
+            $clientPolicies = $invoice->client->insurancePolicies->map(fn ($p) => [
+                'id' => $p->id,
+                'priority' => $p->priority,
+                'provider_name' => $p->provider?->name,
+                'masked_member_id' => $p->maskedMemberId(),
+                'masked_policy_number' => $p->maskedPolicyNumber(),
+                'plan_holder_name' => $p->plan_holder_name,
+                'relationship' => $p->relationship_to_patient,
+                'is_verified' => $p->isVerified(),
+                'is_active' => $p->isActive(),
+            ])->all();
+
+            $primary = $invoice->client->insurancePolicies->firstWhere('priority', 'primary')
+                ?? $invoice->client->insurancePolicies->first();
+            if ($primary) {
+                $activePolicy = [
+                    'id' => $primary->id,
+                    'priority' => $primary->priority,
+                    'provider_name' => $primary->provider?->name,
+                    'masked_member_id' => $primary->maskedMemberId(),
+                    'masked_policy_number' => $primary->maskedPolicyNumber(),
+                    'plan_holder_name' => $primary->plan_holder_name,
+                    'relationship' => $primary->relationship_to_patient,
+                    'is_verified' => $primary->isVerified(),
+                    'is_active' => $primary->isActive(),
+                ];
+            }
+        }
+
+        $formatDate = function ($date) {
+            if (! $date) {
+                return null;
+            }
+            if ($date instanceof \DateTimeInterface) {
+                return $date->format('M j, Y');
+            }
+            try {
+                return Carbon::parse($date)->format('M j, Y');
+            } catch (\Throwable) {
+                return (string) $date;
+            }
+        };
+
+        $claims = [];
+        $claim = null;
+        if ($invoice->relationLoaded('insuranceClaims')) {
+            $claims = $invoice->insuranceClaims->map(fn ($c) => [
+                'id' => $c->id,
+                'status' => $c->status,
+                'claim_type' => $c->claim_type,
+                'amount_claimed' => $c->amount_claimed,
+                'amount_approved' => $c->amount_approved,
+                'patient_balance' => $c->patient_balance,
+                'external_reference' => $c->external_reference,
+                'insurer_name' => $c->policy?->provider?->name,
+                'masked_member_id' => $c->policy?->maskedMemberId(),
+                'created_at' => $c->created_at?->toIso8601String(),
+                'created_at_formatted' => $formatDate($c->created_at),
+            ])->all();
+            $claim = $invoice->insuranceClaims->first();
+        }
+
+        $policyForReceipt = $claim?->policy
+            ?? ($invoice->relationLoaded('client') && $invoice->client && $invoice->client->relationLoaded('insurancePolicies')
+                ? ($invoice->client->insurancePolicies->firstWhere('priority', 'primary') ?? $invoice->client->insurancePolicies->first())
+                : null);
+
+        $appointment = $invoice->relationLoaded('appointment') ? $invoice->appointment : null;
+        $appointmentDuration = $appointment?->durationMinutes();
+        $appointmentService = $appointment?->service_name;
+        $serviceWithDuration = null;
+        if ($appointmentService) {
+            $serviceWithDuration = $appointmentDuration
+                ? "{$appointmentService} - {$appointmentDuration} min"
+                : $appointmentService;
+        }
+
+        $practitioner = $invoice->relationLoaded('appointment') && $invoice->appointment && $invoice->appointment->relationLoaded('staffMembership')
+            ? $invoice->appointment->staffMembership?->user
+            : null;
+
+        $profile = $invoice->relationLoaded('appointment') && $invoice->appointment && $invoice->appointment->relationLoaded('staffMembership')
+            ? $invoice->appointment->staffMembership?->practitionerProfile
+            : null;
+
+        $discipline = $profile?->profession;
+        $profession = $tenant?->professionLabelForDiscipline($discipline) ?? $profile?->professionLabel();
+        
+        $rawRegNum = $profile?->registration_number ?: $profile?->license_number;
+        $hasRegNum = ! empty($rawRegNum);
+        $registrationNumber = $hasRegNum ? $rawRegNum : 'Not provided';
+
+        $serviceDate = $formatDate(
+            $invoice->appointment?->starts_at
+                ?? $invoice->issued_at
+                ?? $invoice->created_at
+        );
+
+        $receiptDate = $formatDate(
+            $invoice->paid_at
+                ?? $invoice->issued_at
+                ?? $invoice->created_at
+        );
+
+        $receiptDetails = [
+            'insurer_name' => $policyForReceipt?->provider?->name,
+            'member_id_masked' => $policyForReceipt?->maskedMemberId(),
+            'policy_number_masked' => $policyForReceipt?->maskedPolicyNumber(),
+            'practitioner_name' => $practitioner?->name,
+            'profession' => $profession,
+            'registration_number' => $registrationNumber,
+            'has_registration_number' => $hasRegNum,
+            'service' => $serviceWithDuration ?? $appointmentService,
+            'service_name' => $appointmentService,
+            'duration_minutes' => $appointmentDuration,
+            'service_date' => $serviceDate,
+            'amount_claimed' => $claim?->amount_claimed,
+            'amount_approved' => $claim?->amount_approved,
+            'patient_balance' => $claim?->patient_balance,
+        ];
+
         return [
             'id' => $invoice->id,
             'reference' => $invoice->reference(),
@@ -133,31 +275,53 @@ class InvoiceController extends Controller
             'amount_paid' => $invoice->amount_paid,
             'amount_due' => $invoice->amountDue(),
             'notes' => $invoice->notes,
-            'due_date' => $invoice->due_date?->toDateString(),
+            'due_date' => $formatDate($invoice->due_date),
+            'due_date_formatted' => $formatDate($invoice->due_date),
             'issued_at' => $invoice->issued_at?->toIso8601String(),
+            'issued_at_formatted' => $formatDate($invoice->issued_at ?? $invoice->created_at),
             'paid_at' => $invoice->paid_at?->toIso8601String(),
-            'voided_at' => $invoice->voided_at?->toIso8601String(),
-            'void_reason' => $invoice->void_reason,
+            'paid_at_formatted' => $formatDate($invoice->paid_at),
+            'receipt_date' => $receiptDate,
             'is_payable' => $invoice->isPayable(),
+            'active_policy' => $activePolicy,
+            'client_policies' => $clientPolicies,
+            'insurance_claims' => $claims,
+            'receipt_details' => $receiptDetails,
+            'appointment' => $appointment ? [
+                'id' => $appointment->id,
+                'service_name' => $appointmentService,
+                'duration_minutes' => $appointmentDuration,
+                'service_with_duration' => $serviceWithDuration,
+            ] : null,
             'client' => $invoice->relationLoaded('client') && $invoice->client ? [
                 'id' => $invoice->client->id,
                 'name' => $invoice->client->full_name,
                 'email' => $invoice->client->email,
             ] : null,
-            'line_items' => $invoice->relationLoaded('lineItems') ? $invoice->lineItems->map(fn ($li) => [
-                'id' => $li->id,
-                'description' => $li->description,
-                'quantity' => $li->quantity,
-                'unit_amount' => $li->unit_amount,
-                'tax_amount' => $li->tax_amount,
-                'total_amount' => $li->total_amount,
-            ])->all() : [],
+            'line_items' => $invoice->relationLoaded('lineItems') ? $invoice->lineItems->map(function ($li) use ($invoice, $appointment, $appointmentDuration, $serviceWithDuration) {
+                $desc = $li->description;
+                if ($appointment && $appointmentDuration && ! str_contains(strtolower($desc), 'min')) {
+                    if ($desc === $appointment->service_name || $desc === 'Treatment' || count($invoice->lineItems) === 1) {
+                        $desc = $serviceWithDuration ?? "{$desc} - {$appointmentDuration} min";
+                    }
+                }
+
+                return [
+                    'id' => $li->id,
+                    'description' => $desc,
+                    'quantity' => $li->quantity,
+                    'unit_amount' => $li->unit_amount,
+                    'tax_amount' => $li->tax_amount,
+                    'total_amount' => $li->total_amount,
+                ];
+            })->all() : [],
             'payments' => $invoice->relationLoaded('payments') ? $invoice->payments->map(fn ($p) => [
                 'id' => $p->id,
                 'method' => $p->method,
                 'status' => $p->status,
                 'amount' => $p->amount,
                 'processed_at' => $p->processed_at?->toIso8601String(),
+                'processed_at_formatted' => $formatDate($p->processed_at ?? $p->created_at),
                 'notes' => $p->notes,
             ])->all() : [],
         ];

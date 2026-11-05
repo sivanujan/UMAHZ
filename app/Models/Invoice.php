@@ -86,6 +86,11 @@ class Invoice extends Model
         return $this->hasMany(Payment::class);
     }
 
+    public function insuranceClaims(): HasMany
+    {
+        return $this->hasMany(InsuranceClaim::class)->latest('created_at');
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

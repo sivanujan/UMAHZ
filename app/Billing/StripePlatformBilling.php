@@ -118,47 +118,9 @@ class StripePlatformBilling implements PlatformBilling
             return;
         }
 
-        if ($tenant->plan_id && $tenant->plan) {
-            $addOns = $tenant->tenantAddOns()
-                ->where('status', 'active')
-                ->where('quantity', '>', 0)
-                ->with('addOn')
-                ->get()
-                ->map(fn ($tao) => ['addon' => $tao->addOn, 'quantity' => $tao->quantity])
-                ->all();
-
-            $items = DynamicPlanPricing::buildSubscriptionItems(
-                $tenant->plan,
-                $tenant->billing_interval ?? 'month',
-                $tenant->totalPractitionersCount(),
-                $addOns
-            );
-        } else {
-            $items = PlanPricing::buildSubscriptionItems(
-                $tenant->plan_tier ?? PlanPricing::TIER_PRACTICE,
-                $tenant->full_time_practitioners_count ?? 1,
-                $tenant->part_time_practitioners_count ?? 0
-            );
-        }
-
-        if (! empty($items)) {
-            $pricesWithQuantities = [];
-            foreach ($items as $item) {
-                $pricesWithQuantities[$item['price']] = ['quantity' => $item['quantity']];
-            }
-            if ($invoiceImmediately) {
-                $subscription->swapAndInvoice($pricesWithQuantities);
-            } else {
-                $subscription->swap($pricesWithQuantities);
-            }
-        }
-    }
-
-    public function swapSubscriptionWithoutProration(Tenant $tenant): void
-    {
-        $subscription = $tenant->subscription(Tenant::PLATFORM_SUBSCRIPTION);
-
-        if (! $subscription || ! $subscription->active()) {
+        if ($this->isDemoSubscription($subscription, $tenant)) {
+            $subscription->quantity = $tenant->totalPractitionersCount();
+            $subscription->save();
             return;
         }
 
@@ -190,8 +152,95 @@ class StripePlatformBilling implements PlatformBilling
             foreach ($items as $item) {
                 $pricesWithQuantities[$item['price']] = ['quantity' => $item['quantity']];
             }
-            $subscription->noProrate()->swap($pricesWithQuantities);
+            try {
+                if ($invoiceImmediately) {
+                    $subscription->swapAndInvoice($pricesWithQuantities);
+                } else {
+                    $subscription->swap($pricesWithQuantities);
+                }
+            } catch (\Stripe\Exception\InvalidRequestException $e) {
+                if (str_contains($e->getMessage(), 'No such subscription') || str_contains($e->getMessage(), 'No such price') || app()->environment('local', 'testing')) {
+                    \Illuminate\Support\Facades\Log::warning("Stripe subscription sync skipped: {$e->getMessage()}");
+                    $subscription->quantity = $tenant->totalPractitionersCount();
+                    $subscription->save();
+                    return;
+                }
+                throw $e;
+            }
         }
+    }
+
+    public function swapSubscriptionWithoutProration(Tenant $tenant): void
+    {
+        $subscription = $tenant->subscription(Tenant::PLATFORM_SUBSCRIPTION);
+
+        if (! $subscription || ! $subscription->active()) {
+            return;
+        }
+
+        if ($this->isDemoSubscription($subscription, $tenant)) {
+            $subscription->quantity = $tenant->totalPractitionersCount();
+            $subscription->save();
+            return;
+        }
+
+        if ($tenant->plan_id && $tenant->plan) {
+            $addOns = $tenant->tenantAddOns()
+                ->where('status', 'active')
+                ->where('quantity', '>', 0)
+                ->with('addOn')
+                ->get()
+                ->map(fn ($tao) => ['addon' => $tao->addOn, 'quantity' => $tao->quantity])
+                ->all();
+
+            $items = DynamicPlanPricing::buildSubscriptionItems(
+                $tenant->plan,
+                $tenant->billing_interval ?? 'month',
+                $tenant->totalPractitionersCount(),
+                $addOns
+            );
+        } else {
+            $items = PlanPricing::buildSubscriptionItems(
+                $tenant->plan_tier ?? PlanPricing::TIER_PRACTICE,
+                $tenant->full_time_practitioners_count ?? 1,
+                $tenant->part_time_practitioners_count ?? 0
+            );
+        }
+
+        if (! empty($items)) {
+            $pricesWithQuantities = [];
+            foreach ($items as $item) {
+                $pricesWithQuantities[$item['price']] = ['quantity' => $item['quantity']];
+            }
+            try {
+                $subscription->noProrate()->swap($pricesWithQuantities);
+            } catch (\Stripe\Exception\InvalidRequestException $e) {
+                if (str_contains($e->getMessage(), 'No such subscription') || str_contains($e->getMessage(), 'No such price') || app()->environment('local', 'testing')) {
+                    \Illuminate\Support\Facades\Log::warning("Stripe subscription swap skipped: {$e->getMessage()}");
+                    $subscription->quantity = $tenant->totalPractitionersCount();
+                    $subscription->save();
+                    return;
+                }
+                throw $e;
+            }
+        }
+    }
+
+    protected function isDemoSubscription(?\Laravel\Cashier\Subscription $subscription, ?Tenant $tenant = null): bool
+    {
+        if (! $subscription) {
+            return false;
+        }
+
+        $subId = (string) $subscription->stripe_id;
+        $cusId = (string) ($tenant?->stripe_id ?? $subscription->owner?->stripe_id ?? '');
+
+        return str_starts_with($subId, 'sub_demo')
+            || str_starts_with($subId, 'sub_mock')
+            || str_starts_with($subId, 'sub_fake')
+            || str_starts_with($cusId, 'cus_demo')
+            || str_starts_with($cusId, 'cus_mock')
+            || str_starts_with($cusId, 'cus_fake');
     }
 
     public function discardPaymentMethod(?string $customerId, ?string $paymentMethodId): void

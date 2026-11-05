@@ -126,4 +126,19 @@ class Client extends Model
     {
         return $this->hasMany(ClientIntake::class)->latest('created_at');
     }
+
+    public function insurancePolicies(): HasMany
+    {
+        return $this->hasMany(ClientInsurancePolicy::class)->orderByRaw("CASE WHEN priority = 'primary' THEN 1 WHEN priority = 'secondary' THEN 2 ELSE 3 END");
+    }
+
+    public function primaryInsurancePolicy(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(ClientInsurancePolicy::class)->where('priority', ClientInsurancePolicy::PRIORITY_PRIMARY);
+    }
+
+    public function insuranceClaims(): HasMany
+    {
+        return $this->hasMany(InsuranceClaim::class)->latest('created_at');
+    }
 }

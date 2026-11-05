@@ -273,12 +273,23 @@ class AppointmentController extends Controller
     {
         return Client::query()
             ->where('is_active', true)
+            ->with(['insurancePolicies.provider'])
             ->orderBy('first_name')
             ->get(['id', 'first_name', 'last_name'])
-            ->map(fn (Client $c) => [
-                'id' => $c->id,
-                'name' => trim($c->first_name.' '.$c->last_name),
-            ])
+            ->map(function (Client $c) {
+                $primary = $c->insurancePolicies->firstWhere('priority', 'primary') ?? $c->insurancePolicies->first();
+
+                return [
+                    'id' => $c->id,
+                    'name' => trim($c->first_name.' '.$c->last_name),
+                    'active_policy' => $primary ? [
+                        'provider_name' => $primary->provider?->name,
+                        'masked_member_id' => $primary->maskedMemberId(),
+                        'priority' => $primary->priority,
+                        'is_verified' => $primary->isVerified(),
+                    ] : null,
+                ];
+            })
             ->all();
     }
 

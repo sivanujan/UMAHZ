@@ -303,7 +303,7 @@ function ProfileSection({ tenant, timezones, currencies, provinces, countries, c
 
 /* ---------------------------- Disciplines Section ---------------------------- */
 
-function DisciplinesSection({ tenant, allDisciplines = [], customDisciplines = [], disciplineLabels = {} }) {
+function DisciplinesSection({ tenant, allDisciplines = [], customDisciplines = [], disciplineLabels = {}, recognizedProfessions = [] }) {
     const labelsMap = { ...DISCIPLINE_LABELS, ...disciplineLabels };
     const { data, setData, patch, processing, errors } = useForm({
         disciplines: tenant.requested_disciplines || [],
@@ -312,6 +312,15 @@ function DisciplinesSection({ tenant, allDisciplines = [], customDisciplines = [
 
     const [newCustomName, setNewCustomName] = useState('');
     const [localError, setLocalError] = useState(null);
+
+    const updateCustomProfession = (slug, profession) => {
+        setData((prev) => ({
+            ...prev,
+            custom_disciplines: (prev.custom_disciplines || []).map((c) =>
+                c.slug === slug ? { ...c, recognized_profession: profession || null } : c
+            ),
+        }));
+    };
 
     const toggle = (d) => {
         setData('disciplines', data.disciplines.includes(d)
@@ -347,7 +356,7 @@ function DisciplinesSection({ tenant, allDisciplines = [], customDisciplines = [
             return;
         }
 
-        const newItem = { slug, label: trimmed };
+        const newItem = { slug, label: trimmed, recognized_profession: null };
         setData((prev) => ({
             ...prev,
             custom_disciplines: [...(prev.custom_disciplines || []), newItem],
@@ -428,35 +437,55 @@ function DisciplinesSection({ tenant, allDisciplines = [], customDisciplines = [
                                 return (
                                     <div
                                         key={item.slug}
-                                        className={`px-4 py-3.5 rounded-2xl border text-sm font-semibold transition-all flex items-center justify-between gap-2 ${
+                                        className={`p-4 rounded-2xl border text-sm font-semibold transition-all flex flex-col gap-3 ${
                                             active
                                                 ? 'bg-purple-500/15 border-purple-500/40 text-purple-950 dark:text-purple-200 shadow-xs'
                                                 : 'bg-white/40 dark:bg-white/[0.03] border-white/40 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:border-purple-300'
                                         }`}
                                     >
-                                        <button
-                                            type="button"
-                                            onClick={() => toggle(item.slug)}
-                                            className="flex items-center gap-3 flex-1 text-left min-w-0"
-                                        >
-                                            <span className={`w-5 h-5 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
-                                                active ? 'bg-[#8200db] border-[#8200db]' : 'border-slate-300 dark:border-white/20 bg-white dark:bg-white/10'
-                                            }`}>
-                                                {active && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
-                                            </span>
-                                            <span className="truncate flex-1">{item.label}</span>
-                                            <span className="text-[10px] uppercase tracking-wider text-purple-700 dark:text-purple-300 font-bold bg-purple-500/20 px-2 py-0.5 rounded-md">
-                                                Custom
-                                            </span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleRemoveCustom(item.slug)}
-                                            title={`Remove custom discipline "${item.label}"`}
-                                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-colors shrink-0"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => toggle(item.slug)}
+                                                className="flex items-center gap-3 flex-1 text-left min-w-0"
+                                            >
+                                                <span className={`w-5 h-5 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
+                                                    active ? 'bg-[#8200db] border-[#8200db]' : 'border-slate-300 dark:border-white/20 bg-white dark:bg-white/10'
+                                                }`}>
+                                                    {active && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
+                                                </span>
+                                                <span className="truncate flex-1">{item.label}</span>
+                                                <span className="text-[10px] uppercase tracking-wider text-purple-700 dark:text-purple-300 font-bold bg-purple-500/20 px-2 py-0.5 rounded-md">
+                                                    Custom
+                                                </span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveCustom(item.slug)}
+                                                title={`Remove custom discipline "${item.label}"`}
+                                                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-colors shrink-0"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+
+                                        <div className="pt-2.5 border-t border-purple-500/20 dark:border-white/10 flex flex-col gap-1.5">
+                                            <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                                Insurance Billing Profession:
+                                            </label>
+                                            <select
+                                                value={item.recognized_profession || ''}
+                                                onChange={(e) => updateCustomProfession(item.slug, e.target.value)}
+                                                className="text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-slate-900 text-slate-800 dark:text-slate-200 py-1.5 px-3 focus:ring-1 focus:ring-purple-500"
+                                            >
+                                                <option value="">Not insurance billable</option>
+                                                {recognizedProfessions.map((prof) => (
+                                                    <option key={prof.code} value={prof.code}>
+                                                        {prof.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
                                     </div>
                                 );
                             })}
@@ -1270,6 +1299,7 @@ export default function ClinicSettings({
     allDisciplines = [],
     customDisciplines = [],
     disciplineLabels = {},
+    recognizedProfessions = [],
     scribeSettings = {},
     scribeConsentConfigured = false,
     scribeProvider = 'assemblyai',
@@ -1449,6 +1479,7 @@ export default function ClinicSettings({
                                         allDisciplines={allDisciplines}
                                         customDisciplines={customDisciplines}
                                         disciplineLabels={disciplineLabels}
+                                        recognizedProfessions={recognizedProfessions}
                                     />
                                 )}
 

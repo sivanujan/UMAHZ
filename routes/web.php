@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\PromoCodeController;
 use App\Http\Controllers\Admin\SubscriptionPlanController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\ClientInsurancePolicyController;
 use App\Http\Controllers\ClientIntakeController;
 use App\Http\Controllers\ClinicalNoteController;
 use App\Http\Controllers\ClinicalNoteTemplateController;
@@ -23,6 +24,7 @@ use App\Http\Controllers\ClinicStatusController;
 use App\Http\Controllers\ConsentController;
 use App\Http\Controllers\ConsentTypeController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\InsuranceClaimController;
 use App\Http\Controllers\IntakeTemplateController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\Onboarding\ClinicRegistrationController;
@@ -59,25 +61,25 @@ $portalHost = Tenancy::portalHost();
 */
 Route::get('/storage/{path}', function (string $path) {
     $filePath = storage_path('app/public/' . $path);
-    if (! file_exists($filePath)) {
+    if (!file_exists($filePath)) {
         abort(404, 'File not found.');
     }
 
     $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
     $mimeTypes = [
-        'png'  => 'image/png',
-        'jpg'  => 'image/jpeg',
+        'png' => 'image/png',
+        'jpg' => 'image/jpeg',
         'jpeg' => 'image/jpeg',
-        'gif'  => 'image/gif',
+        'gif' => 'image/gif',
         'webp' => 'image/webp',
-        'svg'  => 'image/svg+xml',
-        'ico'  => 'image/x-icon',
-        'pdf'  => 'application/pdf',
+        'svg' => 'image/svg+xml',
+        'ico' => 'image/x-icon',
+        'pdf' => 'application/pdf',
     ];
     $contentType = $mimeTypes[$ext] ?? (function_exists('mime_content_type') ? (@mime_content_type($filePath) ?: 'application/octet-stream') : 'application/octet-stream');
 
     return response()->file($filePath, [
-        'Content-Type'  => $contentType,
+        'Content-Type' => $contentType,
         'Cache-Control' => 'public, max-age=31536000',
     ]);
 })->where('path', '.*')->name('storage.local');
@@ -286,7 +288,7 @@ Route::domain($central)->group(function () {
 | client's account (login-based), NOT from a subdomain — unchanged.
 */
 Route::domain($portalHost)->group(function () {
-    Route::get('/', fn () => redirect()->route('portal.dashboard'));
+    Route::get('/', fn() => redirect()->route('portal.dashboard'));
 
     Route::middleware(['auth', 'verified', 'client.access'])->prefix('portal')->name('portal.')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'portal'])->name('dashboard');
@@ -313,7 +315,7 @@ Route::domain($portalHost)->group(function () {
 | authenticated user is verified to belong to it BEFORE any /app route runs.
 | Registered last so the wildcard doesn't shadow the central/portal hosts.
 */
-Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(function () {
+Route::domain('{tenant}.' . $central)->where(['tenant' => '[a-z0-9-]+'])->group(function () {
     // Branded public home page — visible to everyone, no auth required.
     // Previously redirected guests straight to /app/dashboard, which is a
     // terrible UX for patients landing on the clinic's subdomain URL.
@@ -373,16 +375,29 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
         Route::patch('/clients/{client}/toggle', [ClientController::class, 'toggle'])->name('clients.toggle');
         Route::delete('/clients/{client}', [ClientController::class, 'destroy'])->name('clients.destroy');
 
+        // Client insurance policies (practitioners can view, clinic_owner & receptionist can mutate)
+        Route::get('/clients/{client}/insurance/policies', [ClientInsurancePolicyController::class, 'index'])->name('clients.insurance.policies.index');
+        Route::middleware('staff.role:clinic_owner,receptionist')->group(function () {
+            Route::post('/clients/{client}/insurance/policies', [ClientInsurancePolicyController::class, 'store'])->name('clients.insurance.policies.store');
+            Route::put('/clients/{client}/insurance/policies/{policy}', [ClientInsurancePolicyController::class, 'update'])->name('clients.insurance.policies.update');
+            Route::delete('/clients/{client}/insurance/policies/{policy}', [ClientInsurancePolicyController::class, 'destroy'])->name('clients.insurance.policies.destroy');
+            Route::post('/clients/{client}/insurance/policies/{policy}/verify', [ClientInsurancePolicyController::class, 'verify'])->name('clients.insurance.policies.verify');
+            Route::post('/clients/{client}/insurance/policies/{policy}/reveal', [ClientInsurancePolicyController::class, 'reveal'])->name('clients.insurance.policies.reveal');
+        });
+
         // Patient billing — invoices & payments (patient -> clinic via Stripe
         // Connect). Owner + receptionist can bill; practitioners cannot. Records
         // are tenant-scoped, so binding another clinic's invoice 404s.
         Route::middleware('staff.role:clinic_owner,receptionist')->group(function () {
+            Route::get('/invoices', fn() => redirect('/app/clients'))->name('invoices.index');
             Route::post('/invoices', [InvoiceController::class, 'store'])->name('invoices.store');
             Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
             Route::get('/invoices/{invoice}/receipt', [InvoiceController::class, 'receipt'])->name('invoices.receipt');
             Route::post('/invoices/{invoice}/void', [InvoiceController::class, 'void'])->name('invoices.void');
             Route::post('/invoices/{invoice}/pay/card', [PaymentController::class, 'card'])->name('invoices.pay.card');
             Route::post('/invoices/{invoice}/pay/manual', [PaymentController::class, 'manual'])->name('invoices.pay.manual');
+            Route::post('/invoices/{invoice}/insurance-claim', [InsuranceClaimController::class, 'recordManual'])->name('invoices.insurance-claim.store');
+            Route::post('/invoices/{invoice}/insurance-claims/{claim}/mark-paid', [InsuranceClaimController::class, 'markPaymentReceived'])->name('invoices.insurance-claims.mark-paid');
         });
 
         // Client consent capture & management — available to active clinic staff
@@ -544,7 +559,7 @@ Route::domain('{tenant}.'.$central)->where(['tenant' => '[a-z0-9-]+'])->group(fu
     });
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';
 
 // Global fallback for public intake links (resolves token and tenant anywhere)
 Route::get('/intake/{token}', [PublicIntakeController::class, 'show'])->name('intake.public.global.show');
