@@ -69,6 +69,11 @@ class Appointment extends Model
         return $this->belongsTo(Room::class);
     }
 
+    public function insuranceClaims(): HasMany
+    {
+        return $this->hasMany(InsuranceClaim::class)->latest('created_at');
+    }
+
     public function clinicalNotes(): HasMany
     {
         return $this->hasMany(ClinicalNote::class);
@@ -77,5 +82,17 @@ class Appointment extends Model
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
+    }
+
+    /**
+     * Duration of the appointment in minutes based on starts_at and ends_at.
+     */
+    public function durationMinutes(): ?int
+    {
+        if (! $this->starts_at || ! $this->ends_at) {
+            return null;
+        }
+
+        return (int) $this->starts_at->diffInMinutes($this->ends_at);
     }
 }

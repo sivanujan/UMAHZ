@@ -29,6 +29,9 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // 0. Reference Data
+        $this->call(InsuranceProviderSeeder::class);
+
         // 1. Roles & permissions
         $roles = ['Platform Admin', 'Clinic Owner', 'Practitioner', 'Receptionist', 'Client'];
         foreach ($roles as $roleName) {

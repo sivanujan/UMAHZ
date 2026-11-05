@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Appointment;
 use App\Models\AuditEvent;
 use App\Models\Client;
+use App\Models\ClientInsurancePolicy;
 use App\Models\ClientIntake;
 use App\Models\ClinicalNote;
 use App\Models\Consent;
 use App\Models\ConsentType;
+use App\Models\InsuranceProvider;
 use App\Models\ScribeSession;
 use App\Models\IntakeFormTemplate;
 use App\Models\Invoice;
@@ -262,6 +264,27 @@ class ClientController extends Controller
                 'created_at' => $inv->created_at->toIso8601String(),
             ]);
 
+        $policyController = app(ClientInsurancePolicyController::class);
+        $insurancePolicies = $client->insurancePolicies()
+            ->with(['provider', 'verifiedBy'])
+            ->get()
+            ->map(fn (ClientInsurancePolicy $p) => $policyController->presentPolicy($p))
+            ->all();
+
+        $insuranceProviders = InsuranceProvider::availableForTenant($tenantId)
+            ->active()
+            ->orderBy('name')
+            ->get()
+            ->map(fn (InsuranceProvider $prov) => [
+                'id' => $prov->id,
+                'name' => $prov->name,
+                'code' => $prov->code,
+                'network' => $prov->network,
+                'province' => $prov->province,
+                'supports_direct_billing' => $prov->supports_direct_billing,
+            ])
+            ->all();
+
         return Inertia::render('Clients/Show', [
             'client' => $this->present($client),
             'consents' => $consents,
@@ -277,6 +300,9 @@ class ClientController extends Controller
             'canBill' => $canBill,
             'canAcceptCards' => $tenant?->canAcceptCardPayments() ?? false,
             'canUseScribe' => $user->can('create', ScribeSession::class),
+            'insurancePolicies' => $insurancePolicies,
+            'insuranceProviders' => $insuranceProviders,
+            'canManageInsurance' => $canBill,
         ]);
     }
 

@@ -544,6 +544,21 @@ function AppointmentModal({
                             <option key={c.id} value={c.id}>{c.name}</option>
                         ))}
                     </GlassSelect>
+                    {clients.find((c) => c.id === data.client_id)?.active_policy && (
+                        <div className="mt-2 p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/30 dark:bg-emerald-950/20 text-xs flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className="font-bold text-slate-800 dark:text-slate-200">
+                                    Insurance: {clients.find((c) => c.id === data.client_id).active_policy.provider_name}
+                                </span>
+                                <span className="text-slate-500 font-mono">
+                                    ({clients.find((c) => c.id === data.client_id).active_policy.masked_member_id})
+                                </span>
+                            </div>
+                            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">
+                                {clients.find((c) => c.id === data.client_id).active_policy.priority}
+                            </span>
+                        </div>
+                    )}
                     <GlassError message={clientErrors.client_id || errors.client_id} />
                 </div>
 

@@ -37,13 +37,24 @@ class ClinicBillingController extends Controller
 
         // 1. Subscription details
         $subscription = $tenant->subscription(Tenant::PLATFORM_SUBSCRIPTION);
+        $currentPeriodEnd = null;
+        if ($subscription) {
+            try {
+                if (! str_starts_with((string) $subscription->stripe_id, 'sub_demo') && ! str_starts_with((string) $subscription->stripe_id, 'sub_mock')) {
+                    $currentPeriodEnd = date('M j, Y', $subscription->asStripeSubscription()->current_period_end);
+                }
+            } catch (\Throwable) {
+                $currentPeriodEnd = null;
+            }
+        }
+
         $subscriptionDetails = [
             'status' => $tenant->subscription_status ?? Tenant::SUBSCRIPTION_NONE,
             'is_active' => $subscription?->active() ?? false,
             'on_grace_period' => $subscription?->onGracePeriod() ?? false,
             'ends_at' => $subscription?->ends_at?->format('M j, Y'),
             'data_deletion_date' => $subscription?->ends_at ? $subscription->ends_at->copy()->addDays(30)->format('M j, Y') : null,
-            'current_period_end' => $subscription ? date('M j, Y', $subscription->asStripeSubscription()->current_period_end) : null,
+            'current_period_end' => $currentPeriodEnd,
             'plan_id' => $tenant->plan_id,
             'billing_interval' => $tenant->billing_interval ?? 'month',
             'extra_practitioner_seats' => $tenant->extra_practitioner_seats ?? 0,

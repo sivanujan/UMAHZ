@@ -26,10 +26,13 @@ class Payment extends Model
 
     public const METHOD_OTHER = 'other';
 
+    public const METHOD_INSURANCE = 'insurance';
+
     public const MANUAL_METHODS = [
         self::METHOD_CASH,
         self::METHOD_ETRANSFER,
         self::METHOD_OTHER,
+        self::METHOD_INSURANCE,
     ];
 
     public const STATUS_PENDING = 'pending';

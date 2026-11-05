@@ -16,6 +16,7 @@ import StaffFillIntakeModal from '@/Components/Intake/StaffFillIntakeModal';
 import ViewIntakeModal from '@/Components/Intake/ViewIntakeModal';
 import NewNoteModal from '@/Components/ClinicalNotes/NewNoteModal';
 import BillingSection from '@/Components/Billing/BillingSection';
+import ClientInsuranceSection from '@/Components/Insurance/ClientInsuranceSection';
 
 const fieldClass = 'w-full px-3.5 py-2.5 rounded-lg text-sm outline-none transition focus:ring-4 focus:ring-[#2563EB]/15 focus:border-[#2563EB]/50 border';
 const fieldStyle = { background: 'var(--umahz-hover)', borderColor: 'var(--umahz-border)', color: 'var(--umahz-text-primary)' };
@@ -277,6 +278,9 @@ export default function ClientsShow({
     canBill = false,
     canAcceptCards = false,
     canUseScribe = false,
+    insurancePolicies = [],
+    insuranceProviders = [],
+    canManageInsurance = false,
 }) {
     const [editing, setEditing] = useState(false);
     const [recordingConsent, setRecordingConsent] = useState(false);
@@ -531,6 +535,14 @@ export default function ClientsShow({
                     )}
                 </div>
             </div>
+
+            {/* Patient Insurance & Extended Health Section */}
+            <ClientInsuranceSection
+                client={client}
+                policies={insurancePolicies}
+                providers={insuranceProviders}
+                canManage={canManageInsurance}
+            />
 
             {/* Informed Consent Management Section */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm p-6 mb-6">

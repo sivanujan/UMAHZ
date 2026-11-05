@@ -48,6 +48,7 @@ class ClinicSettingsController extends Controller
             'allDisciplines' => ClinicOptions::disciplines(),
             'customDisciplines' => $tenant->customDisciplinesList(),
             'disciplineLabels' => $tenant->allDisciplineLabels(),
+            'recognizedProfessions' => \App\Insurance\InsuranceProfessions::options(),
             'scribeSettings' => $tenant->scribeSettings(),
             'scribeConsentConfigured' => ConsentType::ensureScribeTypeForTenant($tenant->id)->isConfigured(),
             'scribeProvider' => config('scribe.transcription.driver'),
@@ -192,10 +193,23 @@ class ClinicSettingsController extends Controller
                     ]);
                 }
 
+                $recognizedProfession = null;
+                if (is_array($item) && array_key_exists('recognized_profession', $item) && ! empty($item['recognized_profession'])) {
+                    $prof = (string) $item['recognized_profession'];
+                    if (\App\Insurance\InsuranceProfessions::isValid($prof)) {
+                        $recognizedProfession = $prof;
+                    } else {
+                        throw ValidationException::withMessages([
+                            'custom_disciplines' => "Invalid recognized insurance profession \"{$prof}\" for discipline \"{$label}\".",
+                        ]);
+                    }
+                }
+
                 $customSlugs[] = $slug;
                 $customDisciplines[] = [
                     'slug' => $slug,
                     'label' => $label,
+                    'recognized_profession' => $recognizedProfession,
                 ];
             }
         }
