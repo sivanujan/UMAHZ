@@ -36,6 +36,7 @@ class ClinicalNote extends Model
         'finalized_at',
         'finalized_by_user_id',
         'pdf_path',
+        'scribe_session_id',
     ];
 
     protected function casts(): array
@@ -67,6 +68,11 @@ class ClinicalNote extends Model
     public function appointment(): BelongsTo
     {
         return $this->belongsTo(Appointment::class);
+    }
+
+    public function scribeSession(): BelongsTo
+    {
+        return $this->belongsTo(ScribeSession::class, 'scribe_session_id');
     }
 
     public function template(): BelongsTo

@@ -22,22 +22,40 @@ use Illuminate\Support\Facades\DB;
  */
 class ScribeHandoffService
 {
-    public function handoff(ScribeSession $session, User $user, ?string $ip): ClinicalNote
+    public function handoff(ScribeSession $session, User $user, ?string $ip, ?int $version = null): ClinicalNote
     {
-        if ($session->status !== ScribeSession::STATUS_DRAFT_READY || $session->draft_version < 1) {
+        $targetVersion = $version ?? $session->draft_version;
+
+        if ($session->status !== ScribeSession::STATUS_DRAFT_READY || $targetVersion < 1) {
             throw new ScribeStateException('Generate an AI draft before sending it to the clinical note.');
         }
 
-        return DB::transaction(function () use ($session, $user, $ip) {
+        return DB::transaction(function () use ($session, $user, $ip, $targetVersion) {
             $session = ScribeSession::withoutGlobalScopes()->lockForUpdate()->findOrFail($session->id);
 
             if ($session->status !== ScribeSession::STATUS_DRAFT_READY) {
                 throw new ScribeStateException('This draft has already been sent to a clinical note.');
             }
 
-            [$note, $created] = $this->targetNote($session, $user);
+            $draftVersion = \App\Models\ScribeDraftVersion::withoutGlobalScopes()
+                ->where('scribe_session_id', $session->id)
+                ->where('version', $targetVersion)
+                ->first();
 
-            $values = $this->valuesFromDraft($session);
+            $isDiscarded = ($draftVersion && $draftVersion->isDiscarded())
+                || \App\Models\ScribeDraftItem::withoutGlobalScopes()
+                    ->where('scribe_session_id', $session->id)
+                    ->where('draft_version', $targetVersion)
+                    ->whereNotNull('discarded_at')
+                    ->exists();
+
+            if ($isDiscarded) {
+                throw new ScribeStateException('Cannot hand off a discarded draft version.');
+            }
+
+            [$note, $created] = $this->targetNote($session, $user, $draftVersion);
+
+            $values = $this->valuesFromDraft($session, $targetVersion, $draftVersion);
             $content = $note->content ?? [];
             $noteFieldIds = $this->fieldIds($note->schema_snapshot ?? []);
 
@@ -57,14 +75,18 @@ class ScribeHandoffService
             }
 
             // Always a draft: the practitioner reviews and signs in Clinical Notes.
-            $note->forceFill(['content' => $content, 'status' => ClinicalNote::STATUS_DRAFT])->save();
+            $note->forceFill([
+                'content' => $content,
+                'status' => ClinicalNote::STATUS_DRAFT,
+                'scribe_session_id' => $session->id,
+            ])->save();
 
             $session->transitionTo(ScribeSession::STATUS_HANDED_OFF, [
                 'clinical_note_id' => $note->id,
                 'handed_off_at' => now(),
                 'handed_off_by_user_id' => $user->id,
                 'handoff_fields' => [
-                    'draft_version' => $session->draft_version,
+                    'draft_version' => $targetVersion,
                     'filled' => $filled,
                     'skipped' => $skipped,
                     'language' => $session->language ?? 'en',
@@ -86,7 +108,7 @@ class ScribeHandoffService
                 'client_id' => $session->client_id,
                 'clinical_note_id' => $note->id,
                 'note_created' => $created,
-                'draft_version' => $session->draft_version,
+                'draft_version' => $targetVersion,
                 'fields_filled' => count($filled),
                 'fields_skipped' => count($skipped),
             ]);
@@ -101,7 +123,7 @@ class ScribeHandoffService
      *
      * @return array{0: ClinicalNote, 1: bool} [note, created]
      */
-    private function targetNote(ScribeSession $session, User $user): array
+    private function targetNote(ScribeSession $session, User $user, ?\App\Models\ScribeDraftVersion $draftVersion = null): array
     {
         $existing = null;
 
@@ -128,14 +150,19 @@ class ScribeHandoffService
                 throw new ScribeStateException('The clinical note for this appointment belongs to another practitioner.');
             }
 
+            if (! $existing->scribe_session_id) {
+                $existing->forceFill(['scribe_session_id' => $session->id])->save();
+            }
+
             return [$existing, false];
         }
 
+        $templateId = $draftVersion?->clinical_note_template_id ?? $session->clinical_note_template_id;
         $template = ClinicalNoteTemplate::withoutGlobalScopes()
             ->where('tenant_id', $session->tenant_id)
-            ->find($session->clinical_note_template_id);
+            ->find($templateId);
 
-        $snapshot = $session->draft_template_snapshot ?? [];
+        $snapshot = $draftVersion?->template_snapshot ?? $session->draft_template_snapshot ?? [];
 
         $membership = StaffMembership::where('user_id', $user->id)
             ->where('tenant_id', $session->tenant_id)
@@ -148,6 +175,7 @@ class ScribeHandoffService
             'staff_membership_id' => $membership->id,
             'appointment_id' => $session->appointment_id,
             'clinical_note_template_id' => $template?->id,
+            'scribe_session_id' => $session->id,
             'discipline' => $snapshot['discipline'] ?? $template?->discipline ?? $session->discipline,
             'template_name' => $snapshot['name'] ?? $template?->name ?? 'Clinical Note',
             'template_version' => $snapshot['version'] ?? $template?->version ?? 1,
@@ -161,14 +189,16 @@ class ScribeHandoffService
     }
 
     /**
-     * Collapse the latest draft version into note-field values.
+     * Collapse the target draft version into note-field values.
      *
      * @return array<string, string|array<int, string>>
      */
-    private function valuesFromDraft(ScribeSession $session): array
+    private function valuesFromDraft(ScribeSession $session, int $targetVersion, ?\App\Models\ScribeDraftVersion $draftVersion = null): array
     {
+        $snapshot = $draftVersion?->template_snapshot ?? $session->draft_template_snapshot ?? [];
+
         $types = [];
-        foreach ($session->draft_template_snapshot['schema']['sections'] ?? [] as $section) {
+        foreach ($snapshot['schema']['sections'] ?? [] as $section) {
             foreach ($section['fields'] ?? [] as $field) {
                 $types[$field['id']] = $field['type'] ?? 'long_text';
             }
@@ -177,8 +207,9 @@ class ScribeHandoffService
         $values = [];
         $items = ScribeDraftItem::withoutGlobalScopes()
             ->where('scribe_session_id', $session->id)
-            ->where('draft_version', $session->draft_version)
+            ->where('draft_version', $targetVersion)
             ->where('review_status', '!=', ScribeDraftItem::REVIEW_REJECTED)
+            ->whereNull('discarded_at')
             ->orderBy('position')
             ->get()
             ->groupBy('section_key');

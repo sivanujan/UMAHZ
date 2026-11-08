@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Head, router, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { PROVENANCE } from '@/Components/Scribe/ScribeDraft';
+import ScribeSessionViewer from '@/Components/Scribe/ScribeSessionViewer';
 import {
     FileText, Save, CheckCircle2, Shield, AlertTriangle, ArrowLeft,
     Clock, User, Calendar, Stethoscope, ChevronRight, Lock, Eye, EyeOff,
-    Check, Sparkles, X, Info
+    Check, Sparkles, X, Info, MessageSquare
 } from 'lucide-react';
 
 export default function ClinicalNoteEditor({
@@ -24,6 +25,7 @@ export default function ClinicalNoteEditor({
     const [lastSavedAt, setLastSavedAt] = useState(note?.updated_at || null);
     const [showIntakeDrawer, setShowIntakeDrawer] = useState(false);
     const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+    const [showScribeViewer, setShowScribeViewer] = useState(false);
 
     // Finalization form state
     const [signerName, setSignerName] = useState(practitioner?.name || '');
@@ -189,16 +191,27 @@ export default function ClinicalNoteEditor({
                     </div>
 
                     <div className="flex items-center gap-3">
+                        {/* View Scribe Session */}
+                        {scribeHandoff?.session_id && (
+                            <button
+                                type="button"
+                                onClick={() => setShowScribeViewer(true)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-semibold shadow-xs transition"
+                            >
+                                <MessageSquare className="w-3.5 h-3.5" />
+                                <span>View original conversation</span>
+                            </button>
+                        )}
+
                         {/* Reference Intake Toggle */}
                         {referenceIntake && (
                             <button
                                 type="button"
                                 onClick={() => setShowIntakeDrawer(!showIntakeDrawer)}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition ${
-                                    showIntakeDrawer
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition ${showIntakeDrawer
                                         ? 'bg-violet-50 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 border-violet-300 dark:border-violet-700'
                                         : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:bg-slate-50'
-                                }`}
+                                    }`}
                             >
                                 <FileText className="w-3.5 h-3.5 text-violet-500" />
                                 <span>{showIntakeDrawer ? 'Hide Intake Form' : 'Reference Intake'}</span>
@@ -253,13 +266,31 @@ export default function ClinicalNoteEditor({
                             <div role="status" className="flex items-start gap-3 p-4 rounded-2xl border border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-amber-900 dark:text-amber-200">
                                 <Sparkles className="w-5 h-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
                                 <div className="text-xs leading-relaxed flex-1">
-                                    <p className="font-bold text-sm mb-0.5">Pre-filled from AI Scribe — review every field before signing</p>
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-1.5">
+                                        <p className="font-bold text-sm">Pre-filled from AI Scribe — review every field before signing</p>
+                                        {scribeHandoff.session_id && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowScribeViewer(true)}
+                                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-600/15 hover:bg-amber-600/25 text-amber-950 dark:text-amber-100 text-xs font-bold border border-amber-500/30 transition shrink-0"
+                                            >
+                                                <MessageSquare className="w-3.5 h-3.5" />
+                                                <span>View original conversation</span>
+                                            </button>
+                                        )}
+                                    </div>
                                     <p>
                                         {Object.keys(scribeHandoff.fields || {}).length} field(s) were filled from the AI draft and are labelled below with where they came from.
                                         Fields marked <strong>AI wrote</strong> are the AI's own wording or interpretation — check them most carefully.
                                         {scribeHandoff.skipped?.length > 0 && ` ${scribeHandoff.skipped.length} field(s) you had already written were left unchanged.`}
                                     </p>
-                                    {scribeHandoff.is_translated && (
+                                    {scribeHandoff.is_consent_withdrawn && (
+                                        <div className="mt-2.5 pt-2 border-t border-amber-500/20 flex items-center gap-2 text-rose-700 dark:text-rose-300 font-bold">
+                                            <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
+                                            <span>Transcript hidden because the client withdrew consent</span>
+                                        </div>
+                                    )}
+                                    {scribeHandoff.is_translated && !scribeHandoff.is_consent_withdrawn && (
                                         <div className="mt-2.5 pt-2 border-t border-amber-500/20 flex items-center gap-2 text-amber-950 dark:text-amber-100 font-bold">
                                             <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
                                             <span>This note was translated from {scribeHandoff.source_language_label || 'Mandarin (Chinese)'} by AI — please verify before signing.</span>
@@ -350,11 +381,10 @@ export default function ClinicalNoteEditor({
                                                         {(field.options || []).map((opt, oIdx) => (
                                                             <label
                                                                 key={oIdx}
-                                                                className={`px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition ${
-                                                                    val === opt
+                                                                className={`px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition ${val === opt
                                                                         ? 'bg-violet-50 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 border-violet-500'
                                                                         : 'bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-slate-50'
-                                                                }`}
+                                                                    }`}
                                                             >
                                                                 <input
                                                                     type="radio"
@@ -382,11 +412,10 @@ export default function ClinicalNoteEditor({
                                                                         const next = selected ? cur.filter((x) => x !== opt) : [...cur, opt];
                                                                         handleFieldChange(field.id, next);
                                                                     }}
-                                                                    className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition ${
-                                                                        selected
+                                                                    className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition ${selected
                                                                             ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
                                                                             : 'bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-slate-50'
-                                                                    }`}
+                                                                        }`}
                                                                 >
                                                                     {opt}
                                                                 </button>
@@ -624,6 +653,20 @@ export default function ClinicalNoteEditor({
                     </div>
                 </div>
             )}
+            {/* Read-Only Scribe Session Viewer */}
+            {showScribeViewer && scribeHandoff?.session_id && (
+                <ScribeSessionViewer
+                    sessionId={scribeHandoff.session_id}
+                    isOpen={showScribeViewer}
+                    onClose={() => setShowScribeViewer(false)}
+                />
+            )}
         </AuthenticatedLayout>
+    );
+}
+        </AuthenticatedLayout >
+    );
+}
+        </AuthenticatedLayout >
     );
 }
