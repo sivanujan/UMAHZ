@@ -193,6 +193,7 @@ class ClinicalNoteController extends Controller
      */
     public function edit(Request $request, ClinicalNote $note): Response|RedirectResponse
     {
+        abort_unless($note->tenant_id === TenantScope::getTenantId(), 404);
         $this->authorize('view', $note);
 
         if ($note->isImmutable()) {
@@ -269,30 +270,38 @@ class ClinicalNoteController extends Controller
      */
     private function scribeHandoff(ClinicalNote $note): ?array
     {
-        $session = ScribeSession::where('clinical_note_id', $note->id)->latest('handed_off_at')->first();
+        $session = ($note->scribe_session_id ? ScribeSession::withoutGlobalScopes()->find($note->scribe_session_id) : null)
+            ?? ScribeSession::withoutGlobalScopes()->where('clinical_note_id', $note->id)->latest('handed_off_at')->first();
 
-        if (! $session || ! $session->handed_off_at) {
+        if (! $session) {
             return null;
         }
 
         $meta = $session->handoff_fields ?? [];
         $filled = $meta['filled'] ?? [];
 
-        $provenance = ScribeDraftItem::where('scribe_session_id', $session->id)
+        $provenance = ScribeDraftItem::withoutGlobalScopes()
+            ->where('scribe_session_id', $session->id)
             ->where('draft_version', $meta['draft_version'] ?? $session->draft_version)
             ->whereIn('section_key', $filled)
             ->get(['section_key', 'provenance'])
             ->groupBy('section_key')
             ->map(fn ($items) => $items->pluck('provenance')->unique()->values());
 
+        $isConsentWithdrawn = $session->status === ScribeSession::STATUS_CONSENT_WITHDRAWN || (bool) $session->consent_withdrawn_at;
+
         return [
             'session_id' => $session->id,
-            'handed_off_at' => $session->handed_off_at->toIso8601String(),
+            'session_url' => "/app/scribe/sessions/{$session->id}",
+            'handed_off_at' => $session->handed_off_at?->toIso8601String(),
             'fields' => collect($filled)->mapWithKeys(fn ($id) => [$id => $provenance[$id] ?? ['ai_generated']]),
             'skipped' => $meta['skipped'] ?? [],
             'language' => $meta['language'] ?? $session->language ?? 'en',
             'source_language_label' => $meta['source_language_label'] ?? $session->languageLabel(),
             'is_translated' => (bool) ($meta['is_translated'] ?? $session->is_translated),
+            'draft_version' => $meta['draft_version'] ?? $session->draft_version,
+            'is_consent_withdrawn' => $isConsentWithdrawn,
+            'consent_withdrawn_message' => $isConsentWithdrawn ? 'Transcript hidden because the client withdrew consent' : null,
         ];
     }
 
@@ -393,6 +402,7 @@ class ClinicalNoteController extends Controller
      */
     public function show(Request $request, ClinicalNote $note): Response|JsonResponse
     {
+        abort_unless($note->tenant_id === TenantScope::getTenantId(), 404);
         $this->authorize('view', $note);
 
         $tenantId = TenantScope::getTenantId();
@@ -417,6 +427,8 @@ class ClinicalNoteController extends Controller
         $authorMembership = $note->staffMembership()->with('practitionerProfile', 'user')->first();
         $addenda = $note->addenda()->with('staffMembership.user')->get();
 
+        $handoffData = $canViewBody ? $this->scribeHandoff($note) : null;
+
         $notePayload = [
             'id' => $note->id,
             'status' => $note->status,
@@ -433,6 +445,10 @@ class ClinicalNoteController extends Controller
             'finalized_at' => $note->finalized_at?->toIso8601String(),
             'created_at' => $note->created_at->toIso8601String(),
             'can_view_body' => $canViewBody,
+            'scribe_session_id' => $note->scribe_session_id ?? $handoffData['session_id'] ?? null,
+            'scribe_session_url' => ($note->scribe_session_id || $handoffData) ? "/app/scribe/sessions/".($note->scribe_session_id ?? $handoffData['session_id']) : null,
+            'is_scribe_consent_withdrawn' => (bool) ($handoffData['is_consent_withdrawn'] ?? false),
+            'scribe_consent_withdrawn_message' => $handoffData['consent_withdrawn_message'] ?? null,
             'author' => [
                 'name' => $authorMembership?->user?->name ?? 'Practitioner',
                 'credentials' => $authorMembership?->practitionerProfile?->credentials,
@@ -450,6 +466,7 @@ class ClinicalNoteController extends Controller
         if ($request->wantsJson()) {
             return response()->json([
                 'note' => $notePayload,
+                'scribeHandoff' => $handoffData,
             ]);
         }
 
@@ -468,6 +485,7 @@ class ClinicalNoteController extends Controller
                 'service_name' => $note->appointment->service_name,
             ] : null,
             'note' => $notePayload,
+            'scribeHandoff' => $handoffData,
             'clinic' => [
                 'name' => $tenant->name,
                 'subdomain' => $tenant->subdomain,

@@ -374,6 +374,7 @@ Route::domain('{tenant}.' . $central)->where(['tenant' => '[a-z0-9-]+'])->group(
         Route::patch('/clients/{client}', [ClientController::class, 'update'])->name('clients.update');
         Route::patch('/clients/{client}/toggle', [ClientController::class, 'toggle'])->name('clients.toggle');
         Route::delete('/clients/{client}', [ClientController::class, 'destroy'])->name('clients.destroy');
+        Route::get('/invoices', fn() => redirect()->route('app.clients.index'))->name('invoices.index');
 
         // Client insurance policies (practitioners can view, clinic_owner & receptionist can mutate)
         Route::get('/clients/{client}/insurance/policies', [ClientInsurancePolicyController::class, 'index'])->name('clients.insurance.policies.index');
@@ -389,7 +390,6 @@ Route::domain('{tenant}.' . $central)->where(['tenant' => '[a-z0-9-]+'])->group(
         // Connect). Owner + receptionist can bill; practitioners cannot. Records
         // are tenant-scoped, so binding another clinic's invoice 404s.
         Route::middleware('staff.role:clinic_owner,receptionist')->group(function () {
-            Route::get('/invoices', fn() => redirect('/app/clients'))->name('invoices.index');
             Route::post('/invoices', [InvoiceController::class, 'store'])->name('invoices.store');
             Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
             Route::get('/invoices/{invoice}/receipt', [InvoiceController::class, 'receipt'])->name('invoices.receipt');
@@ -424,10 +424,16 @@ Route::domain('{tenant}.' . $central)->where(['tenant' => '[a-z0-9-]+'])->group(
         Route::post('/notes/{note}/addenda', [ClinicalNoteController::class, 'addAddendum'])->name('notes.addenda.store');
         Route::delete('/notes/{note}', [ClinicalNoteController::class, 'destroy'])->name('notes.destroy');
 
+        Route::middleware('staff.role:practitioner,clinic_owner')->group(function () {
+            Route::get('/clients/{client}/sessions', [ScribeSessionController::class, 'clientSessions'])->name('clients.sessions');
+            Route::get('/clients/{client}/scribe-sessions', [ScribeSessionController::class, 'clientSessions'])->name('clients.scribe-sessions');
+        });
+
         // AI Scribe (Phase 1: consent gate + capture + transcription). JSON API
         // for the Scribe panel. Receptionists are excluded at the route AND by
         // ScribeSessionPolicy; the consent gate is enforced in the service.
         Route::middleware('staff.role:practitioner,clinic_owner')->prefix('scribe')->name('scribe.')->group(function () {
+            Route::get('/sessions', [ScribeSessionController::class, 'index'])->name('sessions.index');
             Route::post('/sessions', [ScribeSessionController::class, 'store'])->middleware('subscription.write')->name('sessions.store');
             Route::get('/sessions/{scribeSession}', [ScribeSessionController::class, 'show'])->name('sessions.show');
             Route::post('/sessions/{scribeSession}/consent', [ScribeSessionController::class, 'captureConsent'])->name('sessions.consent');
@@ -443,6 +449,8 @@ Route::domain('{tenant}.' . $central)->where(['tenant' => '[a-z0-9-]+'])->group(
             Route::patch('/sessions/{scribeSession}/language', [ScribeSessionController::class, 'updateLanguage'])->name('sessions.language');
             Route::post('/sessions/{scribeSession}/translate', [ScribeSessionController::class, 'translate'])->name('sessions.translate');
             Route::post('/sessions/{scribeSession}/draft', [ScribeSessionController::class, 'generateDraft'])->middleware('throttle:10,1')->name('sessions.draft');
+            Route::post('/sessions/{scribeSession}/discard-draft', [ScribeSessionController::class, 'discardDraft'])->name('sessions.draft.discard');
+            Route::post('/sessions/{scribeSession}/draft/discard', [ScribeSessionController::class, 'discardDraft'])->name('sessions.draft.discard.alias');
             Route::post('/sessions/{scribeSession}/handoff', [ScribeSessionController::class, 'handoff'])->name('sessions.handoff');
         });
 

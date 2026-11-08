@@ -230,6 +230,26 @@ class ScribeSession extends Model
         return $this->hasMany(ScribeDraftItem::class)->orderBy('position');
     }
 
+    public function draftVersions(): HasMany
+    {
+        return $this->hasMany(ScribeDraftVersion::class)->orderBy('version');
+    }
+
+    public function statusLabel(): string
+    {
+        return match ($this->status) {
+            self::STATUS_CONSENT_PENDING => 'Consent pending',
+            self::STATUS_RECORDING => 'Recording',
+            self::STATUS_PAUSED => 'Paused',
+            self::STATUS_TRANSCRIBING => 'Transcribing',
+            self::STATUS_TRANSCRIPT_READY => 'Transcript ready',
+            self::STATUS_DRAFT_READY => 'Draft ready',
+            self::STATUS_HANDED_OFF => 'Handed off',
+            self::STATUS_CONSENT_WITHDRAWN => 'Consent withdrawn',
+            default => ucfirst(str_replace('_', ' ', (string) $this->status)),
+        };
+    }
+
     public function canTransitionTo(string $status): bool
     {
         return in_array($status, self::TRANSITIONS[$this->status] ?? [], true);

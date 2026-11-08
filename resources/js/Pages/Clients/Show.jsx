@@ -8,6 +8,7 @@ import {
     Link2, Copy, Send, ClipboardEdit, Stethoscope, Lock, FileSignature, Mic
 } from 'lucide-react';
 import ScribePanel from '@/Components/Scribe/ScribePanel';
+import ScribeSessionViewer from '@/Components/Scribe/ScribeSessionViewer';
 import RecordConsentModal from '@/Components/Consent/RecordConsentModal';
 import ViewConsentModal from '@/Components/Consent/ViewConsentModal';
 import WithdrawConsentModal from '@/Components/Consent/WithdrawConsentModal';
@@ -281,6 +282,7 @@ export default function ClientsShow({
     insurancePolicies = [],
     insuranceProviders = [],
     canManageInsurance = false,
+    scribeSessions = [],
 }) {
     const [editing, setEditing] = useState(false);
     const [recordingConsent, setRecordingConsent] = useState(false);
@@ -294,6 +296,7 @@ export default function ClientsShow({
 
     const [creatingNote, setCreatingNote] = useState(false);
     const [scribeOpen, setScribeOpen] = useState(false);
+    const [viewingScribeSessionId, setViewingScribeSessionId] = useState(null);
 
     const { errors } = usePage().props;
 
@@ -1042,6 +1045,146 @@ export default function ClientsShow({
                 )}
             </div>
 
+            {/* SCRIBE SESSIONS CARD */}
+            {(canUseScribe || scribeSessions.length > 0) && (
+                <div
+                    className="rounded-2xl border shadow-sm p-6"
+                    style={{ background: 'var(--umahz-surface)', borderColor: 'var(--umahz-border)' }}
+                >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 flex items-center justify-center">
+                                <Mic className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                                        Scribe Sessions
+                                    </h2>
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300">
+                                        {scribeSessions.length} recorded
+                                    </span>
+                                </div>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                    Past audio transcripts in original language (e.g. Mandarin), English translations, and AI draft versions.
+                                </p>
+                            </div>
+                        </div>
+
+                        {canUseScribe && (
+                            <button
+                                type="button"
+                                onClick={() => setScribeOpen(true)}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition"
+                            >
+                                <Mic className="w-3.5 h-3.5" />
+                                <span>Start New Scribe</span>
+                            </button>
+                        )}
+                    </div>
+
+                    {scribeSessions.length === 0 ? (
+                        <div className="text-center py-10 border border-dashed rounded-xl border-slate-200 dark:border-slate-800">
+                            <Mic className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
+                            <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                No past Scribe sessions for this client.
+                            </p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                                Use the AI Scribe during your encounter to capture multi-lingual consultation transcripts.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs">
+                                <thead>
+                                    <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                                        <th className="pb-3 pr-4">Date / Time</th>
+                                        <th className="pb-3 pr-4">Practitioner</th>
+                                        <th className="pb-3 pr-4">Spoken Language</th>
+                                        <th className="pb-3 pr-4">Note Language</th>
+                                        <th className="pb-3 pr-4">Duration</th>
+                                        <th className="pb-3 pr-4">Status</th>
+                                        <th className="pb-3 pr-4">Linked Note</th>
+                                        <th className="pb-3 pl-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                                    {scribeSessions.map((s) => (
+                                        <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition">
+                                            <td className="py-3.5 pr-4">
+                                                <div className="font-bold text-slate-900 dark:text-white">
+                                                    {s.date || (s.created_at ? new Date(s.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—')}
+                                                </div>
+                                                <div className="text-[11px] text-slate-400 mt-0.5">
+                                                    {s.created_at ? new Date(s.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : ''}
+                                                </div>
+                                            </td>
+
+                                            <td className="py-3.5 pr-4 text-slate-600 dark:text-slate-300 font-medium">
+                                                {s.practitioner_name || 'Practitioner'}
+                                            </td>
+
+                                            <td className="py-3.5 pr-4">
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                                                    {s.spoken_language_label || s.spoken_language || 'English'}
+                                                </span>
+                                            </td>
+
+                                            <td className="py-3.5 pr-4 text-slate-600 dark:text-slate-300">
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                                    {s.note_language_label || s.note_language || 'English'}
+                                                </span>
+                                            </td>
+
+                                            <td className="py-3.5 pr-4 text-slate-600 dark:text-slate-300 font-mono text-[11px]">
+                                                {s.duration || '—'}
+                                            </td>
+
+                                            <td className="py-3.5 pr-4">
+                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                                    s.status === 'handed_off'
+                                                        ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                                                        : s.status === 'draft_ready'
+                                                        ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                                                }`}>
+                                                    {s.status_label || s.status}
+                                                </span>
+                                            </td>
+
+                                            <td className="py-3.5 pr-4">
+                                                {s.clinical_note ? (
+                                                    <Link
+                                                        href={s.clinical_note.url || `/app/notes/${s.clinical_note.id}`}
+                                                        className="inline-flex items-center gap-1 text-violet-600 dark:text-violet-400 font-semibold hover:underline"
+                                                    >
+                                                        <FileSignature className="w-3.5 h-3.5" />
+                                                        <span>{s.clinical_note.is_finalized ? 'Signed Note' : 'Draft Note'}</span>
+                                                    </Link>
+                                                ) : (
+                                                    <span className="text-slate-400">—</span>
+                                                )}
+                                            </td>
+
+                                            <td className="py-3.5 pl-4 text-right">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setViewingScribeSessionId(s.id)}
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition border border-rose-200/60 dark:border-rose-900/40"
+                                                >
+                                                    <Eye className="w-3.5 h-3.5" />
+                                                    <span>View Conversation</span>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* BILLING & PAYMENTS CARD */}
             <BillingSection
                 clientId={client.id}
@@ -1136,6 +1279,15 @@ export default function ClientsShow({
                     client={client}
                     intakeSummary={viewingIntake}
                     onClose={() => setViewingIntake(null)}
+                />
+            )}
+
+            {/* Read-Only Scribe Session Viewer */}
+            {viewingScribeSessionId && (
+                <ScribeSessionViewer
+                    sessionId={viewingScribeSessionId}
+                    isOpen={Boolean(viewingScribeSessionId)}
+                    onClose={() => setViewingScribeSessionId(null)}
                 />
             )}
         </AuthenticatedLayout>

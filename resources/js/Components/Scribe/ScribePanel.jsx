@@ -585,12 +585,50 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                 if (transcriptTab === 'translated' && s.translated_text) {
                     return s.translated_text;
                 }
+                if (transcriptTab === 'side_by_side') {
+                    return `[${formatClock(s.start_ms)}] Original: ${s.text}\nAI translation: ${s.translated_text || '(not translated)'}`;
+                }
                 return s.text;
-            }).join('\n');
+            }).join('\n\n');
             await navigator.clipboard.writeText(text);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch { /* clipboard blocked */ }
+    };
+
+    const handleDiscardDraft = async (ver) => {
+        setBusy(true);
+        setActionError(null);
+        try {
+            const { data } = await axios.post(`/app/scribe/sessions/${session.id}/discard-draft`, {
+                version: ver || session?.draft?.version,
+            });
+            applySession(data.session);
+            setNotice('Draft version discarded.');
+        } catch (err) {
+            setActionError(err?.response?.data?.message || 'Failed to discard draft.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleHandoffVersion = async (ver) => {
+        setBusy(true);
+        setActionError(null);
+        try {
+            const { data } = await axios.post(`/app/scribe/sessions/${session.id}/handoff`, {
+                version: ver || session?.draft?.version,
+            });
+            if (data.redirect_url) {
+                window.location.href = data.redirect_url;
+            } else {
+                applySession(data.session);
+            }
+        } catch (err) {
+            setActionError(err?.response?.data?.message || 'Handoff failed.');
+        } finally {
+            setBusy(false);
+        }
     };
 
     const needsConsent = status === 'consent_pending' && !session?.has_valid_consent;
@@ -848,6 +886,17 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                                                 >
                                                     English Translation
                                                 </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setTranscriptTab('side_by_side')}
+                                                    className={`px-2 py-0.5 rounded font-bold transition ${
+                                                        transcriptTab === 'side_by_side'
+                                                            ? 'bg-white dark:bg-white/20 text-[#8200db] dark:text-white shadow-xs'
+                                                            : 'text-slate-600 dark:text-slate-400'
+                                                    }`}
+                                                >
+                                                    Side by side
+                                                </button>
                                             </div>
                                         )}
                                     </div>
@@ -902,6 +951,32 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                                     ) : (
                                         <>
                                             {segments.map((s) => {
+                                                if (transcriptTab === 'side_by_side') {
+                                                    return (
+                                                        <div key={s.sequence} data-seq={s.sequence} className={`rounded-xl border border-slate-200/60 dark:border-white/10 p-3 transition-colors ${highlightSeq === s.sequence ? 'bg-purple-500/15' : 'bg-slate-50/50 dark:bg-white/[0.02]'}`}>
+                                                            <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 mb-1.5 tabular-nums block">
+                                                                {formatClock(s.start_ms)}
+                                                            </span>
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                                                <div className="space-y-1">
+                                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300">
+                                                                        Original - {session.language_label || 'Mandarin (Chinese)'}
+                                                                    </span>
+                                                                    <p className="text-slate-800 dark:text-slate-100 leading-relaxed font-sans">{s.text}</p>
+                                                                </div>
+                                                                <div className="space-y-1 md:border-l md:border-slate-200/60 md:dark:border-white/10 md:pl-3">
+                                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                                                                        AI translation - English
+                                                                    </span>
+                                                                    <p className="text-slate-700 dark:text-slate-200 leading-relaxed font-sans">
+                                                                        {s.translated_text || (session.translation_status === 'translating' ? 'Translating…' : <span className="italic text-slate-400">Not translated</span>)}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+
                                                 let text = s.text;
                                                 let isPendingTranslation = false;
                                                 let isFailedTranslation = false;
@@ -967,6 +1042,8 @@ export default function ScribePanel({ clientId, clientName, appointmentId = null
                                 isTranslated={session.is_translated}
                                 sourceLanguageLabel={session.language_label}
                                 outputLanguageLabel={session.note_output_language_label}
+                                onDiscardVersion={handleDiscardDraft}
+                                onHandoffVersion={handleHandoffVersion}
                             />
                         )}
 

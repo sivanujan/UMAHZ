@@ -140,6 +140,28 @@ class ScribeDraftService
                 ]);
             }
 
+            \App\Models\ScribeDraftVersion::withoutGlobalScopes()->updateOrCreate(
+                [
+                    'scribe_session_id' => $session->id,
+                    'version' => $version,
+                ],
+                [
+                    'tenant_id' => $session->tenant_id,
+                    'clinical_note_template_id' => $template->id,
+                    'template_name' => $template->name.' (v'.$template->version.')',
+                    'template_snapshot' => [
+                        'name' => $template->name,
+                        'version' => $template->version,
+                        'discipline' => $template->discipline,
+                        'schema' => $schema,
+                    ],
+                    'draft_status' => ScribeSession::DRAFT_READY,
+                    'generated_at' => now(),
+                    'discarded_at' => null,
+                    'discarded_by' => null,
+                ]
+            );
+
             $session->forceFill([
                 'draft_status' => ScribeSession::DRAFT_READY,
                 'draft_error' => null,
@@ -177,6 +199,63 @@ class ScribeDraftService
 
         $session->forceFill(['draft_status' => ScribeSession::DRAFT_FAILED, 'draft_error' => $message])->save();
         $this->audit($session, null, 'scribe.draft_failed', null, ['error' => $message]);
+    }
+
+    /**
+     * Soft-discard a specific draft version, retaining all rows for history and auditing.
+     */
+    public function discard(ScribeSession $session, int $version, User $user, ?string $ip): array
+    {
+        return DB::transaction(function () use ($session, $version, $user, $ip) {
+            $session = ScribeSession::withoutGlobalScopes()->lockForUpdate()->findOrFail($session->id);
+            $now = now();
+
+            $draftVersion = \App\Models\ScribeDraftVersion::withoutGlobalScopes()
+                ->where('scribe_session_id', $session->id)
+                ->where('version', $version)
+                ->first();
+
+            if ($draftVersion) {
+                $draftVersion->forceFill([
+                    'discarded_at' => $now,
+                    'discarded_by' => $user->id,
+                ])->save();
+            } else {
+                \App\Models\ScribeDraftVersion::withoutGlobalScopes()->create([
+                    'tenant_id' => $session->tenant_id,
+                    'scribe_session_id' => $session->id,
+                    'version' => $version,
+                    'clinical_note_template_id' => $session->clinical_note_template_id,
+                    'template_name' => $session->draft_template_snapshot
+                        ? $session->draft_template_snapshot['name'].' (v'.$session->draft_template_snapshot['version'].')'
+                        : null,
+                    'template_snapshot' => $session->draft_template_snapshot,
+                    'draft_status' => 'discarded',
+                    'generated_at' => $session->draft_generated_at ?? $now,
+                    'discarded_at' => $now,
+                    'discarded_by' => $user->id,
+                ]);
+            }
+
+            \App\Models\ScribeDraftItem::withoutGlobalScopes()
+                ->where('scribe_session_id', $session->id)
+                ->where('draft_version', $version)
+                ->update([
+                    'discarded_at' => $now,
+                    'discarded_by' => $user->id,
+                ]);
+
+            $this->audit($session, $user->id, 'scribe.draft_discarded', $ip, [
+                'client_id' => $session->client_id,
+                'draft_version' => $version,
+                'discarded_at' => $now->toIso8601String(),
+            ]);
+
+            return [
+                'discarded' => true,
+                'draft_version' => $version,
+            ];
+        });
     }
 
     /**

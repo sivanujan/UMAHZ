@@ -285,6 +285,66 @@ class ClientController extends Controller
             ])
             ->all();
 
+        $scribeSessions = [];
+        if ($membership && in_array($membership->role, [StaffMembership::ROLE_CLINIC_OWNER, StaffMembership::ROLE_PRACTITIONER], true)) {
+            $scribeQuery = ScribeSession::withoutGlobalScopes()
+                ->where('tenant_id', $tenantId)
+                ->where('client_id', $client->id)
+                ->where('status', '!=', ScribeSession::STATUS_CONSENT_WITHDRAWN)
+                ->whereNull('consent_withdrawn_at');
+
+            if ($membership->role === StaffMembership::ROLE_PRACTITIONER) {
+                $scribeQuery->where('staff_membership_id', $membership->id);
+            }
+
+            $scribeSessions = $scribeQuery->with(['staffMembership.user', 'appointment', 'clinicalNote'])
+                ->orderByDesc('created_at')
+                ->get()
+                ->map(function (ScribeSession $s) {
+                    $durationSeconds = $s->duration_seconds ?? ($s->recorded_ms ? (int) round($s->recorded_ms / 1000) : 0);
+                    $minutes = intdiv($durationSeconds, 60);
+                    $seconds = $durationSeconds % 60;
+                    $formattedDuration = sprintf('%02d:%02d', $minutes, $seconds);
+                    $humanDuration = $durationSeconds > 0 ? sprintf('%dm %ds', $minutes, $seconds) : '—';
+
+                    return [
+                        'id' => $s->id,
+                        'date' => $s->created_at->format('M j, Y g:i A'),
+                        'date_formatted' => $s->created_at->format('M j, Y'),
+                        'created_at' => $s->created_at->toIso8601String(),
+                        'started_at' => $s->started_at?->toIso8601String(),
+                        'practitioner' => $s->staffMembership?->user?->name ?? 'Practitioner',
+                        'practitioner_id' => $s->staff_membership_id,
+                        'spoken_language' => $s->languageLabel(),
+                        'language' => $s->language ?? 'en',
+                        'language_label' => $s->languageLabel(),
+                        'note_language' => $s->noteOutputLanguageLabel(),
+                        'note_output_language' => $s->note_output_language ?? 'en',
+                        'status' => $s->status,
+                        'status_label' => $s->statusLabel(),
+                        'duration' => $s->recorded_ms ?: ($durationSeconds * 1000),
+                        'duration_seconds' => $durationSeconds,
+                        'duration_formatted' => $formattedDuration,
+                        'duration_human' => $humanDuration,
+                        'draft_status' => $s->draft_status,
+                        'draft_version' => $s->draft_version,
+                        'is_translated' => (bool) $s->is_translated,
+                        'clinical_note' => $s->clinicalNote ? [
+                            'id' => $s->clinicalNote->id,
+                            'status' => $s->clinicalNote->status,
+                            'template_name' => $s->clinicalNote->template_name,
+                            'url' => "/app/notes/{$s->clinicalNote->id}",
+                        ] : null,
+                        'appointment' => $s->appointment ? [
+                            'id' => $s->appointment->id,
+                            'service_name' => $s->appointment->service_name,
+                            'starts_at' => $s->appointment->starts_at?->toIso8601String(),
+                        ] : null,
+                    ];
+                })
+                ->all();
+        }
+
         return Inertia::render('Clients/Show', [
             'client' => $this->present($client),
             'consents' => $consents,
@@ -303,6 +363,7 @@ class ClientController extends Controller
             'insurancePolicies' => $insurancePolicies,
             'insuranceProviders' => $insuranceProviders,
             'canManageInsurance' => $canBill,
+            'scribeSessions' => $scribeSessions,
         ]);
     }
 

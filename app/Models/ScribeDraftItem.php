@@ -71,6 +71,8 @@ class ScribeDraftItem extends Model
         'reviewed_by_user_id',
         'reviewed_at',
         'position',
+        'discarded_at',
+        'discarded_by',
     ];
 
     protected function casts(): array
@@ -82,6 +84,7 @@ class ScribeDraftItem extends Model
             'draft_version' => 'integer',
             'position' => 'integer',
             'reviewed_at' => 'datetime',
+            'discarded_at' => 'datetime',
         ];
     }
 

@@ -159,12 +159,26 @@ class StripePlatformBilling implements PlatformBilling
                     $subscription->swap($pricesWithQuantities);
                 }
             } catch (\Stripe\Exception\InvalidRequestException $e) {
-                if (str_contains($e->getMessage(), 'No such subscription') || str_contains($e->getMessage(), 'No such price') || app()->environment('local', 'testing')) {
-                    \Illuminate\Support\Facades\Log::warning("Stripe subscription sync skipped: {$e->getMessage()}");
+                if ($this->isDemoSubscription($subscription, $tenant)) {
+                    \Illuminate\Support\Facades\Log::warning("Stripe subscription sync skipped for demo subscription: {$e->getMessage()}");
                     $subscription->quantity = $tenant->totalPractitionersCount();
                     $subscription->save();
                     return;
                 }
+
+                if (app()->environment('local', 'testing') && (str_contains($e->getMessage(), 'No such subscription') || str_contains($e->getMessage(), 'No such price'))) {
+                    \Illuminate\Support\Facades\Log::warning("Stripe subscription sync skipped in local/testing: {$e->getMessage()}");
+                    $subscription->quantity = $tenant->totalPractitionersCount();
+                    $subscription->save();
+                    return;
+                }
+
+                \Illuminate\Support\Facades\Log::error("Stripe subscription sync failed in production: {$e->getMessage()}", [
+                    'tenant_id' => $tenant->id,
+                    'stripe_subscription_id' => $subscription->stripe_id,
+                    'exception' => $e,
+                ]);
+
                 throw $e;
             }
         }
@@ -215,18 +229,32 @@ class StripePlatformBilling implements PlatformBilling
             try {
                 $subscription->noProrate()->swap($pricesWithQuantities);
             } catch (\Stripe\Exception\InvalidRequestException $e) {
-                if (str_contains($e->getMessage(), 'No such subscription') || str_contains($e->getMessage(), 'No such price') || app()->environment('local', 'testing')) {
-                    \Illuminate\Support\Facades\Log::warning("Stripe subscription swap skipped: {$e->getMessage()}");
+                if ($this->isDemoSubscription($subscription, $tenant)) {
+                    \Illuminate\Support\Facades\Log::warning("Stripe subscription swap skipped for demo subscription: {$e->getMessage()}");
                     $subscription->quantity = $tenant->totalPractitionersCount();
                     $subscription->save();
                     return;
                 }
+
+                if (app()->environment('local', 'testing') && (str_contains($e->getMessage(), 'No such subscription') || str_contains($e->getMessage(), 'No such price'))) {
+                    \Illuminate\Support\Facades\Log::warning("Stripe subscription swap skipped in local/testing: {$e->getMessage()}");
+                    $subscription->quantity = $tenant->totalPractitionersCount();
+                    $subscription->save();
+                    return;
+                }
+
+                \Illuminate\Support\Facades\Log::error("Stripe subscription swap failed in production: {$e->getMessage()}", [
+                    'tenant_id' => $tenant->id,
+                    'stripe_subscription_id' => $subscription->stripe_id,
+                    'exception' => $e,
+                ]);
+
                 throw $e;
             }
         }
     }
 
-    protected function isDemoSubscription(?\Laravel\Cashier\Subscription $subscription, ?Tenant $tenant = null): bool
+    public function isDemoSubscription(?\Laravel\Cashier\Subscription $subscription, ?Tenant $tenant = null): bool
     {
         if (! $subscription) {
             return false;

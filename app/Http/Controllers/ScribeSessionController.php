@@ -8,6 +8,7 @@ use App\Models\Client;
 use App\Models\ConsentType;
 use App\Models\ScribeAudioChunk;
 use App\Models\ScribeDraftItem;
+use App\Models\ScribeDraftVersion;
 use App\Models\ScribeSession;
 use App\Models\ScribeTranscriptSegment;
 use App\Models\StaffMembership;
@@ -38,6 +39,53 @@ class ScribeSessionController extends Controller
         private readonly ScribeDraftService $drafts,
         private readonly ScribeHandoffService $handoff,
     ) {}
+
+    /**
+     * List Scribe encounter sessions for a client (newest first).
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $tenantId = TenantScope::getTenantId();
+        $membership = $this->membership($request, $tenantId);
+
+        $clientId = $request->input('client_id');
+        $appointmentId = $request->input('appointment_id');
+
+        $query = ScribeSession::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->where('status', '!=', ScribeSession::STATUS_CONSENT_WITHDRAWN)
+            ->whereNull('consent_withdrawn_at');
+
+        if ($clientId) {
+            $client = Client::where('tenant_id', $tenantId)->findOrFail($clientId);
+            $query->where('client_id', $client->id);
+        }
+
+        if ($appointmentId) {
+            $query->where('appointment_id', $appointmentId);
+        }
+
+        // Practitioner sees only sessions they ran; clinic_owner sees all sessions for the client.
+        if ($membership->role === StaffMembership::ROLE_PRACTITIONER) {
+            $query->where('staff_membership_id', $membership->id);
+        }
+
+        $sessions = $query->with(['client', 'staffMembership.user', 'appointment', 'clinicalNote'])
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn (ScribeSession $s) => $this->sessionSummary($s));
+
+        return response()->json(['sessions' => $sessions]);
+    }
+
+    public function clientSessions(Request $request, Client $client): JsonResponse
+    {
+        abort_unless($client->tenant_id === TenantScope::getTenantId(), 404);
+
+        $request->merge(['client_id' => $client->id]);
+
+        return $this->index($request);
+    }
 
     public function store(Request $request): JsonResponse
     {
@@ -111,6 +159,25 @@ class ScribeSessionController extends Controller
     {
         $this->authorizeSession($scribeSession, 'view');
 
+        $after = $request->integer('after_sequence', -1);
+
+        // Audit viewing a past session or opening a session in history/viewer
+        if ($after < 0 || ! $request->has('after_sequence') || $scribeSession->isTerminal()) {
+            AuditEvent::create([
+                'tenant_id' => $scribeSession->tenant_id,
+                'user_id' => $request->user()->id,
+                'action' => 'scribe.session.viewed',
+                'resource_type' => ScribeSession::class,
+                'resource_id' => $scribeSession->id,
+                'ip_address' => $request->ip(),
+                'metadata' => [
+                    'client_id' => $scribeSession->client_id,
+                    'status' => $scribeSession->status,
+                    'draft_version' => $scribeSession->draft_version,
+                ],
+            ]);
+        }
+
         // Audit transcript access, de-duplicated per user+session for 10
         // minutes so near-live polling does not flood the audit log.
         if (Cache::add("scribe:viewed:{$scribeSession->id}:{$request->user()->id}", true, now()->addMinutes(10))) {
@@ -125,9 +192,9 @@ class ScribeSessionController extends Controller
             ]);
         }
 
-        $after = $request->integer('after_sequence', -1);
+        $targetVersion = $request->has('version') ? $request->integer('version') : ($request->has('draft_version') ? $request->integer('draft_version') : null);
 
-        return response()->json(['session' => $this->payload($scribeSession, $request, $after)]);
+        return response()->json(['session' => $this->payload($scribeSession, $request, $after, $targetVersion)]);
     }
 
     public function captureConsent(Request $request, ScribeSession $scribeSession): JsonResponse
@@ -531,15 +598,49 @@ class ScribeSessionController extends Controller
     /**
      * Phase 3: pre-fill a DRAFT clinical note from the AI draft. The
      * practitioner reviews, edits and signs it in Clinical Notes.
+     * Supports passing a specific draft version (older or latest).
      */
-    public function handoff(Request $request, ScribeSession $scribeSession): JsonResponse
+    public function handoff(Request $request, ScribeSession $scribeSession, ?int $version = null): JsonResponse
     {
         $this->authorizeSession($scribeSession, 'record');
 
-        return $this->run($request, $scribeSession, function () use ($request, $scribeSession) {
-            $note = $this->handoff->handoff($scribeSession, $request->user(), $request->ip());
+        $data = $request->validate([
+            'version' => ['nullable', 'integer', 'min:1'],
+            'draft_version' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $targetVersion = $version ?? $data['version'] ?? $data['draft_version'] ?? null;
+
+        return $this->run($request, $scribeSession, function () use ($request, $scribeSession, $targetVersion) {
+            $note = $this->handoff->handoff($scribeSession, $request->user(), $request->ip(), $targetVersion);
 
             return ['clinical_note_id' => $note->id, 'redirect' => "/app/notes/{$note->id}/edit"];
+        });
+    }
+
+    /**
+     * Soft-discard a draft version. Never deletes rows; records audit event.
+     */
+    public function discardDraft(Request $request, ScribeSession $scribeSession, ?int $version = null): JsonResponse
+    {
+        $this->authorizeSession($scribeSession, 'record');
+
+        $data = $request->validate([
+            'version' => ['nullable', 'integer', 'min:1'],
+            'draft_version' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $targetVersion = $version
+            ?? $data['version']
+            ?? $data['draft_version']
+            ?? $scribeSession->draft_version;
+
+        if (! $targetVersion || $targetVersion < 1) {
+            return response()->json(['message' => 'No draft version to discard.'], 422);
+        }
+
+        return $this->run($request, $scribeSession, function () use ($request, $scribeSession, $targetVersion) {
+            return $this->drafts->discard($scribeSession, (int) $targetVersion, $request->user(), $request->ip());
         });
     }
 
@@ -622,7 +723,7 @@ class ScribeSessionController extends Controller
             ->firstOrFail();
     }
 
-    private function payload(ScribeSession $session, Request $request, int $afterSequence = -1): array
+    private function payload(ScribeSession $session, Request $request, int $afterSequence = -1, ?int $activeVersion = null): array
     {
         $tenant = Tenant::find($session->tenant_id);
         $session->loadMissing(['client', 'appointment', 'consent']);
@@ -632,29 +733,33 @@ class ScribeSessionController extends Controller
             ->where('code', ConsentType::CODE_AI_SCRIBE_RECORDING)
             ->first();
 
-        $segmentsQuery = ScribeTranscriptSegment::where('scribe_session_id', $session->id);
-        if ($afterSequence >= 0) {
-            $segmentsQuery->where('sequence', '>', $afterSequence);
+        // If consent was withdrawn, hide the transcript segments
+        $segments = collect();
+        if ($session->status !== ScribeSession::STATUS_CONSENT_WITHDRAWN && ! $session->consent_withdrawn_at) {
+            $segmentsQuery = ScribeTranscriptSegment::where('scribe_session_id', $session->id);
+            if ($afterSequence >= 0) {
+                $segmentsQuery->where('sequence', '>', $afterSequence);
+            }
+            $rawSegments = $segmentsQuery
+                ->orderBy('start_ms')
+                ->orderBy('sequence')
+                ->get();
+
+            $deduped = ScribeTranscriptSegment::deduplicateSegments($rawSegments);
+
+            $segments = $deduped->map(fn (ScribeTranscriptSegment $s) => [
+                'id' => $s->id,
+                'sequence' => $s->sequence,
+                'text' => $s->text,
+                'translated_text' => $s->translated_text,
+                'language' => $s->language,
+                'detected_language' => $s->detected_language,
+                'translation_status' => $s->translation_status,
+                'start_ms' => $s->start_ms,
+                'end_ms' => $s->end_ms,
+                'source' => $s->source,
+            ]);
         }
-        $rawSegments = $segmentsQuery
-            ->orderBy('start_ms')
-            ->orderBy('sequence')
-            ->get();
-
-        $deduped = ScribeTranscriptSegment::deduplicateSegments($rawSegments);
-
-        $segments = $deduped->map(fn (ScribeTranscriptSegment $s) => [
-            'id' => $s->id,
-            'sequence' => $s->sequence,
-            'text' => $s->text,
-            'translated_text' => $s->translated_text,
-            'language' => $s->language,
-            'detected_language' => $s->detected_language,
-            'translation_status' => $s->translation_status,
-            'start_ms' => $s->start_ms,
-            'end_ms' => $s->end_ms,
-            'source' => $s->source,
-        ]);
 
         $totalChunks = (int) ScribeAudioChunk::where('scribe_session_id', $session->id)->count();
         $chunkCounts = ScribeAudioChunk::where('scribe_session_id', $session->id)
@@ -741,6 +846,10 @@ class ScribeSessionController extends Controller
             'stopped_at' => $session->stopped_at?->toIso8601String(),
             'transcript_ready_at' => $session->transcript_ready_at?->toIso8601String(),
             'consent_withdrawn_at' => $session->consent_withdrawn_at?->toIso8601String(),
+            'is_consent_withdrawn' => $session->status === ScribeSession::STATUS_CONSENT_WITHDRAWN || (bool) $session->consent_withdrawn_at,
+            'consent_withdrawn_message' => ($session->status === ScribeSession::STATUS_CONSENT_WITHDRAWN || (bool) $session->consent_withdrawn_at)
+                ? 'Transcript hidden because the client withdrew consent'
+                : null,
             'last_error' => $session->last_error,
             'chunks' => [
                 'total' => $totalChunks,
@@ -755,7 +864,7 @@ class ScribeSessionController extends Controller
             'audio_retention' => $settings,
             'can_record' => $request->user()->can('record', $session),
             'timezone' => $tenant?->timezone,
-            'draft' => $this->draftPayload($session),
+            'draft' => $this->draftPayload($session, $activeVersion),
             'clinical_note' => $session->clinical_note_id ? [
                 'id' => $session->clinical_note_id,
                 'status' => $session->clinicalNote?->status,
@@ -770,48 +879,160 @@ class ScribeSessionController extends Controller
     }
 
     /**
-     * Latest draft version grouped by the template it was written for. Every
-     * item keeps its provenance and evidence so the UI never blends sources.
+     * All draft versions grouped by their template, with the active version's
+     * sections unpacked. Every item keeps its provenance, evidence, and discard tracking.
      */
-    private function draftPayload(ScribeSession $session): array
+    private function draftPayload(ScribeSession $session, ?int $activeVersion = null): array
     {
-        $items = $session->draft_version > 0
-            ? ScribeDraftItem::where('scribe_session_id', $session->id)
-                ->where('draft_version', $session->draft_version)
-                ->orderBy('position')
-                ->get()
-                ->groupBy('section_key')
-            : collect();
+        $existingVersionRecords = ScribeDraftVersion::withoutGlobalScopes()
+            ->where('scribe_session_id', $session->id)
+            ->get()
+            ->keyBy('version');
 
-        $sections = [];
-        foreach ($session->draft_template_snapshot['schema']['sections'] ?? [] as $section) {
-            $fields = [];
-            foreach ($section['fields'] ?? [] as $field) {
-                $fields[] = [
-                    'id' => $field['id'],
-                    'label' => $field['label'] ?? $field['id'],
-                    'type' => $field['type'] ?? 'long_text',
-                    'items' => ($items[$field['id']] ?? collect())->map(fn (ScribeDraftItem $i) => [
-                        'id' => $i->id,
-                        'content' => $i->content,
-                        'provenance' => $i->provenance,
-                        'review_status' => $i->review_status,
-                        'evidence' => array_column($i->evidence ?? [], 'sequence'),
-                    ])->values(),
-                ];
+        $itemVersions = ScribeDraftItem::withoutGlobalScopes()
+            ->where('scribe_session_id', $session->id)
+            ->select('draft_version')
+            ->distinct()
+            ->pluck('draft_version')
+            ->all();
+
+        $allVersionNumbers = collect(array_merge(
+            $existingVersionRecords->keys()->all(),
+            $itemVersions,
+            $session->draft_version > 0 ? [$session->draft_version] : []
+        ))->unique()->sort()->values();
+
+        $allItemsByVersion = ScribeDraftItem::withoutGlobalScopes()
+            ->where('scribe_session_id', $session->id)
+            ->orderBy('position')
+            ->get()
+            ->groupBy('draft_version');
+
+        $versionsPayload = [];
+        foreach ($allVersionNumbers as $v) {
+            $record = $existingVersionRecords->get($v);
+            $vItems = $allItemsByVersion->get($v, collect())->groupBy('section_key');
+
+            $snapshot = $record?->template_snapshot ?? $session->draft_template_snapshot;
+            $templateName = $record?->template_name
+                ?: ($snapshot ? ($snapshot['name'] ?? 'Template').' (v'.($snapshot['version'] ?? 1).')' : null);
+
+            $discardedAt = $record?->discarded_at
+                ?? $allItemsByVersion->get($v, collect())->firstWhere('discarded_at', '!=', null)?->discarded_at;
+            $discardedBy = $record?->discarded_by
+                ?? $allItemsByVersion->get($v, collect())->firstWhere('discarded_by', '!=', null)?->discarded_by;
+
+            $generatedAt = $record?->generated_at
+                ?? ($v === $session->draft_version ? $session->draft_generated_at : null)
+                ?? $allItemsByVersion->get($v, collect())->min('created_at');
+
+            // Build sections for this version
+            $vSections = [];
+            foreach ($snapshot['schema']['sections'] ?? [] as $section) {
+                $fields = [];
+                foreach ($section['fields'] ?? [] as $field) {
+                    $fields[] = [
+                        'id' => $field['id'],
+                        'label' => $field['label'] ?? $field['id'],
+                        'type' => $field['type'] ?? 'long_text',
+                        'items' => ($vItems[$field['id']] ?? collect())->map(fn (ScribeDraftItem $i) => [
+                            'id' => $i->id,
+                            'content' => $i->content,
+                            'provenance' => $i->provenance,
+                            'review_status' => $i->review_status,
+                            'evidence' => array_column($i->evidence ?? [], 'sequence'),
+                            'discarded_at' => $i->discarded_at?->toIso8601String(),
+                        ])->values(),
+                    ];
+                }
+                $vSections[] = ['id' => $section['id'] ?? null, 'title' => $section['title'] ?? '', 'fields' => $fields];
             }
-            $sections[] = ['id' => $section['id'] ?? null, 'title' => $section['title'] ?? '', 'fields' => $fields];
+
+            $isLatest = ($v === $session->draft_version);
+            $isDiscarded = ($discardedAt !== null);
+
+            $versionsPayload[] = [
+                'version' => (int) $v,
+                'generated_at' => $generatedAt ? \Carbon\Carbon::parse($generatedAt)->toIso8601String() : null,
+                'template' => $templateName,
+                'template_snapshot' => $snapshot,
+                'is_latest' => $isLatest,
+                'latest' => $isLatest,
+                'is_discarded' => $isDiscarded,
+                'discarded' => $isDiscarded,
+                'discarded_at' => $discardedAt ? \Carbon\Carbon::parse($discardedAt)->toIso8601String() : null,
+                'discarded_by' => $discardedBy,
+                'sections' => $vSections,
+            ];
         }
+
+        $targetVersion = $activeVersion ?: $session->draft_version;
+        $activeVersionData = collect($versionsPayload)->firstWhere('version', $targetVersion)
+            ?? collect($versionsPayload)->last();
+
+        $sections = $activeVersionData['sections'] ?? [];
 
         return [
             'status' => $session->draft_status,
             'error' => $session->draft_error,
             'version' => $session->draft_version,
+            'active_version' => $targetVersion,
             'generated_at' => $session->draft_generated_at?->toIso8601String(),
             'template' => $session->draft_template_snapshot
                 ? $session->draft_template_snapshot['name'].' (v'.$session->draft_template_snapshot['version'].')'
                 : null,
+            'is_discarded' => (bool) ($activeVersionData['is_discarded'] ?? false),
+            'discarded' => (bool) ($activeVersionData['is_discarded'] ?? false),
+            'discarded_at' => $activeVersionData['discarded_at'] ?? null,
+            'discarded_by' => $activeVersionData['discarded_by'] ?? null,
             'sections' => $sections,
+            'versions' => $versionsPayload,
+        ];
+    }
+
+    private function sessionSummary(ScribeSession $s): array
+    {
+        $durationSeconds = $s->duration_seconds ?? ($s->recorded_ms ? (int) round($s->recorded_ms / 1000) : 0);
+        $minutes = intdiv($durationSeconds, 60);
+        $seconds = $durationSeconds % 60;
+        $formattedDuration = sprintf('%02d:%02d', $minutes, $seconds);
+        $humanDuration = $durationSeconds > 0 ? sprintf('%dm %ds', $minutes, $seconds) : '—';
+
+        return [
+            'id' => $s->id,
+            'client_id' => $s->client_id,
+            'client_name' => $s->client?->full_name ?? trim("{$s->client?->first_name} {$s->client?->last_name}"),
+            'date' => $s->created_at->format('M j, Y g:i A'),
+            'date_formatted' => $s->created_at->format('M j, Y'),
+            'created_at' => $s->created_at->toIso8601String(),
+            'started_at' => $s->started_at?->toIso8601String(),
+            'practitioner' => $s->staffMembership?->user?->name ?? 'Practitioner',
+            'practitioner_id' => $s->staff_membership_id,
+            'spoken_language' => $s->languageLabel(),
+            'language' => $s->language ?? 'en',
+            'language_label' => $s->languageLabel(),
+            'note_language' => $s->noteOutputLanguageLabel(),
+            'note_output_language' => $s->note_output_language ?? 'en',
+            'status' => $s->status,
+            'status_label' => $s->statusLabel(),
+            'duration' => $s->recorded_ms ?: ($durationSeconds * 1000),
+            'duration_seconds' => $durationSeconds,
+            'duration_formatted' => $formattedDuration,
+            'duration_human' => $humanDuration,
+            'draft_status' => $s->draft_status,
+            'draft_version' => $s->draft_version,
+            'is_translated' => (bool) $s->is_translated,
+            'clinical_note' => $s->clinicalNote ? [
+                'id' => $s->clinicalNote->id,
+                'status' => $s->clinicalNote->status,
+                'template_name' => $s->clinicalNote->template_name,
+                'url' => "/app/notes/{$s->clinicalNote->id}",
+            ] : null,
+            'appointment' => $s->appointment ? [
+                'id' => $s->appointment->id,
+                'service_name' => $s->appointment->service_name,
+                'starts_at' => $s->appointment->starts_at?->toIso8601String(),
+            ] : null,
         ];
     }
 }

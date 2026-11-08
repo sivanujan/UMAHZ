@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import ScribeSessionViewer from '@/Components/Scribe/ScribeSessionViewer';
 import {
     FileText, Printer, ArrowLeft, ShieldCheck, Clock, UserCheck,
     Plus, AlertTriangle, Building2, Calendar, Lock, CheckCircle2,
-    Layers, Stethoscope, ChevronRight, X
+    Layers, Stethoscope, ChevronRight, X, MessageSquare, Sparkles
 } from 'lucide-react';
 
 const ADDENDUM_REASONS = [
@@ -16,8 +17,9 @@ const ADDENDUM_REASONS = [
     'Administrative note',
 ];
 
-export default function ClinicalNoteShow({ client, appointment, note, clinic }) {
+export default function ClinicalNoteShow({ client, appointment, note, clinic, scribeHandoff = null }) {
     const [showAddendumModal, setShowAddendumModal] = useState(false);
+    const [showScribeViewer, setShowScribeViewer] = useState(false);
     const [reason, setReason] = useState(ADDENDUM_REASONS[0]);
     const [authorName, setAuthorName] = useState('');
     const [addendumContent, setAddendumContent] = useState('');
@@ -132,6 +134,24 @@ export default function ClinicalNoteShow({ client, appointment, note, clinic }) 
                     </div>
 
                     <div className="flex items-center gap-3">
+                        {(note.scribe_session_id || scribeHandoff?.session_id) && (
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowScribeViewer(true)}
+                                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-semibold shadow-xs transition"
+                                >
+                                    <MessageSquare className="w-3.5 h-3.5 text-rose-500" />
+                                    <span>View original conversation</span>
+                                </button>
+                                {(note.is_scribe_consent_withdrawn || scribeHandoff?.is_consent_withdrawn) && (
+                                    <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1.5 rounded-lg border border-amber-200 dark:border-amber-800">
+                                        Consent withdrawn
+                                    </span>
+                                )}
+                            </div>
+                        )}
+
                         {isFinalized && (
                             <button
                                 type="button"
@@ -496,6 +516,14 @@ export default function ClinicalNoteShow({ client, appointment, note, clinic }) 
                         </form>
                     </div>
                 </div>
+            )}
+            {/* Read-Only Scribe Session Viewer */}
+            {showScribeViewer && (note.scribe_session_id || scribeHandoff?.session_id) && (
+                <ScribeSessionViewer
+                    sessionId={note.scribe_session_id || scribeHandoff.session_id}
+                    isOpen={showScribeViewer}
+                    onClose={() => setShowScribeViewer(false)}
+                />
             )}
         </AuthenticatedLayout>
     );
