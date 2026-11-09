@@ -7,6 +7,7 @@ import ProcessSection from '@/Components/Home/ProcessSection';
 import BookingSection from '@/Components/Home/BookingSection';
 import TestimonialsSection from '@/Components/Home/TestimonialsSection';
 import DoctorsSection from '@/Components/Home/DoctorsSection';
+import SetupTutorialSection from '@/Components/Home/SetupTutorialSection';
 import CTABanner from '@/Components/Home/CTABanner';
 import FooterSection from '@/Components/Home/FooterSection';
 import { ThemeProvider } from '@/Contexts/ThemeContext';
@@ -26,6 +27,7 @@ export default function Welcome() {
                 <BookingSection />
                 <TestimonialsSection />
                 <DoctorsSection />
+                <SetupTutorialSection />
                 <CTABanner />
                 <FooterSection />
             </div>

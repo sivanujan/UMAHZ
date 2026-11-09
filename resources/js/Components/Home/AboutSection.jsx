@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import PillBadge from '@/Components/Common/PillBadge';
 import {
@@ -11,8 +11,26 @@ import {
     createCardHover,
 } from '@/Utils/motion';
 
+const VideoModal = React.lazy(() => import('@/Components/Common/VideoModal'));
+
 export default function AboutSection() {
     const shouldReduceMotion = useReducedMotion();
+    const [isVideoOpen, setIsVideoOpen] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 767px)');
+        setIsMobile(mq.matches);
+        const handler = (e) => setIsMobile(e.matches);
+        mq.addEventListener('change', handler);
+        return () => mq.removeEventListener('change', handler);
+    }, []);
+
+    const activeVideoSrc = isMobile ? '/videos/umahz-social-60s-9x16.mp4' : '/videos/umahz-full-2min.mp4';
+    const activePoster = isMobile ? '/videos/umahz-social-60s-poster.webp' : '/videos/umahz-full-2min-poster.webp';
+    const activeAspect = isMobile ? '9:16' : '16:9';
+    const activeDuration = isMobile ? '0:59 min' : '1:58 min';
+    const activeSubtitle = isMobile ? '60-second product overview' : '2-minute product walkthrough';
 
     const containerVariants = createStaggerContainer(0.12, 0.1, shouldReduceMotion);
     const cardEntrance = createFadeInUp(16, 0.45, shouldReduceMotion);
@@ -67,16 +85,28 @@ export default function AboutSection() {
                         whileInView="visible"
                         viewport={VIEWPORT_ONCE}
                         variants={featuredCardEntrance}
-                        className="lg:col-span-8 relative group rounded-2xl overflow-hidden shadow-xl border border-purple-100 dark:border-violet-500/35 bg-[#1E0B3C] dark:bg-gradient-to-br dark:from-[#18112A] dark:to-[#0F0A1C] dark:shadow-[0_0_35px_-5px_rgba(124,58,237,0.25)] flex flex-col justify-between transition-all duration-300"
+                        onClick={() => setIsVideoOpen(true)}
+                        className="lg:col-span-8 relative group rounded-2xl overflow-hidden shadow-xl border border-purple-100 dark:border-violet-500/35 bg-[#1E0B3C] dark:bg-gradient-to-br dark:from-[#18112A] dark:to-[#0F0A1C] dark:shadow-[0_0_35px_-5px_rgba(124,58,237,0.25)] flex flex-col justify-between transition-all duration-300 cursor-pointer"
                         style={{ minHeight: 360 }}
                     >
-                        <div className="absolute inset-0 bg-gradient-to-br from-[#2A1054] via-[#5B2EFF]/60 to-[#1E0B3C] dark:from-[#220E44] dark:via-[#4C1D95]/40 dark:to-[#0F0A1C] opacity-90 pointer-events-none" />
+                        {/* Poster background */}
+                        <img
+                            src={activePoster}
+                            alt="See UMAHZ In Action video poster"
+                            className="absolute inset-0 w-full h-full object-cover opacity-25 group-hover:opacity-40 transition-opacity duration-500 pointer-events-none"
+                        />
+
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#2A1054]/90 via-[#5B2EFF]/50 to-[#1E0B3C]/90 dark:from-[#220E44]/90 dark:via-[#4C1D95]/40 dark:to-[#0F0A1C]/90 opacity-90 pointer-events-none" />
                         <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
 
                         <div className="relative z-10 flex flex-col items-center justify-center p-10 text-center flex-1" style={{ minHeight: 280 }}>
                             {/* Play button with hover pulse ring */}
                             <motion.button
                                 type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsVideoOpen(true);
+                                }}
                                 initial="rest"
                                 whileHover="hover"
                                 whileTap="tap"
@@ -102,7 +132,7 @@ export default function AboutSection() {
                                 </svg>
                             </motion.button>
                             <p className="text-white text-xl font-bold mb-2 tracking-normal">See UMAHZ In Action</p>
-                            <p className="text-purple-200 text-sm">2-minute product walkthrough</p>
+                            <p className="text-purple-200 text-sm">{activeSubtitle}</p>
                         </div>
 
                         <div className="relative z-10 flex items-center justify-between px-6 py-4 bg-black/25 dark:bg-black/40 border-t border-white/10">
@@ -111,10 +141,25 @@ export default function AboutSection() {
                                 <p className="text-white text-sm font-bold mt-0.5">Unified Clinical Workspace</p>
                             </div>
                             <span className="bg-white/10 dark:bg-white/15 border border-white/20 px-3 py-1 rounded-full text-white text-xs font-semibold flex-shrink-0">
-                                2:45 min
+                                {activeDuration}
                             </span>
                         </div>
                     </motion.div>
+
+                    {/* Modal Lightbox */}
+                    {isVideoOpen && (
+                        <Suspense fallback={null}>
+                            <VideoModal
+                                isOpen={isVideoOpen}
+                                onClose={() => setIsVideoOpen(false)}
+                                title={isMobile ? "UMAHZ Product Overview (60s)" : "UMAHZ Full Walkthrough (2-min)"}
+                                src={activeVideoSrc}
+                                poster={activePoster}
+                                captionsSrc={!isMobile ? "/videos/umahz-full-2min.vtt" : undefined}
+                                aspect={activeAspect}
+                            />
+                        </Suspense>
+                    )}
 
                     {/* Side cards (4 cols) with staggered entrance */}
                     <motion.div

@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
     User, Mail, Lock, Building2, Check, Eye, EyeOff, AlertCircle, Loader2,
     MapPin, Phone, IdCard, Upload, FileText, X, Hand, Flame, Dumbbell, Apple,
     Droplets, ShieldCheck, Clock, Stethoscope, Globe, Plus, Sparkles, Trash2,
-    ArrowRight, Activity,
+    ArrowRight, Activity, Play,
 } from 'lucide-react';
 import Logo from '@/Components/Common/Logo';
 import ThemeToggle from '@/Components/Common/ThemeToggle';
@@ -18,6 +18,8 @@ import PlanStep from '@/Components/Onboarding/PlanStep';
 import StepIndicator, { SECTIONS } from '@/Components/Onboarding/StepIndicator';
 import { validateField, validateStep, EMAIL_RE, NAME_RE, SUBDOMAIN_RE, LICENSE_RE, getDigits } from '@/Components/Onboarding/validation';
 import { ThemeProvider } from '@/Contexts/ThemeContext';
+
+const VideoModal = React.lazy(() => import('@/Components/Common/VideoModal'));
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png'];
@@ -811,6 +813,7 @@ function DocumentUpload({ file, onChange, serverError, helper, progress, process
 
 function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', provinces = [], tiers = {}, plans = [] }) {
     const shouldReduceMotion = useReducedMotion();
+    const [videoModalOpen, setVideoModalOpen] = useState(false);
     const defaultPlan = plans?.find((p) => p.slug === 'professional' || p.slug === 'practice') || plans?.[0];
     const { data, setData, post, processing, progress, errors } = useForm({
         name: '',
@@ -1157,10 +1160,20 @@ function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', 
                 >
                     {/* Header with Title */}
                     <div className="space-y-1.5">
-                        <h1 className="text-2xl sm:text-[28px] font-bold tracking-[-0.01em] text-slate-900 dark:text-white flex items-center flex-wrap gap-x-2">
-                            <span>Apply to Join</span>
-                            <span className="text-indigo-600 dark:text-indigo-400">UMAHZ</span>
-                        </h1>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <h1 className="text-2xl sm:text-[28px] font-bold tracking-[-0.01em] text-slate-900 dark:text-white flex items-center flex-wrap gap-x-2">
+                                <span>Apply to Join</span>
+                                <span className="text-indigo-600 dark:text-indigo-400">UMAHZ</span>
+                            </h1>
+                            <button
+                                type="button"
+                                onClick={() => setVideoModalOpen(true)}
+                                className="inline-flex items-center gap-1.5 text-xs font-semibold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 transition-colors py-1 px-2.5 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-950/40 w-fit"
+                            >
+                                <Play className="w-3.5 h-3.5 fill-current" />
+                                <span>Watch the 2-minute setup guide</span>
+                            </button>
+                        </div>
                         <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 [word-spacing:0.02em]">
                             Every clinic is reviewed by our team before going live
                         </p>
@@ -1587,6 +1600,21 @@ function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', 
 
             {/* Right Column: Branded Visual Panel (Hidden on Mobile) */}
             <AuthVisualPanel currentStep={currentStep} data={data} tiers={tiers} />
+
+            {/* Setup Guide Video Modal */}
+            {videoModalOpen && (
+                <Suspense fallback={null}>
+                    <VideoModal
+                        isOpen={videoModalOpen}
+                        onClose={() => setVideoModalOpen(false)}
+                        title="How To Set Up Your Clinic (2:45 min)"
+                        src="/videos/umahz-setup-tutorial.mp4"
+                        poster="/videos/umahz-setup-tutorial-poster.webp"
+                        captionsSrc="/videos/umahz-setup-tutorial.vtt"
+                        aspect="16:9"
+                    />
+                </Suspense>
+            )}
         </div>
     );
 }
