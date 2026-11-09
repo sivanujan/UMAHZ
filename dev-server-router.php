@@ -25,11 +25,48 @@ if ($uri !== '/' && file_exists($publicPath.$uri) && ! is_dir($publicPath.$uri))
         'css' => 'text/css',
         'js' => 'application/javascript',
         'ico' => 'image/x-icon',
+        'mp4' => 'video/mp4',
+        'webm' => 'video/webm',
+        'vtt' => 'text/vtt',
     ];
+
+    $fileSize = filesize($filePath);
     $contentType = $mimes[$ext] ?? (function_exists('mime_content_type') ? mime_content_type($filePath) : 'application/octet-stream');
+
+    if (isset($_SERVER['HTTP_RANGE']) && in_array($ext, ['mp4', 'webm'])) {
+        $rangeParts = explode('=', $_SERVER['HTTP_RANGE'], 2);
+        if (count($rangeParts) === 2 && strtolower(trim($rangeParts[0])) === 'bytes') {
+            $range = explode('-', $rangeParts[1]);
+            $start = ($range[0] === '') ? 0 : intval($range[0]);
+            $end = (isset($range[1]) && $range[1] !== '') ? intval($range[1]) : $fileSize - 1;
+            if ($end >= $fileSize) {
+                $end = $fileSize - 1;
+            }
+            if ($start > $end || $start >= $fileSize) {
+                header('HTTP/1.1 416 Requested Range Not Satisfiable');
+                header("Content-Range: bytes */{$fileSize}");
+                exit;
+            }
+            $length = $end - $start + 1;
+            header('HTTP/1.1 206 Partial Content');
+            header("Content-Range: bytes {$start}-{$end}/{$fileSize}");
+            header("Content-Length: {$length}");
+            header('Content-Type: '.$contentType);
+            header('Accept-Ranges: bytes');
+            $fp = fopen($filePath, 'rb');
+            fseek($fp, $start);
+            echo fread($fp, $length);
+            fclose($fp);
+            exit;
+        }
+    }
+
     header('Content-Type: '.$contentType);
-    header('Content-Length: '.filesize($filePath));
-    readfile($filePath);
+    header('Content-Length: '.$fileSize);
+    header('Accept-Ranges: bytes');
+    if ($_SERVER['REQUEST_METHOD'] !== 'HEAD') {
+        readfile($filePath);
+    }
     exit;
 }
 
