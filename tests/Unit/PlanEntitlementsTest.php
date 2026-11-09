@@ -310,10 +310,12 @@ class PlanEntitlementsTest extends TestCase
             'quantity' => 1,
         ]);
 
-        // With Scribe+, check is now unlimited and allowed!
+        // With Scribe+, check is 600 minutes allowance and allowed!
         $scribePlusCheck = $this->entitlements->checkScribeAllowance($tenant, $membership);
         $this->assertTrue($scribePlusCheck['allowed']);
-        $this->assertTrue($scribePlusCheck['unlimited']);
+        $this->assertFalse($scribePlusCheck['unlimited']);
+        $this->assertEquals(600.0, $scribePlusCheck['allowance_minutes']);
+        $this->assertTrue($scribePlusCheck['has_scribe_plus']);
     }
 
     /**

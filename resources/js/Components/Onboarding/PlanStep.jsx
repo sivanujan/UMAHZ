@@ -205,6 +205,9 @@ export function normalizeDynamicPlans(plans = [], billingInterval = 'month') {
             name: plan.name,
             tagline: plan.tagline || (isEssential ? 'For solo practitioners starting out' : isProfessional ? 'For growing clinics' : 'For full-service practices'),
             basePrice,
+            showLaunchPrice: Boolean(plan.show_launch_price),
+            launchBadgeText: plan.launch_badge_text || 'Launch price',
+            originalBasePrice: isAnnual ? plan.original_price_annual : plan.original_price_monthly,
             includedFt: plan.included_practitioners || 1,
             maxPractitioners: plan.max_practitioners,
             allowsExtra: plan.allows_extra_practitioners,
@@ -476,6 +479,18 @@ export default function PlanStep({
 
                                 {/* Row 4: Price Block (High contrast, clearly visible on all card states) */}
                                 <div className="mt-2 mb-2.5 pb-2 border-b border-slate-100 dark:border-slate-700/60">
+                                    {tier.showLaunchPrice && (
+                                        <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                                                {tier.launchBadgeText || 'Launch price'}
+                                            </span>
+                                            {tier.originalBasePrice && (
+                                                <span className="text-[11px] line-through text-slate-400 dark:text-slate-500 font-semibold tabular-nums">
+                                                    ${Number(tier.originalBasePrice).toFixed(0)}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
                                     <div className="flex items-baseline gap-1">
                                         <span className="text-2xl font-bold text-slate-900 dark:text-white font-mono tracking-normal leading-none">
                                             ${tier.basePrice}
@@ -664,6 +679,9 @@ export default function PlanStep({
                         trialDays={activeTiers[currentTier]?.rawPlan?.trial_days || 0}
                         subtotal={breakdown.total}
                         totalDue={breakdown.total}
+                        showLaunchPrice={activeTiers[currentTier]?.showLaunchPrice}
+                        launchBadgeText={activeTiers[currentTier]?.launchBadgeText}
+                        originalPrice={activeTiers[currentTier]?.originalBasePrice}
                         showPromoInput={false}
                     />
                 </div>

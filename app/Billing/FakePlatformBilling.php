@@ -71,6 +71,14 @@ class FakePlatformBilling implements PlatformBilling
                 allowExpiredLockedPromo: true
             );
 
+            $couponId = $tenant->promoCode?->stripe_coupon_id;
+            if (! $couponId && $tenant->referred_by_tenant_id && app(\App\Services\ReferralService::class)->isEnabled()) {
+                $couponId = app(\App\Services\ReferralService::class)->createReferralDiscountCoupon($tenant->plan, $tenant->billing_interval ?? 'month');
+                if ($couponId) {
+                    $tenant->referralReceived?->update(['stripe_coupon_id' => $couponId]);
+                }
+            }
+
             $this->startedSubscriptions[] = [
                 'tenant_id' => $tenant->id,
                 'payment_method' => $paymentMethodId,
@@ -80,6 +88,7 @@ class FakePlatformBilling implements PlatformBilling
                 'full_time_count' => $ft,
                 'part_time_count' => $pt,
                 'items' => $items,
+                'coupon' => $couponId,
                 'total_monthly' => $breakdown['total'],
             ];
             return;

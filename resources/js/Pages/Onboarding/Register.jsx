@@ -811,7 +811,7 @@ function DocumentUpload({ file, onChange, serverError, helper, progress, process
     );
 }
 
-function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', provinces = [], tiers = {}, plans = [] }) {
+function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', provinces = [], tiers = {}, plans = [], initialReferralCode = '' }) {
     const shouldReduceMotion = useReducedMotion();
     const [videoModalOpen, setVideoModalOpen] = useState(false);
     const defaultPlan = plans?.find((p) => p.slug === 'professional' || p.slug === 'practice') || plans?.[0];
@@ -823,6 +823,7 @@ function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', 
 
         clinic_name: '',
         subdomain: '',
+        referral_code: initialReferralCode || '',
         business_registration_number: '',
         address_line1: '',
         address_city: '',
@@ -1365,6 +1366,19 @@ function ClinicRegisterForm({ disciplines = [], subdomainSuffix = '.umahz.com', 
                                                     error={errors.address_country}
                                                     placeholder="Canada"
                                                     showOptional={false}
+                                                />
+                                            </div>
+
+                                            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                                                <Field
+                                                    id="referral_code"
+                                                    label="Referral Code"
+                                                    value={data.referral_code}
+                                                    onChange={(e) => setData('referral_code', e.target.value.toUpperCase())}
+                                                    error={errors.referral_code}
+                                                    placeholder="e.g. ASTRO7K2"
+                                                    showOptional={true}
+                                                    helper="Referred by another clinic? Enter their code to receive 50% off your first month."
                                                 />
                                             </div>
                                         </section>

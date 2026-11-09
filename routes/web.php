@@ -133,6 +133,14 @@ Route::domain($central)->group(function () {
         return Inertia::render('Professions/Show', ['slug' => $slug]);
     })->name('professions.show');
 
+    Route::get('/r/{code}', function (string $code, \App\Services\ReferralService $referrals) {
+        $clean = strtoupper(trim($code));
+        $cookie = cookie('umahz_ref', $clean, 60 * 24 * 30); // 30 days
+        session(['umahz_ref' => $clean]);
+
+        return redirect()->route('clinics.register')->withCookie($cookie);
+    })->name('referral.link');
+
     Route::get('/pricing', function () {
         $plans = \App\Models\Plan::with(['monthlyPrice', 'annualPrice', 'enabledFeatures'])
             ->where('is_active', true)
@@ -254,6 +262,13 @@ Route::domain($central)->group(function () {
             Route::post('/', [PromoCodeController::class, 'store'])->name('store');
             Route::post('/{promoCode}/deactivate', [PromoCodeController::class, 'deactivate'])->name('deactivate');
             Route::get('/{promoCode}/redemptions', [PromoCodeController::class, 'redemptions'])->name('redemptions');
+        });
+
+        Route::prefix('referrals')->name('referrals.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Admin\ReferralController::class, 'index'])->name('index');
+            Route::post('/settings', [\App\Http\Controllers\Admin\ReferralController::class, 'updateSettings'])->name('settings');
+            Route::post('/{referral}/reward', [\App\Http\Controllers\Admin\ReferralController::class, 'reward'])->name('reward');
+            Route::post('/{referral}/cancel', [\App\Http\Controllers\Admin\ReferralController::class, 'cancel'])->name('cancel');
         });
 
         Route::prefix('audit-logs')->name('audit-logs.')->group(function () {

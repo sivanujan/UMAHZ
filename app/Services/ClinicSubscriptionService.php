@@ -39,6 +39,14 @@ class ClinicSubscriptionService
             'subscription_status' => Tenant::SUBSCRIPTION_ACTIVE,
             'payment_failed_at' => null,
         ])->save();
+
+        if ($tenant->referred_by_tenant_id && ($tenant->plan?->trial_days ?? 0) === 0) {
+            try {
+                app(\App\Services\ReferralService::class)->qualifyAndRewardReferral($tenant);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Could not auto-qualify referral on activation for tenant {$tenant->id}: {$e->getMessage()}");
+            }
+        }
     }
 
     /**

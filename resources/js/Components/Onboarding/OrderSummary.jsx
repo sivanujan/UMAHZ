@@ -46,6 +46,9 @@ export default function OrderSummary({
     validatingPromo = false,
     promoError = null,
     appliedPromo = null,
+    showLaunchPrice = false,
+    launchBadgeText = 'Launch price',
+    originalPrice = null,
     className = '',
 }) {
     const isAnnual = billingInterval === 'year';
@@ -74,10 +77,20 @@ export default function OrderSummary({
             <div className="space-y-2.5 text-xs">
                 {/* Base Plan Line */}
                 <div className="flex items-baseline justify-between gap-3 text-slate-200">
-                    <span className="font-medium text-slate-200">
-                        {cleanPlanName} — {isAnnual ? 'Annual' : 'Monthly'}
+                    <span className="font-medium text-slate-200 flex items-center gap-1.5 flex-wrap">
+                        <span>{cleanPlanName} — {isAnnual ? 'Annual' : 'Monthly'}</span>
+                        {showLaunchPrice && (
+                            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                {launchBadgeText}
+                            </span>
+                        )}
                     </span>
                     <span className="font-semibold text-white tabular-nums shrink-0 text-right">
+                        {showLaunchPrice && originalPrice && (
+                            <span className="line-through text-slate-400 mr-1.5 font-normal">
+                                ${Number(originalPrice).toFixed(2)}
+                            </span>
+                        )}
                         ${Number(basePrice).toFixed(2)}
                     </span>
                 </div>

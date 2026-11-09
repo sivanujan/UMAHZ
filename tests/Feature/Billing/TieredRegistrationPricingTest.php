@@ -303,19 +303,61 @@ class TieredRegistrationPricingTest extends TestCase
             'joined_at' => now(),
         ]);
 
+        // 1. Initial reject (attempt 1): allows re-application, card kept on file, never charged
         $response = $this->actingAs($admin)->post("http://umahz.test/admin/clinics/{$clinic->id}/reject", [
             'note' => 'Invalid credentials submitted.',
         ]);
         $response->assertSessionHasNoErrors();
 
         $this->assertFalse($this->billing->charged($clinic), 'Rejected clinic must never be charged.');
-        $this->assertCount(1, $this->billing->discarded);
-        $this->assertSame('cus_declined', $this->billing->discarded[0]['customer']);
+        $this->assertCount(0, $this->billing->discarded, 'Payment method is retained for re-application on initial reject.');
 
         $clinic->refresh();
         $this->assertSame(Tenant::STATUS_REJECTED, $clinic->status);
         $this->assertSame(Tenant::SUBSCRIPTION_NONE, $clinic->subscription_status);
+        $this->assertNotNull($clinic->stripe_pm_id);
+
+        // 2. Third (final) attempt reject: card IS discarded, never charged
+        $clinic->update(['status' => Tenant::STATUS_PENDING_REVIEW, 'reapply_count' => 3]);
+        $responseFinal = $this->actingAs($admin)->post("http://umahz.test/admin/clinics/{$clinic->id}/reject", [
+            'note' => 'Final attempt rejected.',
+        ]);
+        $responseFinal->assertSessionHasNoErrors();
+
+        $this->assertFalse($this->billing->charged($clinic), 'Rejected clinic must never be charged on final attempt.');
+        $this->assertCount(1, $this->billing->discarded, 'Payment method must be discarded on 3rd (final) reject.');
+        $this->assertSame('cus_declined', $this->billing->discarded[0]['customer']);
+
+        $clinic->refresh();
+        $this->assertSame(Tenant::STATUS_REJECTED, $clinic->status);
+        $this->assertTrue((bool) $clinic->is_permanently_rejected);
         $this->assertNull($clinic->stripe_pm_id);
+
+        // 3. Permanent reject endpoint: card IS discarded, never charged
+        $clinic2 = Tenant::create([
+            'name' => 'Permanent Declined Clinic',
+            'slug' => 'perm-declined',
+            'subdomain' => 'perm-declined',
+            'status' => Tenant::STATUS_PENDING_REVIEW,
+            'plan_tier' => 'thrive',
+            'requested_disciplines' => ['nutrition'],
+            'subscription_status' => Tenant::SUBSCRIPTION_NONE,
+        ]);
+        $clinic2->forceFill(['stripe_id' => 'cus_perm_declined', 'stripe_pm_id' => 'pm_perm_card'])->save();
+
+        $responsePerm = $this->actingAs($admin)->post("http://umahz.test/admin/clinics/{$clinic2->id}/reject-permanent", [
+            'note' => 'Fraudulent application.',
+        ]);
+        $responsePerm->assertSessionHasNoErrors();
+
+        $this->assertFalse($this->billing->charged($clinic2), 'Permanently rejected clinic must never be charged.');
+        $this->assertCount(2, $this->billing->discarded, 'Payment method must be discarded on permanent reject.');
+        $this->assertSame('cus_perm_declined', $this->billing->discarded[1]['customer']);
+
+        $clinic2->refresh();
+        $this->assertSame(Tenant::STATUS_PERMANENTLY_REJECTED, $clinic2->status);
+        $this->assertTrue((bool) $clinic2->is_permanently_rejected);
+        $this->assertNull($clinic2->stripe_pm_id);
     }
 
     public function test_balance_tier_blocks_inviting_additional_practitioner(): void

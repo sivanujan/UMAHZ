@@ -69,6 +69,13 @@ class StripePlatformBilling implements PlatformBilling
 
             if ($tenant->promoCode?->stripe_coupon_id) {
                 $builder->withCoupon($tenant->promoCode->stripe_coupon_id);
+            } elseif ($tenant->referred_by_tenant_id && app(\App\Services\ReferralService::class)->isEnabled()) {
+                $refService = app(\App\Services\ReferralService::class);
+                $refCouponId = $refService->createReferralDiscountCoupon($tenant->plan, $interval);
+                if ($refCouponId) {
+                    $builder->withCoupon($refCouponId);
+                    $tenant->referralReceived?->update(['stripe_coupon_id' => $refCouponId]);
+                }
             }
 
             if (($tenant->plan->trial_days ?? 0) > 0) {
