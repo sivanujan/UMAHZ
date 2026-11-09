@@ -463,6 +463,9 @@ export default function PaymentStep({ data, setData, tiers, plans = [] }) {
                         trialDays={trialDays}
                         subtotal={subtotal}
                         totalDue={totalDue}
+                        showLaunchPrice={selectedPlan ? Boolean(selectedPlan.show_launch_price) : Boolean(activeTiers[planTier]?.showLaunchPrice)}
+                        launchBadgeText={(selectedPlan ? selectedPlan.launch_badge_text : activeTiers[planTier]?.launchBadgeText) || 'Launch price'}
+                        originalPrice={(data.billing_interval || 'month') === 'year' ? (selectedPlan ? selectedPlan.original_price_annual : activeTiers[planTier]?.originalBasePrice) : (selectedPlan ? selectedPlan.original_price_monthly : activeTiers[planTier]?.originalBasePrice)}
                         showPromoInput={true}
                         promoInput={promoInput}
                         onPromoInputChange={setPromoInput}

@@ -246,13 +246,14 @@ class SubscriptionPlansSeeder extends Seeder
             AddOn::create([
                 'slug' => 'scribe_plus',
                 'name' => 'Scribe+',
-                'description' => 'Unlimited AI Scribe transcription and clinical note generation for your practitioners.',
+                'description' => '600 minutes/month AI Scribe transcription and clinical note generation for your practitioners.',
                 'billing_type' => 'per_seat',
                 'price_monthly' => 15.00,
                 'price_annual' => 150.00, // Annual placeholder
                 'config' => [
-                    'unlocks' => 'unlimited_scribe',
-                    'unit' => 'unlimited',
+                    'unlocks' => 'scribe_600m',
+                    'unit' => 'minutes',
+                    'amount' => 600,
                 ],
                 'is_active' => true,
                 'needs_review' => true,

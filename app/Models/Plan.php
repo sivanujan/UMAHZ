@@ -19,6 +19,10 @@ class Plan extends Model
         'tagline',
         'description',
         'badge',
+        'show_launch_price',
+        'launch_badge_text',
+        'original_price_monthly',
+        'original_price_annual',
         'is_active',
         'display_order',
         'trial_days',
@@ -38,6 +42,9 @@ class Plan extends Model
     ];
 
     protected $casts = [
+        'show_launch_price' => 'boolean',
+        'original_price_monthly' => 'decimal:2',
+        'original_price_annual' => 'decimal:2',
         'is_active' => 'boolean',
         'display_order' => 'integer',
         'trial_days' => 'integer',

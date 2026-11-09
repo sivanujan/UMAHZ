@@ -553,7 +553,7 @@ class PlanEntitlements
                     'streaming_billed_minutes' => $streamingBilledMinutes,
                     'allowance_minutes' => $allowanceMinutes,
                     'remaining_minutes' => 0.0,
-                    'reason' => "You have reached your monthly AI Scribe allowance ({$allowanceMinutes} mins) on {$tenant->plan->name}. Please upgrade to Scribe+ for unlimited minutes.",
+                    'reason' => "You have reached your monthly AI Scribe allowance ({$allowanceMinutes} mins) on {$tenant->plan->name}. Please upgrade to Scribe+ for 600 minutes/month.",
                 ];
             }
 

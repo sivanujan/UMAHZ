@@ -20,7 +20,10 @@ const DEFAULT_PLANS = [
         name: 'Essential',
         description: 'Everything you need to run your solo practice smoothly.',
         is_popular: false,
-        monthly_price: 39,
+        show_launch_price: true,
+        launch_badge_text: 'Launch price',
+        original_price_monthly: 39,
+        monthly_price: 35,
         annual_price: 390,
         annual_monthly_equivalent: 32.50,
         included_practitioners: 1,
@@ -282,6 +285,20 @@ export default function Pricing({ plans = [] }) {
                                         </p>
 
                                         <div className="mb-6">
+                                            {/* Launch Price Badge and Crossed-out Original Price */}
+                                            {plan.show_launch_price && (
+                                                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                                                        {plan.launch_badge_text || 'Launch price'}
+                                                    </span>
+                                                    {((!isAnnual && plan.original_price_monthly) || (isAnnual && plan.original_price_annual)) && (
+                                                        <span className="text-xs sm:text-sm line-through text-slate-400 dark:text-slate-400 font-semibold tabular-nums">
+                                                            ${Number(!isAnnual ? plan.original_price_monthly : (plan.original_price_annual / 12)).toFixed(0)}/mo
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+
                                             <div className="flex items-baseline gap-1.5">
                                                 <span className={`text-4xl sm:text-5xl font-bold tracking-normal ${isHighlighted ? 'text-white' : 'text-[#1E0B3C] dark:text-white'}`}>
                                                     ${price !== null && price !== undefined ? Number(price).toFixed(0) : '—'}

@@ -30,7 +30,12 @@ import {
     XCircle,
     Sparkles,
     Clock,
-    X
+    X,
+    Gift,
+    Copy,
+    Share2,
+    MessageCircle,
+    Mail
 } from 'lucide-react';
 
 function loadStripeJs() {
@@ -154,8 +159,11 @@ export default function Billing({
     practitioners = [],
     scribeAddon = null,
     scheduledPlanChange = null,
+    referrals = null,
 }) {
     const { flash, errors } = usePage().props;
+    const [copiedReferralLink, setCopiedReferralLink] = useState(false);
+    const [copiedReferralCode, setCopiedReferralCode] = useState(false);
     const [isChangePlanOpen, setIsChangePlanOpen] = useState(false);
     const [isUpdateCardOpen, setIsUpdateCardOpen] = useState(false);
     const [isScribeConfirmOpen, setIsScribeConfirmOpen] = useState(false);
@@ -611,7 +619,7 @@ export default function Billing({
                                 </span>
                             </div>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                Give individual practitioners unlimited AI Scribe minutes. Synced at your plan's {cadenceLabel.toLowerCase()} interval (+${isAnnual ? (scribeAddon?.price_annual || 150) : (scribeAddon?.price_monthly || 15)} CAD/seat/{isAnnual ? 'yr' : 'mo'}).
+                                Give individual practitioners 600 minutes/month AI Scribe allowance. Synced at your plan's {cadenceLabel.toLowerCase()} interval (+${isAnnual ? (scribeAddon?.price_annual || 150) : (scribeAddon?.price_monthly || 15)} CAD/seat/{isAnnual ? 'yr' : 'mo'}).
                             </p>
                         </div>
 
@@ -674,6 +682,209 @@ export default function Billing({
                         <p className="text-xs text-slate-500 italic">No eligible practitioners found in your clinic team.</p>
                     )}
                 </GlassCard>
+
+                {/* Referral Program Section */}
+                {referrals && (
+                    <GlassCard className="p-6 space-y-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200/50 dark:border-white/10">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
+                                    <Gift className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                                        Your Referral Link & Rewards
+                                    </h3>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                        Invite other clinic owners to UMAHZ. They get 50% off their first month, and you earn {referrals.reward_mode === 'plan_price' ? "one month of your plan's price" : `$${(referrals.fixed_amount / 100).toFixed(0)} CAD`} in subscription credit when they pay their first invoice.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="shrink-0">
+                                <StatusBadge variant={referrals.enabled ? 'success' : 'warning'}>
+                                    {referrals.enabled ? 'Program Active' : 'Program Paused'}
+                                </StatusBadge>
+                            </div>
+                        </div>
+
+                        {/* Referral Link & Code Bar */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                            <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/10 flex flex-col justify-between">
+                                <span className="text-[11px] font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">
+                                    Your Referral Code
+                                </span>
+                                <div className="flex items-center justify-between mt-2">
+                                    <span className="font-mono text-lg font-bold text-purple-600 dark:text-purple-400 tracking-wider">
+                                        {referrals.code || '—'}
+                                    </span>
+                                    <GlassButton
+                                        type="button"
+                                        size="sm"
+                                        variant="secondary"
+                                        onClick={() => {
+                                            if (!referrals.code) return;
+                                            navigator.clipboard.writeText(referrals.code);
+                                            setCopiedReferralCode(true);
+                                            setTimeout(() => setCopiedReferralCode(false), 2000);
+                                        }}
+                                        className="text-xs flex items-center gap-1.5"
+                                    >
+                                        {copiedReferralCode ? (
+                                            <>
+                                                <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                                <span>Copied</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Copy className="w-3.5 h-3.5" />
+                                                <span>Copy Code</span>
+                                            </>
+                                        )}
+                                    </GlassButton>
+                                </div>
+                            </div>
+
+                            <div className="lg:col-span-2 p-4 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/10 flex flex-col justify-between">
+                                <span className="text-[11px] font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">
+                                    Your Shareable Link
+                                </span>
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mt-2">
+                                    <input
+                                        type="text"
+                                        readOnly
+                                        value={referrals.link || ''}
+                                        className="w-full text-xs font-mono bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 select-all focus:outline-none"
+                                    />
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                        <GlassButton
+                                            type="button"
+                                            size="sm"
+                                            variant="primary"
+                                            onClick={() => {
+                                                if (!referrals.link) return;
+                                                navigator.clipboard.writeText(referrals.link);
+                                                setCopiedReferralLink(true);
+                                                setTimeout(() => setCopiedReferralLink(false), 2000);
+                                            }}
+                                            className="text-xs flex items-center gap-1.5"
+                                        >
+                                            {copiedReferralLink ? (
+                                                <>
+                                                    <Check className="w-3.5 h-3.5 text-emerald-300" />
+                                                    <span>Copied Link</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Copy className="w-3.5 h-3.5" />
+                                                    <span>Copy Link</span>
+                                                </>
+                                            )}
+                                        </GlassButton>
+                                        <a
+                                            href={`https://wa.me/?text=${encodeURIComponent(`Manage your clinic smarter with UMAHZ! Sign up with my link to get 50% off your first month: ${referrals.link}`)}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center justify-center p-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors"
+                                            title="Share via WhatsApp"
+                                        >
+                                            <MessageCircle className="w-4 h-4" />
+                                        </a>
+                                        <a
+                                            href={`mailto:?subject=${encodeURIComponent('Get 50% off UMAHZ clinic management')}&body=${encodeURIComponent(`Hi,\n\nI recommend UMAHZ for clinic management, electronic charting, and billing. Use my link to get 50% off your first month:\n\n${referrals.link}\n\nBest,`)}`}
+                                            className="inline-flex items-center justify-center p-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/30 transition-colors"
+                                            title="Share via Email"
+                                        >
+                                            <Mail className="w-4 h-4" />
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Referral Stats Summary */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="p-3.5 rounded-xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200/50 dark:border-purple-800/20">
+                                <div className="text-[11px] font-medium text-purple-700 dark:text-purple-300">Total Referred Clinics</div>
+                                <div className="text-xl font-bold text-slate-900 dark:text-white mt-1">
+                                    {referrals.total_referred ?? 0}
+                                </div>
+                            </div>
+                            <div className="p-3.5 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-200/50 dark:border-indigo-800/20">
+                                <div className="text-[11px] font-medium text-indigo-700 dark:text-indigo-300">Qualified Referrals</div>
+                                <div className="text-xl font-bold text-slate-900 dark:text-white mt-1">
+                                    {referrals.qualified_count ?? 0}
+                                </div>
+                            </div>
+                            <div className="p-3.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/20">
+                                <div className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">Total Credits Earned</div>
+                                <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                                    {referrals.rewards_earned_formatted || '$0.00 CAD'}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Referred Clinics Table */}
+                        <div className="space-y-2">
+                            <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                Referred Clinics
+                            </h4>
+                            {referrals.list && referrals.list.length > 0 ? (
+                                <div className="overflow-x-auto rounded-xl border border-slate-200/60 dark:border-white/10">
+                                    <GlassTable>
+                                        <GlassThead>
+                                            <GlassTr>
+                                                <GlassTh>Clinic Name</GlassTh>
+                                                <GlassTh>Date Joined</GlassTh>
+                                                <GlassTh>Status</GlassTh>
+                                                <GlassTh className="text-right">Credit Earned</GlassTh>
+                                            </GlassTr>
+                                        </GlassThead>
+                                        <GlassTbody>
+                                            {referrals.list.map((item) => (
+                                                <GlassTr key={item.id}>
+                                                    <GlassTd className="font-medium text-slate-900 dark:text-white">
+                                                        {item.clinic_name}
+                                                    </GlassTd>
+                                                    <GlassTd className="text-slate-500 dark:text-slate-400 text-xs">
+                                                        {item.created_at}
+                                                    </GlassTd>
+                                                    <GlassTd>
+                                                        <StatusBadge
+                                                            variant={
+                                                                item.status === 'rewarded'
+                                                                    ? 'success'
+                                                                    : item.status === 'qualified'
+                                                                    ? 'info'
+                                                                    : item.status === 'pending'
+                                                                    ? 'warning'
+                                                                    : 'danger'
+                                                            }
+                                                        >
+                                                            {item.status_label}
+                                                        </StatusBadge>
+                                                    </GlassTd>
+                                                    <GlassTd className="text-right font-medium text-slate-900 dark:text-white">
+                                                        {item.reward_amount_formatted || '—'}
+                                                    </GlassTd>
+                                                </GlassTr>
+                                            ))}
+                                        </GlassTbody>
+                                    </GlassTable>
+                                </div>
+                            ) : (
+                                <div className="p-6 rounded-xl bg-slate-50/50 dark:bg-white/[0.02] border border-dashed border-slate-200 dark:border-white/10 text-center">
+                                    <Share2 className="w-6 h-6 text-slate-400 mx-auto mb-2" />
+                                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                                        No clinics have signed up with your referral link yet.
+                                    </p>
+                                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                                        Share your link above to start earning referral credits toward your next subscription payment.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </GlassCard>
+                )}
 
                 {/* Invoices & Billing History Section */}
                 <GlassCard className="overflow-hidden">
@@ -1564,7 +1775,7 @@ function ScribeConfirmModal({
                         <p className="mt-0.5 text-slate-600 dark:text-slate-300 leading-relaxed">
                             {isRemovingOnly
                                 ? 'Review practitioner seat removals before updating your clinic subscription.'
-                                : 'Review license additions and confirm payment for unlimited AI Scribe.'}
+                                : 'Review license additions and confirm payment for 600 minutes/month AI Scribe.'}
                         </p>
                     </div>
                 </div>

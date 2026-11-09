@@ -73,6 +73,8 @@ class Tenant extends Model
         'name',
         'slug',
         'subdomain',
+        'referral_code',
+        'referred_by_tenant_id',
         'timezone',
         'currency',
         'tax_settings',
@@ -166,6 +168,59 @@ class Tenant extends Model
             'subdomain_released_at' => 'datetime',
             'documents_purged_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (Tenant $tenant) {
+            if (empty($tenant->referral_code)) {
+                $tenant->referral_code = static::generateReferralCode($tenant->slug ?? $tenant->name);
+            }
+        });
+    }
+
+    public static function generateReferralCode(?string $seed = ''): string
+    {
+        $prefix = strtoupper(substr(preg_replace('/[^A-Za-z]/', '', (string) $seed), 0, 4));
+        if (strlen($prefix) < 3) {
+            $prefix = 'CLIN';
+        }
+
+        $chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+        for ($i = 0; $i < 100; $i++) {
+            $suffix = '';
+            for ($j = 0; $j < 4; $j++) {
+                $suffix .= $chars[random_int(0, strlen($chars) - 1)];
+            }
+            $code = substr($prefix, 0, 4) . $suffix;
+            if (! static::where('referral_code', $code)->exists()) {
+                return $code;
+            }
+        }
+
+        return strtoupper(\Illuminate\Support\Str::random(8));
+    }
+
+    public function referrer(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Tenant::class, 'referred_by_tenant_id');
+    }
+
+    public function referralsGiven(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Referral::class, 'referrer_tenant_id');
+    }
+
+    public function referralReceived(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Referral::class, 'referred_tenant_id');
+    }
+
+    public function referralLink(): string
+    {
+        $central = config('tenancy.central_domain', 'umahz.com');
+        $scheme = app()->isLocal() ? 'http://' : 'https://';
+        return "{$scheme}{$central}/r/{$this->referral_code}";
     }
 
     public function maxReapplyAttempts(): int

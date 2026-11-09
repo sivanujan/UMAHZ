@@ -240,6 +240,46 @@ class ClinicBillingController extends Controller
             ];
         }
 
+        // 9. Referral program details for Clinic Owner
+        $referralService = app(\App\Services\ReferralService::class);
+        $referralsGiven = $tenant->referralsGiven()
+            ->with('referred')
+            ->orderByDesc('created_at')
+            ->get();
+
+        $totalReferred = $referralsGiven->count();
+        $qualifiedCount = $referralsGiven->whereIn('status', ['qualified', 'rewarded'])->count();
+        $rewardsEarnedTotal = (float) $referralsGiven->where('status', 'rewarded')->sum('reward_amount');
+
+        $referralData = [
+            'enabled' => $referralService->isEnabled(),
+            'code' => $tenant->referral_code,
+            'link' => $tenant->referralLink(),
+            'total_referred' => $totalReferred,
+            'qualified_count' => $qualifiedCount,
+            'rewards_earned_total' => $rewardsEarnedTotal,
+            'rewards_earned_formatted' => '$' . number_format($rewardsEarnedTotal, 2) . ' CAD',
+            'reward_mode' => $referralService->getReferrerRewardMode(),
+            'fixed_amount' => $referralService->getReferrerFixedAmount(),
+            'discount_percent' => $referralService->getNewClinicDiscountPercent(),
+            'list' => $referralsGiven->map(fn ($r) => [
+                'id' => $r->id,
+                'clinic_name' => $r->referred?->name ?? 'Referred Clinic',
+                'status' => $r->status,
+                'status_label' => match ($r->status) {
+                    'pending' => 'Pending First Invoice',
+                    'qualified' => 'Qualified (Processing)',
+                    'rewarded' => 'Rewarded',
+                    'cancelled' => 'Cancelled',
+                    default => ucfirst($r->status),
+                },
+                'reward_amount' => $r->reward_amount ? (float) $r->reward_amount : null,
+                'reward_amount_formatted' => $r->reward_amount ? '$' . number_format($r->reward_amount, 2) . ' CAD' : null,
+                'created_at' => $r->created_at?->format('M j, Y'),
+                'rewarded_at' => $r->rewarded_at?->format('M j, Y'),
+            ])->values()->all(),
+        ];
+
         return Inertia::render('Settings/Billing', [
             'tenant' => [
                 'id' => $tenant->id,
@@ -262,6 +302,7 @@ class ClinicBillingController extends Controller
             'practitioners' => $practitioners,
             'scribeAddon' => $scribeAddonData,
             'scheduledPlanChange' => $scheduledChangeData,
+            'referrals' => $referralData,
         ]);
     }
 

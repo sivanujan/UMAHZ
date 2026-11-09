@@ -61,6 +61,10 @@ class ClinicRegistrationController extends Controller
                 ->get()
         );
 
+        $initialReferralCode = request()->cookie('umahz_ref')
+            ?: request()->query('r')
+            ?: session('umahz_ref');
+
         return Inertia::render('Onboarding/Register', [
             'disciplines' => self::DISCIPLINES,
             'disciplineLabels' => Disciplines::FIXED_LABELS,
@@ -68,6 +72,7 @@ class ClinicRegistrationController extends Controller
             'provinces' => \App\Support\ClinicOptions::PROVINCES,
             'tiers' => [],
             'plans' => $plans,
+            'initialReferralCode' => $initialReferralCode ? strtoupper(trim($initialReferralCode)) : null,
         ]);
     }
 
@@ -321,7 +326,29 @@ class ClinicRegistrationController extends Controller
             'license_number' => ['required', 'string', 'max:100'],
             'licensing_body' => ['required', 'string', 'max:255'],
             'license_document' => ['required', 'file', 'extensions:pdf,jpg,jpeg,png', 'max:10240'],
+            'referral_code' => ['nullable', 'string', 'max:20'],
         ]);
+
+        if (! empty($data['referral_code'])) {
+            $refService = app(\App\Services\ReferralService::class);
+            if ($refService->isEnabled()) {
+                $referrer = $refService->findReferrerByCode($data['referral_code']);
+                if (! $referrer) {
+                    throw ValidationException::withMessages([
+                        'referral_code' => 'That referral code is invalid or does not exist.',
+                    ]);
+                }
+                $contactEmail = strtolower(trim((string) ($data['email'] ?? '')));
+                $referrerOwnerEmail = strtolower(trim((string) ($referrer->staffMemberships()->where('role', \App\Models\StaffMembership::ROLE_CLINIC_OWNER)->first()?->user?->email ?? '')));
+                if ($referrerOwnerEmail === $contactEmail || strtolower(trim((string) ($referrer->primary_contact_email ?? ''))) === $contactEmail) {
+                    throw ValidationException::withMessages([
+                        'referral_code' => 'A clinic cannot use its own referral code.',
+                    ]);
+                }
+            } else {
+                $data['referral_code'] = null;
+            }
+        }
 
         $data['part_time_practitioners_count'] = (int) ($data['part_time_practitioners_count'] ?? 0);
         $data['full_time_practitioners_count'] = (int) ($data['full_time_practitioners_count'] ?? 1);
@@ -671,6 +698,16 @@ class ClinicRegistrationController extends Controller
         Auth::login($user);
 
         $tenant = $user->tenants()->first();
+
+        $referralCode = $payload['referral_code']
+            ?? $request->input('referral_code')
+            ?? $request->cookie('umahz_ref')
+            ?? session('umahz_ref');
+
+        if (! empty($referralCode) && $tenant) {
+            app(\App\Services\ReferralService::class)->recordSignupReferral($tenant, $referralCode);
+        }
+
         $this->notifySafely($user, new ClinicApplicationReceivedNotification($tenant));
 
         // Registration happens on the central domain; the owner's application

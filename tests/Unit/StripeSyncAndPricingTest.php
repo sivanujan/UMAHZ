@@ -65,7 +65,20 @@ class StripeSyncAndPricingTest extends TestCase
     {
         $pro = Plan::where('slug', 'professional')->firstOrFail();
 
-        // 1. Initial state: seeded with needs_review = true for prices
+        // 1. Initial state: simulate placeholder prices with needs_review = true
+        $pro->monthlyPrice->update([
+            'needs_review' => true,
+            'needs_review_fields' => ['base_price', 'extra_practitioner_price'],
+            'stripe_base_price_id' => null,
+            'stripe_extra_seat_price_id' => null,
+        ]);
+        $pro->annualPrice->update([
+            'needs_review' => true,
+            'needs_review_fields' => ['base_price', 'extra_practitioner_price'],
+            'stripe_base_price_id' => null,
+            'stripe_extra_seat_price_id' => null,
+        ]);
+
         $this->syncService->syncPlan($pro);
         $pro->refresh();
 
@@ -217,7 +230,8 @@ class StripeSyncAndPricingTest extends TestCase
 
         // 2. Professional monthly with 3 practitioners
         // When extra seat price is under review: extra seats cost $0
-        $proBreakdownReview = DynamicPlanPricing::calculateBreakdown($pro, 'month', 3);
+        $pro->monthlyPrice->update(['needs_review' => true, 'needs_review_fields' => ['extra_practitioner_price']]);
+        $proBreakdownReview = DynamicPlanPricing::calculateBreakdown($pro->fresh(), 'month', 3);
         $this->assertEquals(69.00, $proBreakdownReview['base_price']);
         $this->assertSame(2, $proBreakdownReview['extra_practitioners_count']);
         $this->assertEquals(0.00, $proBreakdownReview['extra_practitioners_cost']);
@@ -295,6 +309,9 @@ class StripeSyncAndPricingTest extends TestCase
 
     public function test_artisan_sync_command_dry_run_and_execution(): void
     {
+        $pro = Plan::where('slug', 'professional')->firstOrFail();
+        $pro->monthlyPrice->update(['needs_review' => true, 'needs_review_fields' => ['base_price']]);
+
         // Dry-run should make zero calls to create products
         $this->artisan('billing:sync-stripe', ['--dry-run' => true])
             ->expectsOutputToContain('=== [DRY-RUN] Stripe Plans & Billing Synchronization ===')

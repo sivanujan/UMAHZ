@@ -73,9 +73,28 @@ class StripeWebhookController extends CashierWebhookController
             if ($tenant->scheduled_plan_id) {
                 app(\App\Http\Controllers\ClinicBillingController::class)->applyScheduledPlanIfDue($tenant, app(\App\Billing\PlatformBilling::class));
             }
+
+            $this->processInvoicePaidForReferral($tenant, $payload);
         }
 
         return $this->successMethod();
+    }
+
+    public function handleInvoicePaid(array $payload): Response
+    {
+        return $this->handleInvoicePaymentSucceeded($payload);
+    }
+
+    private function processInvoicePaidForReferral(Tenant $tenant, array $payload): void
+    {
+        $invoiceObject = $payload['data']['object'] ?? [];
+        $invoiceId = $invoiceObject['id'] ?? null;
+        $amountPaid = (int) ($invoiceObject['amount_paid'] ?? 0);
+
+        // Qualify and reward if invoice had real payment (> 0)
+        if ($amountPaid > 0) {
+            app(\App\Services\ReferralService::class)->qualifyAndRewardReferral($tenant, $invoiceId);
+        }
     }
 
     private function syncStatus(Tenant $tenant, string $stripeStatus): void

@@ -60,6 +60,12 @@ class PlatformSetting extends Model
             'default_appointment_limit_behavior' => 'warn',
             'default_scribe_limit_behavior' => 'warn',
             'default_location_limit_behavior' => 'block',
+
+            // Clinic Referral Program
+            'referrals.enabled' => true,
+            'referrals.new_clinic_discount_percent' => 50,
+            'referrals.referrer_reward_mode' => 'fixed', // 'fixed' or 'plan_price'
+            'referrals.referrer_fixed_amount' => 35.00,
         ];
     }
 

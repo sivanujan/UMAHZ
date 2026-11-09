@@ -93,19 +93,19 @@ class SubscriptionPlansSchemaTest extends TestCase
         $this->assertTrue($pro->needs_review);
         $this->assertEqualsCanonicalizing(['location_limit', 'scribe_allowance_amount'], $pro->needs_review_fields);
         $this->assertSame(3, $pro->location_limit);
-        $this->assertTrue($pro->monthlyPrice->needs_review);
-        $this->assertSame(['extra_practitioner_price'], $pro->monthlyPrice->needs_review_fields);
-        $this->assertTrue($pro->annualPrice->needs_review);
-        $this->assertSame(['extra_practitioner_price'], $pro->annualPrice->needs_review_fields);
+        $this->assertFalse($pro->monthlyPrice->needs_review);
+        $this->assertNull($pro->monthlyPrice->needs_review_fields);
+        $this->assertFalse($pro->annualPrice->needs_review);
+        $this->assertNull($pro->annualPrice->needs_review_fields);
 
         $sig = Plan::where('slug', 'signature')->firstOrFail();
         $this->assertTrue($sig->needs_review);
         $this->assertSame(['scribe_allowance_amount'], $sig->needs_review_fields);
         $this->assertNull($sig->location_limit);
-        $this->assertTrue($sig->monthlyPrice->needs_review);
-        $this->assertSame(['extra_practitioner_price'], $sig->monthlyPrice->needs_review_fields);
-        $this->assertTrue($sig->annualPrice->needs_review);
-        $this->assertSame(['extra_practitioner_price'], $sig->annualPrice->needs_review_fields);
+        $this->assertFalse($sig->monthlyPrice->needs_review);
+        $this->assertNull($sig->monthlyPrice->needs_review_fields);
+        $this->assertFalse($sig->annualPrice->needs_review);
+        $this->assertNull($sig->annualPrice->needs_review_fields);
 
         $scribePlus = AddOn::where('slug', 'scribe_plus')->firstOrFail();
         $this->assertEquals('15.00', $scribePlus->price_monthly);
