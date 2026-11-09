@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from '@inertiajs/react';
-import { Receipt, Plus, CreditCard, AlertCircle } from 'lucide-react';
+import { Receipt, Plus, CreditCard, AlertCircle, Package } from 'lucide-react';
 import NewInvoiceModal from '@/Components/Billing/NewInvoiceModal';
 
 const fmt = (cents, currency = 'CAD') => `${currency} $${(cents / 100).toFixed(2)}`;
@@ -14,6 +14,7 @@ const STATUS_STYLES = {
 
 export default function BillingSection({ clientId, invoices = [], canBill = false, canAcceptCards = false, appointments = [] }) {
     const [creating, setCreating] = useState(false);
+    const [modalMode, setModalMode] = useState('standard');
 
     return (
         <div
@@ -39,14 +40,30 @@ export default function BillingSection({ clientId, invoices = [], canBill = fals
                 </div>
 
                 {canBill && (
-                    <button
-                        type="button"
-                        onClick={() => setCreating(true)}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition"
-                    >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>New Invoice</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setModalMode('products');
+                                setCreating(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 text-violet-700 dark:text-violet-300 text-xs font-bold transition"
+                        >
+                            <Package className="w-3.5 h-3.5" />
+                            <span>Sell Products</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setModalMode('standard');
+                                setCreating(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition"
+                        >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>New Invoice</span>
+                        </button>
+                    </div>
                 )}
             </div>
 
@@ -62,9 +79,29 @@ export default function BillingSection({ clientId, invoices = [], canBill = fals
                     <Receipt className="w-8 h-8 mx-auto mb-2 opacity-40 text-slate-400" />
                     <p>No invoices for this client yet.</p>
                     {canBill && (
-                        <button type="button" onClick={() => setCreating(true)} className="mt-2 text-emerald-600 hover:underline font-semibold">
-                            Create first invoice
-                        </button>
+                        <div className="mt-3 flex items-center justify-center gap-3">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setModalMode('products');
+                                    setCreating(true);
+                                }}
+                                className="text-violet-600 dark:text-violet-400 hover:underline font-semibold"
+                            >
+                                Sell products
+                            </button>
+                            <span className="text-slate-300">•</span>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setModalMode('standard');
+                                    setCreating(true);
+                                }}
+                                className="text-emerald-600 hover:underline font-semibold"
+                            >
+                                Create first invoice
+                            </button>
+                        </div>
                     )}
                 </div>
             ) : (
@@ -103,7 +140,12 @@ export default function BillingSection({ clientId, invoices = [], canBill = fals
             )}
 
             {creating && (
-                <NewInvoiceModal clientId={clientId} appointments={appointments} onClose={() => setCreating(false)} />
+                <NewInvoiceModal
+                    clientId={clientId}
+                    appointments={appointments}
+                    initialMode={modalMode}
+                    onClose={() => setCreating(false)}
+                />
             )}
         </div>
     );

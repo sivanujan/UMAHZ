@@ -228,12 +228,17 @@ class InsuranceClaimController extends Controller
             $payment->save();
 
             // 4. Update invoice paid amount and status
+            $wasPaidBefore = $lockedInvoice->isPaid();
             $lockedInvoice->amount_paid = (int) $lockedInvoice->amount_paid + $paymentAmount;
             if ($lockedInvoice->amount_paid >= (int) $lockedInvoice->total_amount && ! $lockedInvoice->isVoid()) {
                 $lockedInvoice->status = Invoice::STATUS_PAID;
                 $lockedInvoice->paid_at = now();
             }
             $lockedInvoice->save();
+
+            if (! $wasPaidBefore && $lockedInvoice->isPaid()) {
+                app(\App\Services\InventoryService::class)->deductForInvoice($lockedInvoice, $request->user());
+            }
 
             // 5. Audit Log (Never log full policy or member numbers!)
             AuditEvent::create([

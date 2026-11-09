@@ -52,7 +52,7 @@ class PaymentService
             $payment->tenant_id = $locked->tenant_id;
             $payment->save();
 
-            $this->applySucceededPayment($locked, $amount);
+            $this->applySucceededPayment($locked, $amount, $actor);
 
             // Send payment receipt email
             if ($locked->client?->email) {
@@ -149,7 +149,7 @@ class PaymentService
                 ->first();
 
             if ($invoice) {
-                $this->applySucceededPayment($invoice, (int) $payment->amount);
+                $this->applySucceededPayment($invoice, (int) $payment->amount, $payment->recordedBy);
 
                 // Dispatch payment receipt email
                 if ($invoice->client?->email) {
@@ -201,8 +201,9 @@ class PaymentService
      * Apply a succeeded payment amount to an invoice and mark it paid once the
      * balance reaches zero. The invoice row is expected to be locked already.
      */
-    private function applySucceededPayment(Invoice $invoice, int $amount): void
+    private function applySucceededPayment(Invoice $invoice, int $amount, ?User $actor = null): void
     {
+        $wasPaidBefore = $invoice->isPaid();
         $invoice->amount_paid = (int) $invoice->amount_paid + $amount;
 
         if ($invoice->amount_paid >= (int) $invoice->total_amount && ! $invoice->isVoid()) {
@@ -211,5 +212,9 @@ class PaymentService
         }
 
         $invoice->save();
+
+        if (! $wasPaidBefore && $invoice->isPaid()) {
+            app(\App\Services\InventoryService::class)->deductForInvoice($invoice, $actor);
+        }
     }
 }

@@ -38,6 +38,8 @@ class InvoiceController extends Controller
             'discount_amount' => ['nullable', 'integer', 'min:0'],
             'status' => ['nullable', Rule::in([Invoice::STATUS_DRAFT, Invoice::STATUS_OPEN])],
             'line_items' => ['required', 'array', 'min:1'],
+            'line_items.*.product_id' => ['nullable', 'uuid', Rule::exists('products', 'id')->where('tenant_id', $tenant->id)],
+            'line_items.*.product_variant_id' => ['nullable', 'uuid', Rule::exists('product_variants', 'id')->where('tenant_id', $tenant->id)],
             'line_items.*.description' => ['required', 'string', 'max:255'],
             'line_items.*.quantity' => ['required', 'integer', 'min:1', 'max:100000'],
             'line_items.*.unit_amount' => ['required', 'integer', 'min:0'],
@@ -308,6 +310,12 @@ class InvoiceController extends Controller
 
                 return [
                     'id' => $li->id,
+                    'product_id' => $li->product_id,
+                    'product_variant_id' => $li->product_variant_id,
+                    'product_name' => $li->product_name_snapshot,
+                    'variant_name' => $li->variant_name_snapshot,
+                    'product_tax_rate' => $li->product_tax_rate_snapshot,
+                    'is_product' => $li->isProduct(),
                     'description' => $desc,
                     'quantity' => $li->quantity,
                     'unit_amount' => $li->unit_amount,

@@ -53,9 +53,55 @@ class InvoiceService
                 $subtotal += $lineTotal;
                 $taxTotal += $lineTax;
 
+                $productId = $item['product_id'] ?? null;
+                $variantId = $item['product_variant_id'] ?? null;
+                $productNameSnapshot = null;
+                $variantNameSnapshot = null;
+                $productTaxRateSnapshot = null;
+                $description = (string) $item['description'];
+
+                if (! empty($productId)) {
+                    $product = \App\Models\Product::withoutGlobalScopes()
+                        ->where('tenant_id', $tenant->id)
+                        ->find($productId);
+
+                    if ($product) {
+                        $productNameSnapshot = $product->name;
+                        $productTaxRateSnapshot = $product->taxable ? $product->tax_rate : null;
+
+                        $variant = null;
+                        if (! empty($variantId)) {
+                            $variant = \App\Models\ProductVariant::withoutGlobalScopes()
+                                ->where('tenant_id', $tenant->id)
+                                ->where('product_id', $product->id)
+                                ->find($variantId);
+                        }
+
+                        if (! $variant) {
+                            $variant = $product->defaultVariant();
+                        }
+
+                        if ($variant) {
+                            $variantId = $variant->id;
+                            $variantNameSnapshot = $variant->name;
+                            if (! empty($variantNameSnapshot) && ! str_contains($description, $variantNameSnapshot)) {
+                                $description = "{$productNameSnapshot} - {$variantNameSnapshot}";
+                            }
+                        }
+                    } else {
+                        $productId = null;
+                        $variantId = null;
+                    }
+                }
+
                 $normalizedItems[] = [
                     'tenant_id' => $tenant->id,
-                    'description' => (string) $item['description'],
+                    'product_id' => $productId,
+                    'product_variant_id' => $variantId,
+                    'product_name_snapshot' => $productNameSnapshot,
+                    'variant_name_snapshot' => $variantNameSnapshot,
+                    'product_tax_rate_snapshot' => $productTaxRateSnapshot,
+                    'description' => $description,
                     'quantity' => $quantity,
                     'unit_amount' => $unit,
                     'tax_amount' => $lineTax,
@@ -105,10 +151,6 @@ class InvoiceService
      */
     public function void(Invoice $invoice, string $reason, ?User $actor = null): Invoice
     {
-        if ($invoice->isPaid()) {
-            throw new RuntimeException('A paid invoice cannot be voided; issue a refund instead.');
-        }
-
         if ($invoice->isVoid()) {
             return $invoice;
         }
@@ -118,6 +160,8 @@ class InvoiceService
             'voided_at' => now(),
             'void_reason' => $reason,
         ])->save();
+
+        app(\App\Services\InventoryService::class)->restoreForInvoice($invoice, $actor);
 
         return $invoice;
     }
