@@ -32,6 +32,7 @@ import {
     BellRing,
     CheckCheck,
     Lock,
+    Package,
 } from 'lucide-react';
 import { ThemeProvider, useTheme } from '@/Contexts/ThemeContext';
 import AuroraBackground from '@/Components/AuroraBackground';
@@ -295,6 +296,7 @@ function TopNavShell({ children, title }) {
     }, []);
 
     const isOwnerOrAdmin = user?.role === 'clinic_owner' || user?.is_platform_admin;
+    const canViewProducts = isOwnerOrAdmin || user?.role === 'receptionist' || user?.role === 'practitioner';
     const appointmentsHref = user?.role === 'practitioner' ? '/app/practitioner/appointments' : '/app/calendar';
 
     const lockedFeatures = entitlements?.locked_features || {};
@@ -311,10 +313,11 @@ function TopNavShell({ children, title }) {
 
     // Secondary items under "More" dropdown
     const moreNav = [
-        { name: 'Clinic Settings', href: '/app/settings', icon: Building2, desc: 'Profile, disciplines & logo' },
-        { name: 'Subscription & Billing', href: '/app/billing', icon: CreditCard, desc: 'Plans, seats & invoices' },
-        { name: 'Connect payments', href: '/app/settings/payments', icon: Wallet, desc: 'Stripe gateway & payouts' },
-    ].filter(() => isOwnerOrAdmin);
+        { name: 'Products & Supplies', href: '/app/products', icon: Package, desc: 'Herbs, oils, tape & supplies', show: canViewProducts },
+        { name: 'Clinic Settings', href: '/app/settings', icon: Building2, desc: 'Profile, disciplines & logo', show: isOwnerOrAdmin },
+        { name: 'Subscription & Billing', href: '/app/billing', icon: CreditCard, desc: 'Plans, seats & invoices', show: isOwnerOrAdmin },
+        { name: 'Connect payments', href: '/app/settings/payments', icon: Wallet, desc: 'Stripe gateway & payouts', show: isOwnerOrAdmin },
+    ].filter((item) => item.show !== false);
 
     const isMoreActive = moreNav.some((item) => isActive(currentUrl, item.href));
 

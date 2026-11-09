@@ -36,6 +36,8 @@ use App\Http\Controllers\PatientBilling\PatientPayController;
 use App\Http\Controllers\PatientBilling\PaymentController;
 use App\Http\Controllers\Portal\SettingsController;
 use App\Http\Controllers\PractitionerAppointmentController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductReportController;
 use App\Http\Controllers\ClinicHomeController;
 use App\Http\Controllers\PublicIntakeController;
 use App\Http\Controllers\ReportController;
@@ -400,6 +402,16 @@ Route::domain('{tenant}.' . $central)->where(['tenant' => '[a-z0-9-]+'])->group(
             Route::post('/invoices/{invoice}/insurance-claims/{claim}/mark-paid', [InsuranceClaimController::class, 'markPaymentReceived'])->name('invoices.insurance-claims.mark-paid');
         });
 
+        // Products catalog & inventory management (Owner + Receptionist manage; Practitioners read-only)
+        Route::get('/products', [ProductController::class, 'index'])->name('products.index');
+        Route::get('/products/search', [ProductController::class, 'search'])->name('products.search');
+        Route::middleware('staff.role:clinic_owner,receptionist')->group(function () {
+            Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+            Route::match(['post', 'put', 'patch'], '/products/{product}', [ProductController::class, 'update'])->name('products.update');
+            Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+            Route::post('/products/{product}/adjust-stock', [ProductController::class, 'adjustStock'])->name('products.adjust-stock');
+        });
+
         // Client consent capture & management — available to active clinic staff
         Route::post('/clients/{client}/consents', [ConsentController::class, 'store'])->name('clients.consents.store');
         Route::get('/consents/{consent}', [ConsentController::class, 'show'])->name('consents.show');
@@ -480,6 +492,10 @@ Route::domain('{tenant}.' . $central)->where(['tenant' => '[a-z0-9-]+'])->group(
             Route::get('/retention/export', [ReportController::class, 'exportRetention'])->name('retention.export');
             Route::get('/utilization', [ReportController::class, 'utilization'])->name('utilization');
             Route::get('/utilization/export', [ReportController::class, 'exportUtilization'])->name('utilization.export');
+
+            Route::middleware('staff.role:clinic_owner,receptionist')->group(function () {
+                Route::get('/products', [ProductReportController::class, 'index'])->name('products');
+            });
 
             // Financial & Revenue reporting — strictly owner-only (enforced via middleware & policy)
             Route::middleware(['staff.role:clinic_owner', 'feature:advanced_financial_reporting'])->group(function () {

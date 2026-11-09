@@ -53,8 +53,28 @@ class InvoiceService
                 $subtotal += $lineTotal;
                 $taxTotal += $lineTax;
 
+                $productId = $item['product_id'] ?? null;
+                $productNameSnapshot = null;
+                $productTaxRateSnapshot = null;
+
+                if (! empty($productId)) {
+                    $product = \App\Models\Product::withoutGlobalScopes()
+                        ->where('tenant_id', $tenant->id)
+                        ->find($productId);
+
+                    if ($product) {
+                        $productNameSnapshot = $product->name;
+                        $productTaxRateSnapshot = $product->taxable ? $product->tax_rate : null;
+                    } else {
+                        $productId = null;
+                    }
+                }
+
                 $normalizedItems[] = [
                     'tenant_id' => $tenant->id,
+                    'product_id' => $productId,
+                    'product_name_snapshot' => $productNameSnapshot,
+                    'product_tax_rate_snapshot' => $productTaxRateSnapshot,
                     'description' => (string) $item['description'],
                     'quantity' => $quantity,
                     'unit_amount' => $unit,
@@ -105,10 +125,6 @@ class InvoiceService
      */
     public function void(Invoice $invoice, string $reason, ?User $actor = null): Invoice
     {
-        if ($invoice->isPaid()) {
-            throw new RuntimeException('A paid invoice cannot be voided; issue a refund instead.');
-        }
-
         if ($invoice->isVoid()) {
             return $invoice;
         }
@@ -118,6 +134,8 @@ class InvoiceService
             'voided_at' => now(),
             'void_reason' => $reason,
         ])->save();
+
+        app(\App\Services\InventoryService::class)->restoreForInvoice($invoice, $actor);
 
         return $invoice;
     }

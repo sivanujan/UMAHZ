@@ -17,6 +17,7 @@ import {
     Printer,
     SlidersHorizontal,
     FileText,
+    Package,
 } from 'lucide-react';
 
 const PRESETS = [
@@ -119,6 +120,13 @@ export default function ReportLayout({
             label: 'Capacity Utilization',
             href: '/app/reports/utilization',
             icon: Clock,
+            enabled: true,
+        },
+        {
+            id: 'products',
+            label: 'Product Sales',
+            href: '/app/reports/products',
+            icon: Package,
             enabled: true,
         },
     ];

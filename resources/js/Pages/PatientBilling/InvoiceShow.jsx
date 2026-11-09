@@ -133,7 +133,21 @@ export default function InvoiceShow({ invoice, canAcceptCards, stripePublishable
                             <tbody>
                                 {invoice.line_items.map((li) => (
                                     <tr key={li.id} className="border-b last:border-0" style={{ borderColor: 'var(--umahz-border)' }}>
-                                        <td className="py-2.5 pr-4 text-slate-700 dark:text-slate-200">{li.description}</td>
+                                        <td className="py-2.5 pr-4 text-slate-700 dark:text-slate-200">
+                                            <div className="flex items-center gap-2">
+                                                <span>{li.description}</span>
+                                                {li.is_product && (
+                                                    <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300">
+                                                        Product
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {li.tax_amount > 0 && (
+                                                <p className="text-[10px] text-slate-400">
+                                                    Tax: {fmt(li.tax_amount, currency)} {li.product_tax_rate ? `(${li.product_tax_rate}%)` : ''}
+                                                </p>
+                                            )}
+                                        </td>
                                         <td className="py-2.5 pr-4 text-center text-slate-500">{li.quantity}</td>
                                         <td className="py-2.5 pr-4 text-right text-slate-500">{fmt(li.unit_amount, currency)}</td>
                                         <td className="py-2.5 text-right text-slate-700 dark:text-slate-200">{fmt(li.total_amount, currency)}</td>
@@ -141,6 +155,13 @@ export default function InvoiceShow({ invoice, canAcceptCards, stripePublishable
                                 ))}
                             </tbody>
                         </table>
+
+                        {invoice.line_items?.some((li) => li.is_product || li.product_id) && Number(invoice.amount_paid) > 0 && Number(invoice.amount_due) > 0 && invoice.status !== 'paid' && invoice.status !== 'void' && (
+                            <div className="mt-4 p-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/30 flex items-center gap-2.5 text-xs text-amber-800 dark:text-amber-300">
+                                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                                <span>Stock will be updated when the invoice is fully paid.</span>
+                            </div>
+                        )}
 
                         <div className="mt-4 ml-auto max-w-xs text-sm space-y-1">
                             <Row label="Subtotal" value={fmt(invoice.subtotal_amount, currency)} />

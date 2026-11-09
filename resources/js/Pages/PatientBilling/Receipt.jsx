@@ -130,15 +130,36 @@ export default function Receipt({ invoice, clinic = {} }) {
                                 <tr className="text-[10px] uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800">
                                     <th className="py-2">Description</th>
                                     <th className="py-2 text-center">Qty</th>
+                                    <th className="py-2 text-right">Unit Price</th>
                                     <th className="py-2 text-right">Amount</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {invoice.line_items.map((li) => (
-                                    <tr key={li.id} className="border-b last:border-0 border-slate-100 dark:border-slate-800">
-                                        <td className="py-2 text-slate-700 dark:text-slate-200">{li.description}</td>
-                                        <td className="py-2 text-center text-slate-500">{li.quantity}</td>
-                                        <td className="py-2 text-right text-slate-700 dark:text-slate-200">{fmt(li.total_amount, currency)}</td>
+                                    <tr key={li.id} className="border-b last:border-0 border-slate-100 dark:border-slate-800 align-top">
+                                        <td className="py-2.5 text-slate-700 dark:text-slate-200">
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                {li.is_product && (
+                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800">
+                                                        Product
+                                                    </span>
+                                                )}
+                                                <span className="font-medium">{li.description}</span>
+                                            </div>
+                                            {li.tax_amount > 0 && (
+                                                <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                                                    Includes tax: {fmt(li.tax_amount, currency)}
+                                                    {li.product_tax_rate ? ` (${Number(li.product_tax_rate)}%)` : ''}
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="py-2.5 text-center text-slate-500">{li.quantity}</td>
+                                        <td className="py-2.5 text-right text-slate-500 font-mono text-xs">
+                                            {fmt(li.unit_amount, currency)}
+                                        </td>
+                                        <td className="py-2.5 text-right font-medium text-slate-800 dark:text-slate-100 font-mono text-xs">
+                                            {fmt(li.total_amount, currency)}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>

@@ -18,6 +18,9 @@ class InvoiceLineItem extends Model
     protected $fillable = [
         'tenant_id',
         'invoice_id',
+        'product_id',
+        'product_name_snapshot',
+        'product_tax_rate_snapshot',
         'description',
         'quantity',
         'unit_amount',
@@ -34,11 +37,22 @@ class InvoiceLineItem extends Model
             'tax_amount' => 'integer',
             'total_amount' => 'integer',
             'sort_order' => 'integer',
+            'product_tax_rate_snapshot' => 'decimal:2',
         ];
     }
 
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+
+    public function isProduct(): bool
+    {
+        return ! empty($this->product_id) || ! empty($this->product_name_snapshot);
     }
 }

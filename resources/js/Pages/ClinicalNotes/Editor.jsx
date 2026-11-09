@@ -664,9 +664,3 @@ export default function ClinicalNoteEditor({
         </AuthenticatedLayout>
     );
 }
-        </AuthenticatedLayout >
-    );
-}
-        </AuthenticatedLayout >
-    );
-}
