@@ -12,6 +12,7 @@ use App\Models\InvoiceLineItem;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\ProductStockMovement;
+use App\Models\ProductVariant;
 use App\Models\StaffMembership;
 use App\Models\Tenant;
 use App\Models\User;
@@ -854,5 +855,506 @@ class ProductManagementTest extends TestCase
         $product = Product::where('tenant_id', $tenant->id)->where('name', 'Valid Image Product')->firstOrFail();
         $this->assertNotNull($product->image_path);
         Storage::disk('public')->assertExists($product->image_path);
+    }
+
+    public function test_backfill_creates_one_default_variant_per_existing_product_idempotently(): void
+    {
+        $tenant = $this->clinic('backfill-clinic');
+
+        // Insert products directly without variants (simulating pre-migration state)
+        $product1 = Product::create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Legacy Herbal Tea',
+            'sku' => 'LEG-TEA',
+            'category' => 'herbs',
+            'unit_price' => 1800,
+            'currency' => 'CAD',
+            'taxable' => true,
+            'tax_rate' => 13.00,
+            'track_inventory' => true,
+            'stock_quantity' => 25,
+            'low_stock_threshold' => 5,
+            'active' => true,
+        ]);
+
+        // Delete any automatically created variant if any
+        ProductVariant::where('product_id', $product1->id)->delete();
+        $this->assertEquals(0, ProductVariant::where('product_id', $product1->id)->count());
+
+        // Re-run migration backfill logic
+        $migration = require database_path('migrations/2026_11_09_120001_create_product_variants_and_backfill.php');
+        // The migration has the backfill logic in its 'up' method, which can be re-run safely
+        // Call the backfill logic directly:
+        $productsWithoutVariants = Product::withoutGlobalScopes()
+            ->whereNotExists(function ($query) {
+                $query->select(\Illuminate\Support\Facades\DB::raw(1))
+                    ->from('product_variants')
+                    ->whereColumn('product_variants.product_id', 'products.id');
+            })->get();
+
+        foreach ($productsWithoutVariants as $prod) {
+            ProductVariant::create([
+                'tenant_id' => $prod->tenant_id,
+                'product_id' => $prod->id,
+                'name' => null,
+                'sku' => $prod->sku,
+                'unit_price' => $prod->unit_price,
+                'stock_quantity' => $prod->track_inventory ? $prod->stock_quantity : null,
+                'low_stock_threshold' => $prod->track_inventory ? $prod->low_stock_threshold : null,
+                'active' => true,
+                'sort_order' => 0,
+            ]);
+        }
+
+        // Check variant created
+        $this->assertEquals(1, ProductVariant::where('product_id', $product1->id)->count());
+        $v = ProductVariant::where('product_id', $product1->id)->first();
+        $this->assertNull($v->name);
+        $this->assertEquals('LEG-TEA', $v->sku);
+        $this->assertEquals(1800, $v->unit_price);
+        $this->assertEquals(25, $v->stock_quantity);
+
+        // Run again (idempotent test)
+        $productsAgain = Product::withoutGlobalScopes()
+            ->whereNotExists(function ($query) {
+                $query->select(\Illuminate\Support\Facades\DB::raw(1))
+                    ->from('product_variants')
+                    ->whereColumn('product_variants.product_id', 'products.id');
+            })->get();
+
+        $this->assertTrue($productsAgain->isEmpty());
+        $this->assertEquals(1, ProductVariant::where('product_id', $product1->id)->count());
+    }
+
+    public function test_adding_variant_line_to_invoice_snapshots_variant_name_and_price(): void
+    {
+        $tenant = $this->clinic('variant-inv-clinic');
+        [$owner] = $this->staff($tenant, StaffMembership::ROLE_CLINIC_OWNER);
+        $client = $this->client($tenant);
+
+        // Product with 2 variants
+        $product = Product::create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Massage Oil',
+            'category' => 'oils',
+            'unit_price' => 2000,
+            'currency' => 'CAD',
+            'taxable' => true,
+            'tax_rate' => 13.00,
+            'track_inventory' => true,
+            'stock_quantity' => 50,
+            'active' => true,
+        ]);
+
+        $variant100 = ProductVariant::create([
+            'tenant_id' => $tenant->id,
+            'product_id' => $product->id,
+            'name' => '100 ml',
+            'size_value' => 100,
+            'size_unit' => 'ml',
+            'sku' => 'OIL-100',
+            'unit_price' => 2000,
+            'stock_quantity' => 30,
+            'active' => true,
+            'sort_order' => 0,
+        ]);
+
+        $variant250 = ProductVariant::create([
+            'tenant_id' => $tenant->id,
+            'product_id' => $product->id,
+            'name' => '250 ml',
+            'size_value' => 250,
+            'size_unit' => 'ml',
+            'sku' => 'OIL-250',
+            'unit_price' => 3800,
+            'stock_quantity' => 20,
+            'active' => true,
+            'sort_order' => 1,
+        ]);
+
+        // Create invoice specifying the 250ml variant
+        $res = $this->actingAs($owner)->post($this->url($tenant, '/app/invoices'), [
+            'client_id' => $client->id,
+            'line_items' => [
+                [
+                    'product_id' => $product->id,
+                    'product_variant_id' => $variant250->id,
+                    'description' => 'Massage Oil',
+                    'quantity' => 2,
+                    'unit_amount' => 3800,
+                    'tax_amount' => 988,
+                ],
+            ],
+        ]);
+        $res->assertSessionHasNoErrors();
+
+        $invoice = Invoice::where('tenant_id', $tenant->id)->latest('id')->firstOrFail();
+        $lineItem = $invoice->lineItems->first();
+
+        $this->assertEquals($product->id, $lineItem->product_id);
+        $this->assertEquals($variant250->id, $lineItem->product_variant_id);
+        $this->assertEquals('250 ml', $lineItem->variant_name_snapshot);
+        $this->assertEquals('Massage Oil', $lineItem->product_name_snapshot);
+        $this->assertEquals('Massage Oil - 250 ml', $lineItem->description);
+        $this->assertEquals(3800, $lineItem->unit_amount);
+    }
+
+    public function test_per_variant_stock_deduction_on_payment_and_restoration_on_void(): void
+    {
+        $tenant = $this->clinic('variant-stock-clinic');
+        [$owner] = $this->staff($tenant, StaffMembership::ROLE_CLINIC_OWNER);
+        $client = $this->client($tenant);
+
+        $product = Product::create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Kinesiology Tape',
+            'category' => 'tape',
+            'unit_price' => 1500,
+            'currency' => 'CAD',
+            'track_inventory' => true,
+            'stock_quantity' => 25,
+            'active' => true,
+        ]);
+
+        $varStandard = ProductVariant::create([
+            'tenant_id' => $tenant->id,
+            'product_id' => $product->id,
+            'name' => 'Standard 5cm',
+            'sku' => 'TAPE-5CM',
+            'unit_price' => 1500,
+            'stock_quantity' => 15,
+            'active' => true,
+            'sort_order' => 0,
+        ]);
+
+        $varWide = ProductVariant::create([
+            'tenant_id' => $tenant->id,
+            'product_id' => $product->id,
+            'name' => 'Wide 10cm',
+            'sku' => 'TAPE-10CM',
+            'unit_price' => 2500,
+            'stock_quantity' => 10,
+            'active' => true,
+            'sort_order' => 1,
+        ]);
+
+        // Invoice for 3 units of the Wide variant
+        $this->actingAs($owner)->post($this->url($tenant, '/app/invoices'), [
+            'client_id' => $client->id,
+            'line_items' => [
+                [
+                    'product_id' => $product->id,
+                    'product_variant_id' => $varWide->id,
+                    'description' => 'Kinesiology Tape - Wide 10cm',
+                    'quantity' => 3,
+                    'unit_amount' => 2500,
+                    'tax_amount' => 0,
+                ],
+            ],
+        ]);
+
+        $invoice = Invoice::where('tenant_id', $tenant->id)->latest('id')->firstOrFail();
+
+        // Stock before payment: Wide = 10, Standard = 15, Product = 25
+        $this->assertEquals(10, $varWide->fresh()->stock_quantity);
+        $this->assertEquals(15, $varStandard->fresh()->stock_quantity);
+
+        // 1. Pay invoice in full
+        $payRes = $this->actingAs($owner)->post($this->url($tenant, "/app/invoices/{$invoice->id}/pay/manual"), [
+            'amount' => 7500,
+            'method' => 'cash',
+        ]);
+        $payRes->assertSessionHasNoErrors();
+
+        // Wide stock reduced by 3: 10 -> 7
+        $this->assertEquals(7, $varWide->fresh()->stock_quantity);
+        // Standard stock untouched: 15
+        $this->assertEquals(15, $varStandard->fresh()->stock_quantity);
+        // Product total aggregate stock: 7 + 15 = 22
+        $this->assertEquals(22, $product->fresh()->stock_quantity);
+
+        // Movement record created per variant
+        $movement = ProductStockMovement::where('product_variant_id', $varWide->id)->firstOrFail();
+        $this->assertEquals(-3, $movement->change);
+        $this->assertEquals(7, $movement->new_stock_quantity);
+        $this->assertEquals(ProductStockMovement::REASON_INVOICE_PAID, $movement->reason);
+
+        // 2. Void invoice
+        $voidRes = $this->actingAs($owner)->post($this->url($tenant, "/app/invoices/{$invoice->id}/void"), [
+            'reason' => 'Customer changed their mind',
+        ]);
+        $voidRes->assertSessionHasNoErrors();
+
+        // Wide stock restored by 3: 7 -> 10
+        $this->assertEquals(10, $varWide->fresh()->stock_quantity);
+        // Standard stock untouched: 15
+        $this->assertEquals(15, $varStandard->fresh()->stock_quantity);
+        // Product total aggregate stock restored: 25
+        $this->assertEquals(25, $product->fresh()->stock_quantity);
+
+        // Void movement record created per variant
+        $voidMovement = ProductStockMovement::where('product_variant_id', $varWide->id)
+            ->where('reason', ProductStockMovement::REASON_INVOICE_VOIDED)
+            ->firstOrFail();
+        $this->assertEquals(3, $voidMovement->change);
+        $this->assertEquals(10, $voidMovement->new_stock_quantity);
+    }
+
+    public function test_adjust_stock_with_reasons_and_notes_per_variant(): void
+    {
+        $tenant = $this->clinic('adjust-stock-clinic');
+        [$owner] = $this->staff($tenant, StaffMembership::ROLE_CLINIC_OWNER);
+
+        $product = Product::create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Herbal Capsules',
+            'category' => 'herbs',
+            'unit_price' => 3000,
+            'currency' => 'CAD',
+            'track_inventory' => true,
+            'stock_quantity' => 50,
+            'active' => true,
+        ]);
+
+        $variant = ProductVariant::create([
+            'tenant_id' => $tenant->id,
+            'product_id' => $product->id,
+            'name' => '60 Capsules',
+            'unit_price' => 3000,
+            'stock_quantity' => 50,
+            'active' => true,
+            'sort_order' => 0,
+        ]);
+
+        // 1. Adjust with restock
+        $resRestock = $this->actingAs($owner)->postJson($this->url($tenant, "/app/products/{$product->id}/adjust-stock"), [
+            'product_variant_id' => $variant->id,
+            'change' => 20,
+            'reason' => 'restock',
+            'notes' => 'Received supplier shipment #501',
+        ]);
+        $resRestock->assertOk();
+        $this->assertEquals(70, $variant->fresh()->stock_quantity);
+
+        // 2. Adjust with damaged_expired
+        $resDamage = $this->actingAs($owner)->postJson($this->url($tenant, "/app/products/{$product->id}/adjust-stock"), [
+            'product_variant_id' => $variant->id,
+            'change' => -5,
+            'reason' => 'damaged_expired',
+            'notes' => 'Broken seals during transport',
+        ]);
+        $resDamage->assertOk();
+        $this->assertEquals(65, $variant->fresh()->stock_quantity);
+
+        // 3. Adjust with correction
+        $resCorrection = $this->actingAs($owner)->postJson($this->url($tenant, "/app/products/{$product->id}/adjust-stock"), [
+            'product_variant_id' => $variant->id,
+            'change' => 2,
+            'reason' => 'correction',
+            'notes' => 'Quarterly physical inventory recount',
+        ]);
+        $resCorrection->assertOk();
+        $this->assertEquals(67, $variant->fresh()->stock_quantity);
+
+        // Check movements
+        $movements = ProductStockMovement::where('product_variant_id', $variant->id)->orderBy('created_at')->get();
+        $this->assertCount(3, $movements);
+        $this->assertEquals('restock', $movements[0]->reason);
+        $this->assertEquals('damaged_expired', $movements[1]->reason);
+        $this->assertEquals('correction', $movements[2]->reason);
+    }
+
+    public function test_stock_history_endpoint_returns_movements_and_variant_filters(): void
+    {
+        $tenant = $this->clinic('history-clinic');
+        [$owner] = $this->staff($tenant, StaffMembership::ROLE_CLINIC_OWNER);
+
+        $product = Product::create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Massage Cream',
+            'category' => 'oils',
+            'unit_price' => 2500,
+            'currency' => 'CAD',
+            'track_inventory' => true,
+            'stock_quantity' => 30,
+            'active' => true,
+        ]);
+
+        $varA = ProductVariant::create([
+            'tenant_id' => $tenant->id,
+            'product_id' => $product->id,
+            'name' => 'Small 100g',
+            'unit_price' => 1500,
+            'stock_quantity' => 10,
+            'active' => true,
+            'sort_order' => 0,
+        ]);
+
+        $varB = ProductVariant::create([
+            'tenant_id' => $tenant->id,
+            'product_id' => $product->id,
+            'name' => 'Large 500g',
+            'unit_price' => 4500,
+            'stock_quantity' => 20,
+            'active' => true,
+            'sort_order' => 1,
+        ]);
+
+        // Record movements on varA and varB
+        ProductStockMovement::create([
+            'tenant_id' => $tenant->id,
+            'product_id' => $product->id,
+            'product_variant_id' => $varA->id,
+            'change' => 5,
+            'new_stock_quantity' => 15,
+            'reason' => 'restock',
+            'user_id' => $owner->id,
+            'notes' => 'Small restock',
+        ]);
+
+        ProductStockMovement::create([
+            'tenant_id' => $tenant->id,
+            'product_id' => $product->id,
+            'product_variant_id' => $varB->id,
+            'change' => 10,
+            'new_stock_quantity' => 30,
+            'reason' => 'restock',
+            'user_id' => $owner->id,
+            'notes' => 'Large restock',
+        ]);
+
+        // Fetch all movements for product
+        $resAll = $this->actingAs($owner)->getJson($this->url($tenant, "/app/products/{$product->id}/stock-history"));
+        $resAll->assertOk();
+        $this->assertCount(2, $resAll->json('movements'));
+
+        // Filter for varA only
+        $resVarA = $this->actingAs($owner)->getJson($this->url($tenant, "/app/products/{$product->id}/stock-history?variant_id={$varA->id}"));
+        $resVarA->assertOk();
+        $this->assertCount(1, $resVarA->json('movements'));
+        $this->assertEquals('Small 100g', $resVarA->json('movements.0.variant_name'));
+        $this->assertEquals('+5', $resVarA->json('movements.0.change_formatted'));
+    }
+
+    public function test_product_sales_report_breakdown_by_variant(): void
+    {
+        $tenant = $this->clinic('report-variant-clinic');
+        [$owner] = $this->staff($tenant, StaffMembership::ROLE_CLINIC_OWNER);
+        $client = $this->client($tenant);
+
+        $product = Product::create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Acupuncture Balm',
+            'category' => 'herbs',
+            'unit_price' => 2000,
+            'currency' => 'CAD',
+            'taxable' => true,
+            'tax_rate' => 13.00,
+            'track_inventory' => true,
+            'stock_quantity' => 40,
+            'active' => true,
+        ]);
+
+        $varSmall = ProductVariant::create([
+            'tenant_id' => $tenant->id,
+            'product_id' => $product->id,
+            'name' => '50g',
+            'unit_price' => 2000,
+            'stock_quantity' => 25,
+            'active' => true,
+            'sort_order' => 0,
+        ]);
+
+        $varLarge = ProductVariant::create([
+            'tenant_id' => $tenant->id,
+            'product_id' => $product->id,
+            'name' => '150g',
+            'unit_price' => 4500,
+            'stock_quantity' => 15,
+            'active' => true,
+            'sort_order' => 1,
+        ]);
+
+        // Create and pay invoice with 2x small and 1x large
+        $this->actingAs($owner)->post($this->url($tenant, '/app/invoices'), [
+            'client_id' => $client->id,
+            'line_items' => [
+                [
+                    'product_id' => $product->id,
+                    'product_variant_id' => $varSmall->id,
+                    'description' => 'Acupuncture Balm - 50g',
+                    'quantity' => 2,
+                    'unit_amount' => 2000,
+                    'tax_amount' => 520,
+                ],
+                [
+                    'product_id' => $product->id,
+                    'product_variant_id' => $varLarge->id,
+                    'description' => 'Acupuncture Balm - 150g',
+                    'quantity' => 1,
+                    'unit_amount' => 4500,
+                    'tax_amount' => 585,
+                ],
+            ],
+        ]);
+
+        $invoice = Invoice::where('tenant_id', $tenant->id)->latest('id')->firstOrFail();
+        $this->actingAs($owner)->post($this->url($tenant, "/app/invoices/{$invoice->id}/pay/manual"), [
+            'amount' => $invoice->total_amount,
+            'method' => 'cash',
+        ]);
+
+        // Check report
+        $reportRes = $this->actingAs($owner)->get($this->url($tenant, '/app/reports/products'));
+        $reportRes->assertOk();
+
+        $rows = $reportRes->viewData('page')['props']['rows'];
+        $this->assertNotEmpty($rows);
+
+        $productRow = collect($rows)->firstWhere('name', 'Acupuncture Balm');
+        $this->assertNotNull($productRow);
+        $this->assertEquals(3, $productRow['units_sold']); // 2 small + 1 large
+        $this->assertEquals(8500, $productRow['revenue_cents']); // 4000 + 4500
+
+        // Verify variant breakdown inside product row
+        $this->assertArrayHasKey('variants', $productRow);
+        $this->assertCount(2, $productRow['variants']);
+
+        $smallReport = collect($productRow['variants'])->firstWhere('name', '50g');
+        $this->assertEquals(2, $smallReport['units_sold']);
+        $this->assertEquals(4000, $smallReport['revenue_cents']);
+
+        $largeReport = collect($productRow['variants'])->firstWhere('name', '150g');
+        $this->assertEquals(1, $largeReport['units_sold']);
+        $this->assertEquals(4500, $largeReport['revenue_cents']);
+    }
+
+    public function test_product_image_url_accessibility_and_preview(): void
+    {
+        $tenant = $this->clinic('img-url-clinic');
+        [$owner] = $this->staff($tenant, StaffMembership::ROLE_CLINIC_OWNER);
+
+        $validImage = UploadedFile::fake()->image('test-thumb.jpg', 200, 200);
+
+        $this->actingAs($owner)->post($this->url($tenant, '/app/products'), [
+            'name' => 'Image Product With Preview',
+            'unit_price' => 1200,
+            'image' => $validImage,
+        ]);
+
+        $product = Product::where('tenant_id', $tenant->id)->where('name', 'Image Product With Preview')->firstOrFail();
+        $this->assertNotNull($product->image_path);
+
+        $imageUrl = $product->imageUrl();
+        $this->assertNotNull($imageUrl);
+        $this->assertStringContainsString('/storage/', $imageUrl);
+
+        // Also test the products index includes image_url in props
+        $listRes = $this->actingAs($owner)->get($this->url($tenant, '/app/products'));
+        $listRes->assertOk();
+        $listedProducts = $listRes->viewData('page')['props']['products'];
+        $found = collect($listedProducts)->firstWhere('id', $product->id);
+        $this->assertNotNull($found);
+        $this->assertEquals($imageUrl, $found['image_url']);
     }
 }

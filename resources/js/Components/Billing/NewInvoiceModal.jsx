@@ -57,25 +57,36 @@ export default function NewInvoiceModal({
         fetchProducts(val);
     };
 
-    const addProductRow = (product) => {
-        const unitDollars = (product.unit_price / 100).toFixed(2);
+    const addProductRow = (product, variant = null) => {
+        const chosenVariant = variant || (product.variants && product.variants.length > 0 ? product.variants[0] : null);
+        const unitPrice = chosenVariant ? chosenVariant.unit_price : product.unit_price;
+        const unitDollars = (unitPrice / 100).toFixed(2);
         let taxDollars = '0.00';
         if (product.taxable && product.tax_rate) {
-            const taxCents = Math.round(product.unit_price * (product.tax_rate / 100));
+            const taxCents = Math.round(unitPrice * (product.tax_rate / 100));
             taxDollars = (taxCents / 100).toFixed(2);
         }
 
+        let desc = product.name;
+        if (chosenVariant && chosenVariant.name) {
+            desc = `${product.name} - ${chosenVariant.name}`;
+        } else if (chosenVariant?.sku || product.sku) {
+            desc = `${product.name} [${chosenVariant?.sku || product.sku}]`;
+        }
+
         const newRow = {
-            description: product.sku ? `${product.name} [${product.sku}]` : product.name,
+            description: desc,
             quantity: 1,
             unit: unitDollars,
             tax: taxDollars,
             product_id: product.id,
+            product_variant_id: chosenVariant?.id || null,
+            variant_name: chosenVariant?.name || null,
             is_product: true,
             taxable: product.taxable,
             tax_rate: product.tax_rate,
             track_inventory: product.track_inventory,
-            stock_quantity: product.stock_quantity,
+            stock_quantity: chosenVariant ? chosenVariant.stock_quantity : product.stock_quantity,
         };
 
         setRows((rs) => [...rs, newRow]);
@@ -138,6 +149,7 @@ export default function NewInvoiceModal({
             .filter((r) => r.description.trim() !== '')
             .map((r) => ({
                 product_id: r.product_id || null,
+                product_variant_id: r.product_variant_id || null,
                 description: r.description.trim(),
                 quantity: Math.max(1, parseInt(r.quantity, 10) || 1),
                 unit_amount: toCents(r.unit),
@@ -261,41 +273,90 @@ export default function NewInvoiceModal({
                                         No active products found matching "{productSearch}".
                                     </div>
                                 ) : (
-                                    productsList.map((p) => (
-                                        <div
-                                            key={p.id}
-                                            onClick={() => addProductRow(p)}
-                                            className="p-2.5 hover:bg-violet-50 dark:hover:bg-violet-950/40 cursor-pointer flex items-center justify-between transition-colors"
-                                        >
-                                            <div className="flex items-center gap-2.5">
-                                                <div className="w-7 h-7 rounded-lg bg-violet-100 dark:bg-violet-900/40 text-violet-600 flex items-center justify-center shrink-0">
-                                                    <Package className="w-3.5 h-3.5" />
-                                                </div>
-                                                <div>
-                                                    <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                                                        {p.name}
-                                                    </p>
-                                                    <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                                                        {p.sku && <span>SKU: {p.sku}</span>}
-                                                        {p.track_inventory && (
-                                                            <span className={p.stock_quantity <= 0 ? 'text-rose-500 font-bold' : p.is_low_stock ? 'text-amber-500 font-bold' : ''}>
-                                                                • Stock: {p.stock_quantity}
-                                                            </span>
-                                                        )}
+                                    productsList.map((p) => {
+                                        const hasMultiple = p.has_variants && p.variants && p.variants.length > 1;
+
+                                        if (hasMultiple) {
+                                            return (
+                                                <div key={p.id} className="p-2.5">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <div className="flex items-center gap-2.5">
+                                                            <div className="w-7 h-7 rounded-lg bg-violet-100 dark:bg-violet-900/40 text-violet-600 flex items-center justify-center shrink-0">
+                                                                <Package className="w-3.5 h-3.5" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                                                                    {p.name}
+                                                                </p>
+                                                                <span className="text-[10px] text-violet-600 dark:text-violet-400 font-medium">
+                                                                    {p.variants.length} sizes / variants available
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-wrap gap-1.5 pl-9">
+                                                        {p.variants.map((v) => (
+                                                            <button
+                                                                key={v.id}
+                                                                type="button"
+                                                                onClick={() => addProductRow(p, v)}
+                                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 hover:bg-violet-50 hover:border-violet-300 dark:hover:bg-violet-950/60 transition text-xs"
+                                                            >
+                                                                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                                                    {v.name || 'Default'}
+                                                                </span>
+                                                                <span className="text-slate-500 font-mono text-[11px]">
+                                                                    {v.formatted_price}
+                                                                </span>
+                                                                {p.track_inventory && (
+                                                                    <span className={`text-[10px] ${v.stock_quantity <= 0 ? 'text-rose-500 font-bold' : v.is_low_stock ? 'text-amber-500 font-bold' : 'text-slate-400'}`}>
+                                                                        ({v.stock_quantity ?? 0} in stock)
+                                                                    </span>
+                                                                )}
+                                                            </button>
+                                                        ))}
                                                     </div>
                                                 </div>
-                                            </div>
+                                            );
+                                        }
 
-                                            <div className="text-right">
-                                                <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                                                    {p.formatted_price}
-                                                </p>
-                                                <span className="text-[10px] text-emerald-600 font-medium">
-                                                    + Add to line
-                                                </span>
+                                        return (
+                                            <div
+                                                key={p.id}
+                                                onClick={() => addProductRow(p)}
+                                                className="p-2.5 hover:bg-violet-50 dark:hover:bg-violet-950/40 cursor-pointer flex items-center justify-between transition-colors"
+                                            >
+                                                <div className="flex items-center gap-2.5">
+                                                    <div className="w-7 h-7 rounded-lg bg-violet-100 dark:bg-violet-900/40 text-violet-600 flex items-center justify-center shrink-0">
+                                                        <Package className="w-3.5 h-3.5" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                                                            {p.name}
+                                                        </p>
+                                                        <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                                                            {p.sku && <span>SKU: {p.sku}</span>}
+                                                            {p.track_inventory && (
+                                                                <span className={p.stock_quantity <= 0 ? 'text-rose-500 font-bold' : p.is_low_stock ? 'text-amber-500 font-bold' : ''}>
+                                                                    • Stock: {p.stock_quantity}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="text-right">
+                                                    <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                                                        {p.formatted_price}
+                                                    </p>
+                                                    <span className="text-[10px] text-emerald-600 font-medium">
+                                                        + Add to line
+                                                    </span>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))
+                                        );
+                                    })
                                 )}
                             </div>
                         </div>

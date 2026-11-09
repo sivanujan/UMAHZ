@@ -53,6 +53,31 @@ class Product extends Model
         ];
     }
 
+    public function variants(): HasMany
+    {
+        return $this->hasMany(ProductVariant::class)->orderBy('sort_order')->orderBy('created_at');
+    }
+
+    public function defaultVariant(): ?ProductVariant
+    {
+        return $this->relationLoaded('variants')
+            ? $this->variants->first()
+            : $this->variants()->first();
+    }
+
+    public function totalStock(): ?int
+    {
+        if (! $this->track_inventory) {
+            return null;
+        }
+
+        if ($this->relationLoaded('variants')) {
+            return $this->variants->sum('stock_quantity');
+        }
+
+        return (int) $this->variants()->sum('stock_quantity');
+    }
+
     public function stockMovements(): HasMany
     {
         return $this->hasMany(ProductStockMovement::class)->latest('created_at');
@@ -65,7 +90,16 @@ class Product extends Model
 
     public function isLowStock(): bool
     {
-        if (! $this->track_inventory || $this->stock_quantity === null || $this->low_stock_threshold === null) {
+        if (! $this->track_inventory) {
+            return false;
+        }
+
+        $variants = $this->relationLoaded('variants') ? $this->variants : $this->variants()->get();
+        if ($variants->isNotEmpty()) {
+            return $variants->contains(fn (ProductVariant $v) => $v->isLowStock());
+        }
+
+        if ($this->stock_quantity === null || $this->low_stock_threshold === null) {
             return false;
         }
 

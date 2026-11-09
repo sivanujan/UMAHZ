@@ -11,6 +11,7 @@ import {
     CheckCircle,
     TrendingUp,
     Filter,
+    ChevronDown,
 } from 'lucide-react';
 
 export default function ProductSalesReport({
@@ -23,6 +24,11 @@ export default function ProductSalesReport({
 }) {
     const [selectedCategory, setSelectedCategory] = useState(filters.category || 'all');
     const [onlySold, setOnlySold] = useState(filters.only_sold === 'true');
+    const [expandedProducts, setExpandedProducts] = useState({});
+
+    const toggleExpand = (id) => {
+        setExpandedProducts((prev) => ({ ...prev, [id]: !prev[id] }));
+    };
 
     const handleCategoryChange = (cat) => {
         setSelectedCategory(cat);
@@ -170,70 +176,127 @@ export default function ProductSalesReport({
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                                    {rows.map((row) => (
-                                        <tr
-                                            key={row.id}
-                                            className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
-                                        >
-                                            <td className="py-3 px-4">
-                                                <p className="font-bold text-slate-900 dark:text-slate-100">
-                                                    {row.name}
-                                                </p>
-                                                {row.sku && (
-                                                    <span className="text-[10px] font-mono text-slate-400">
-                                                        SKU: {row.sku}
-                                                    </span>
-                                                )}
-                                            </td>
+                                    {rows.map((row) => {
+                                        const isExpanded = expandedProducts[row.id];
+                                        const hasMultiple = row.has_variants && row.variants && row.variants.length > 1;
 
-                                            <td className="py-3 px-4 text-slate-600 dark:text-slate-400">
-                                                <span className="inline-flex px-2 py-0.5 rounded-lg text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                                                    {row.category_label}
-                                                </span>
-                                            </td>
+                                        return (
+                                            <React.Fragment key={row.id}>
+                                                <tr
+                                                    className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
+                                                >
+                                                    <td className="py-3 px-4">
+                                                        <div className="flex items-center gap-2">
+                                                            {hasMultiple && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => toggleExpand(row.id)}
+                                                                    className="w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition"
+                                                                >
+                                                                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                                                </button>
+                                                            )}
+                                                            <div>
+                                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                                    <span className="font-bold text-slate-900 dark:text-slate-100">
+                                                                        {row.name}
+                                                                    </span>
+                                                                    {hasMultiple && (
+                                                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-800">
+                                                                            {row.variants.length} sizes
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                {row.sku && (
+                                                                    <span className="text-[10px] font-mono text-slate-400 block">
+                                                                        SKU: {row.sku}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </td>
 
-                                            <td className="py-3 px-4 text-right font-semibold text-slate-800 dark:text-slate-200">
-                                                {row.formatted_price}
-                                            </td>
-
-                                            <td className="py-3 px-4 text-center font-bold text-slate-900 dark:text-slate-100">
-                                                {row.units_sold}
-                                            </td>
-
-                                            <td className="py-3 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">
-                                                {row.revenue_formatted}
-                                            </td>
-
-                                            <td className="py-3 px-4 text-right text-slate-600 dark:text-slate-300">
-                                                {row.tax_formatted}
-                                            </td>
-
-                                            <td className="py-3 px-4 text-right">
-                                                {row.track_inventory ? (
-                                                    <div className="flex items-center justify-end gap-1.5">
-                                                        <span
-                                                            className={`font-semibold ${
-                                                                row.current_stock <= 0
-                                                                    ? 'text-rose-600 font-bold'
-                                                                    : row.is_low_stock
-                                                                    ? 'text-amber-600 font-bold'
-                                                                    : 'text-slate-700 dark:text-slate-300'
-                                                            }`}
-                                                        >
-                                                            {row.current_stock}
+                                                    <td className="py-3 px-4 text-slate-600 dark:text-slate-400">
+                                                        <span className="inline-flex px-2 py-0.5 rounded-lg text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                                            {row.category_label}
                                                         </span>
-                                                        {row.is_low_stock && (
-                                                            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
-                                                                Low
-                                                            </span>
+                                                    </td>
+
+                                                    <td className="py-3 px-4 text-right font-semibold text-slate-800 dark:text-slate-200">
+                                                        {row.formatted_price}
+                                                    </td>
+
+                                                    <td className="py-3 px-4 text-center font-bold text-slate-900 dark:text-slate-100">
+                                                        {row.units_sold}
+                                                    </td>
+
+                                                    <td className="py-3 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">
+                                                        {row.revenue_formatted}
+                                                    </td>
+
+                                                    <td className="py-3 px-4 text-right text-slate-600 dark:text-slate-300">
+                                                        {row.tax_formatted}
+                                                    </td>
+
+                                                    <td className="py-3 px-4 text-right">
+                                                        {row.track_inventory ? (
+                                                            <div className="flex items-center justify-end gap-1.5">
+                                                                <span
+                                                                    className={`font-semibold ${
+                                                                        row.current_stock <= 0
+                                                                            ? 'text-rose-600 font-bold'
+                                                                            : row.is_low_stock
+                                                                            ? 'text-amber-600 font-bold'
+                                                                            : 'text-slate-700 dark:text-slate-300'
+                                                                    }`}
+                                                                >
+                                                                    {row.current_stock}
+                                                                </span>
+                                                                {row.is_low_stock && (
+                                                                    <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
+                                                                        Low
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-slate-400">—</span>
                                                         )}
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-slate-400">—</span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                    </td>
+                                                </tr>
+
+                                                {/* Variants Breakdown Sub-rows */}
+                                                {hasMultiple && isExpanded && row.variants.map((v) => (
+                                                    <tr
+                                                        key={v.id}
+                                                        className="bg-slate-50/70 dark:bg-slate-900/50 text-[11px]"
+                                                    >
+                                                        <td className="py-2 px-4 pl-11 text-slate-600 dark:text-slate-400">
+                                                            <span className="font-semibold text-slate-800 dark:text-slate-200">↳ {v.name}</span>
+                                                            {v.sku && <span className="font-mono text-[10px] text-slate-400 ml-1.5">[{v.sku}]</span>}
+                                                        </td>
+                                                        <td className="py-2 px-4 text-slate-400">
+                                                            {v.size_value ? `${v.size_value} ${v.size_unit || ''}` : 'Variant'}
+                                                        </td>
+                                                        <td className="py-2 px-4 text-right font-mono text-slate-500">
+                                                            ${(v.unit_price / 100).toFixed(2)}
+                                                        </td>
+                                                        <td className="py-2 px-4 text-center font-medium text-slate-700 dark:text-slate-300">
+                                                            {v.units_sold}
+                                                        </td>
+                                                        <td className="py-2 px-4 text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                                                            {v.revenue_formatted}
+                                                        </td>
+                                                        <td className="py-2 px-4 text-right text-slate-500">
+                                                            {v.tax_formatted}
+                                                        </td>
+                                                        <td className="py-2 px-4 text-right text-slate-600 dark:text-slate-400">
+                                                            {row.track_inventory ? (v.current_stock ?? 0) : '—'}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </React.Fragment>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

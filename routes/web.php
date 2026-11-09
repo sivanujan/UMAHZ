@@ -405,6 +405,7 @@ Route::domain('{tenant}.' . $central)->where(['tenant' => '[a-z0-9-]+'])->group(
         // Products catalog & inventory management (Owner + Receptionist manage; Practitioners read-only)
         Route::get('/products', [ProductController::class, 'index'])->name('products.index');
         Route::get('/products/search', [ProductController::class, 'search'])->name('products.search');
+        Route::get('/products/{product}/stock-history', [ProductController::class, 'stockHistory'])->name('products.stock-history');
         Route::middleware('staff.role:clinic_owner,receptionist')->group(function () {
             Route::post('/products', [ProductController::class, 'store'])->name('products.store');
             Route::match(['post', 'put', 'patch'], '/products/{product}', [ProductController::class, 'update'])->name('products.update');

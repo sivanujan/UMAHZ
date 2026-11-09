@@ -134,11 +134,16 @@ export default function InvoiceShow({ invoice, canAcceptCards, stripePublishable
                                 {invoice.line_items.map((li) => (
                                     <tr key={li.id} className="border-b last:border-0" style={{ borderColor: 'var(--umahz-border)' }}>
                                         <td className="py-2.5 pr-4 text-slate-700 dark:text-slate-200">
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2 flex-wrap">
                                                 <span>{li.description}</span>
                                                 {li.is_product && (
                                                     <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300">
                                                         Product
+                                                    </span>
+                                                )}
+                                                {li.variant_name && !li.description.includes(li.variant_name) && (
+                                                    <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                                        {li.variant_name}
                                                     </span>
                                                 )}
                                             </div>

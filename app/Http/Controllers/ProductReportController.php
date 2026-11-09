@@ -73,7 +73,9 @@ class ProductReportController extends Controller
 
         $salesData = $salesQuery->select(
             'invoice_line_items.product_id',
+            'invoice_line_items.product_variant_id',
             'invoice_line_items.product_name_snapshot',
+            'invoice_line_items.variant_name_snapshot',
             'invoice_line_items.quantity',
             'invoice_line_items.total_amount',
             'invoice_line_items.tax_amount'
@@ -82,9 +84,10 @@ class ProductReportController extends Controller
         // Group sales by product
         $groupedSales = $salesData->groupBy('product_id');
 
-        // Fetch all products (including trashed if they were sold, or active products)
+        // Fetch all products with variants (including trashed)
         $products = Product::withTrashed()
             ->where('tenant_id', $tenant->id)
+            ->with(['variants' => fn ($q) => $q->withTrashed()->orderBy('sort_order')])
             ->get()
             ->keyBy('id');
 
@@ -112,6 +115,34 @@ class ProductReportController extends Controller
             $totalRevenueCents += $revenue;
             $totalTaxCents += $tax;
 
+            // Breakdown by variant
+            $variantSalesGrouped = $productSales->groupBy('product_variant_id');
+            $variantBreakdowns = [];
+
+            foreach ($product->variants as $variant) {
+                $vSales = $variantSalesGrouped->get($variant->id, collect());
+                $vUnits = (int) $vSales->sum('quantity');
+                $vRevenue = (int) $vSales->sum('total_amount');
+                $vTax = (int) $vSales->sum('tax_amount');
+
+                $variantBreakdowns[] = [
+                    'id' => $variant->id,
+                    'name' => $variant->name ?: 'Standard',
+                    'size_value' => $variant->size_value !== null ? (float) $variant->size_value : null,
+                    'size_unit' => $variant->size_unit,
+                    'sku' => $variant->sku,
+                    'unit_price' => $variant->unit_price,
+                    'current_stock' => $product->track_inventory ? $variant->stock_quantity : null,
+                    'units_sold' => $vUnits,
+                    'revenue_cents' => $vRevenue,
+                    'revenue_formatted' => '$' . number_format($vRevenue / 100, 2),
+                    'tax_cents' => $vTax,
+                    'tax_formatted' => '$' . number_format($vTax / 100, 2),
+                ];
+            }
+
+            $totalStock = $product->track_inventory ? $product->variants->sum('stock_quantity') : null;
+
             $rows[] = [
                 'id' => $product->id,
                 'name' => $product->name,
@@ -121,13 +152,15 @@ class ProductReportController extends Controller
                 'unit_price' => $product->unit_price,
                 'formatted_price' => $product->formattedPrice(),
                 'track_inventory' => $product->track_inventory,
-                'current_stock' => $product->track_inventory ? $product->stock_quantity : null,
+                'current_stock' => $totalStock,
                 'is_low_stock' => $product->isLowStock(),
                 'units_sold' => $units,
                 'revenue_cents' => $revenue,
                 'revenue_formatted' => '$' . number_format($revenue / 100, 2),
                 'tax_cents' => $tax,
                 'tax_formatted' => '$' . number_format($tax / 100, 2),
+                'has_variants' => count($variantBreakdowns) > 1,
+                'variants' => $variantBreakdowns,
             ];
         }
 

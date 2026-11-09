@@ -145,6 +145,9 @@ export default function Receipt({ invoice, clinic = {} }) {
                                                     </span>
                                                 )}
                                                 <span className="font-medium">{li.description}</span>
+                                                {li.variant_name && !li.description.includes(li.variant_name) && (
+                                                    <span className="text-slate-500 text-xs">({li.variant_name})</span>
+                                                )}
                                             </div>
                                             {li.tax_amount > 0 && (
                                                 <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">

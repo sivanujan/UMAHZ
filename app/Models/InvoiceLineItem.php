@@ -19,7 +19,9 @@ class InvoiceLineItem extends Model
         'tenant_id',
         'invoice_id',
         'product_id',
+        'product_variant_id',
         'product_name_snapshot',
+        'variant_name_snapshot',
         'product_tax_rate_snapshot',
         'description',
         'quantity',
@@ -49,6 +51,11 @@ class InvoiceLineItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function variant(): BelongsTo
+    {
+        return $this->belongsTo(ProductVariant::class, 'product_variant_id');
     }
 
     public function isProduct(): bool
