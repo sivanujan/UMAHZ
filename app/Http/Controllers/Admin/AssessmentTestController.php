@@ -91,8 +91,8 @@ class AssessmentTestController extends Controller
                 'body_region' => $regionFilter,
                 'search' => $search,
             ],
-            'bodyRegions' => AssessmentTest::BODY_REGIONS,
-            'disciplines' => AssessmentTest::DISCIPLINES,
+            'bodyRegions' => AssessmentTest::bodyRegionsList(),
+            'disciplines' => AssessmentTest::disciplinesList(),
         ]);
     }
 

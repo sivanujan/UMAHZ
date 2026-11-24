@@ -728,4 +728,44 @@ CSV;
         $lookupResponse->assertStatus(200);
         $this->assertCount(0, $lookupResponse->json());
     }
+
+    public function test_inertia_props_contain_disciplines_and_body_regions_as_lists(): void
+    {
+        // 1. Practitioner page /app/tests
+        $response = $this->actingAs($this->practitionerA)
+            ->get('http://metro-physio.umahz.test/app/tests');
+
+        $response->assertStatus(200);
+        $props = $response->viewData('page')['props'];
+
+        $this->assertArrayHasKey('disciplines', $props);
+        $this->assertArrayHasKey('bodyRegions', $props);
+        $this->assertTrue(array_is_list($props['disciplines']));
+        $this->assertTrue(array_is_list($props['bodyRegions']));
+        $this->assertNotEmpty($props['disciplines']);
+        $this->assertNotEmpty($props['bodyRegions']);
+        $this->assertArrayHasKey('value', $props['disciplines'][0]);
+        $this->assertArrayHasKey('label', $props['disciplines'][0]);
+        $this->assertArrayHasKey('value', $props['bodyRegions'][0]);
+        $this->assertArrayHasKey('label', $props['bodyRegions'][0]);
+
+        // 2. Admin page /admin/tests
+        $admin = $this->createAdmin();
+        $adminResponse = $this->actingAs($admin)
+            ->get('http://umahz.test/admin/tests');
+
+        $adminResponse->assertStatus(200);
+        $adminProps = $adminResponse->viewData('page')['props'];
+
+        $this->assertArrayHasKey('disciplines', $adminProps);
+        $this->assertArrayHasKey('bodyRegions', $adminProps);
+        $this->assertTrue(array_is_list($adminProps['disciplines']));
+        $this->assertTrue(array_is_list($adminProps['bodyRegions']));
+        $this->assertNotEmpty($adminProps['disciplines']);
+        $this->assertNotEmpty($adminProps['bodyRegions']);
+        $this->assertArrayHasKey('value', $adminProps['disciplines'][0]);
+        $this->assertArrayHasKey('label', $adminProps['disciplines'][0]);
+        $this->assertArrayHasKey('value', $adminProps['bodyRegions'][0]);
+        $this->assertArrayHasKey('label', $adminProps['bodyRegions'][0]);
+    }
 }

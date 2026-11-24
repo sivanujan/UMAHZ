@@ -40,6 +40,34 @@ class AssessmentTest extends Model
         'other' => 'Other',
     ];
 
+    /**
+     * Return body regions as a 0-indexed list of ['value' => ..., 'label' => ...]
+     *
+     * @return array<int, array{value: string, label: string}>
+     */
+    public static function bodyRegionsList(): array
+    {
+        return array_values(array_map(
+            fn ($value, $label) => ['value' => $value, 'label' => $label],
+            array_keys(self::BODY_REGIONS),
+            self::BODY_REGIONS
+        ));
+    }
+
+    /**
+     * Return disciplines as a 0-indexed list of ['value' => ..., 'label' => ...]
+     *
+     * @return array<int, array{value: string, label: string}>
+     */
+    public static function disciplinesList(): array
+    {
+        return array_values(array_map(
+            fn ($value, $label) => ['value' => $value, 'label' => $label],
+            array_keys(self::DISCIPLINES),
+            self::DISCIPLINES
+        ));
+    }
+
     protected $fillable = [
         'tenant_id',
         'body_region',

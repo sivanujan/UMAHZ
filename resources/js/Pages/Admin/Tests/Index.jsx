@@ -7,6 +7,24 @@ import {
     ChevronDown, ChevronRight, BookOpen, Stethoscope, RefreshCw, Layers
 } from 'lucide-react';
 
+const normalizeOptions = (x) => {
+    const list = Array.isArray(x)
+        ? x
+        : Object.entries(x ?? {}).map(([value, label]) => ({ value, label }));
+
+    return list.map((item) => (
+        item && typeof item === 'object' && 'value' in item
+            ? item
+            : { value: item, label: item }
+    ));
+};
+
+const normalizeList = (x) => {
+    if (Array.isArray(x)) return x;
+    if (x && typeof x === 'object') return Object.values(x);
+    return [];
+};
+
 export default function AdminTestsIndex({
     tests = { data: [] },
     filters = { region: 'all', status: 'all', search: '' },
@@ -15,6 +33,14 @@ export default function AdminTestsIndex({
     disciplines = [],
 }) {
     const { flash, errors } = usePage().props;
+
+    const safeDisciplines = normalizeOptions(disciplines);
+    const safeBodyRegions = normalizeOptions(bodyRegions);
+    const safeTests = Array.isArray(tests)
+        ? tests
+        : Array.isArray(tests?.data)
+            ? tests.data
+            : (tests && typeof tests === 'object' ? Object.values(tests) : []);
 
     // Filter states
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
@@ -109,12 +135,12 @@ export default function AdminTestsIndex({
         setFormData({
             name: test.name || '',
             body_region: test.body_region || 'shoulder',
-            aliases: Array.isArray(test.aliases) ? test.aliases.join(', ') : '',
+            aliases: normalizeList(test.aliases).join(', '),
             purpose: test.purpose || '',
             procedure: test.procedure || '',
             positive_finding: test.positive_finding || '',
             interpretation_notes: test.interpretation_notes || '',
-            disciplines: Array.isArray(test.disciplines) && test.disciplines.length > 0 ? test.disciplines : ['physio'],
+            disciplines: normalizeList(test.disciplines).length > 0 ? normalizeList(test.disciplines) : ['physio'],
             references: test.references || '',
             status: test.status || 'draft',
         });
@@ -408,7 +434,7 @@ export default function AdminTestsIndex({
                         >
                             All Regions
                         </button>
-                        {bodyRegions.map((r) => (
+                        {safeBodyRegions.map((r) => (
                             <button
                                 key={r.value}
                                 type="button"
@@ -440,14 +466,14 @@ export default function AdminTestsIndex({
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800/60 text-slate-300">
-                                {tests.data && tests.data.length > 0 ? (
-                                    tests.data.map((t) => (
+                                {safeTests.length > 0 ? (
+                                    safeTests.map((t) => (
                                         <tr key={t.id} className="hover:bg-slate-800/30 transition">
                                             <td className="py-3.5 px-4">
                                                 <div className="font-bold text-white text-sm">{t.name}</div>
-                                                {Array.isArray(t.aliases) && t.aliases.length > 0 && (
+                                                {normalizeList(t.aliases).length > 0 && (
                                                     <div className="text-[11px] text-slate-400 mt-0.5">
-                                                        Also known as: {t.aliases.join(', ')}
+                                                        Also known as: {normalizeList(t.aliases).join(', ')}
                                                     </div>
                                                 )}
                                                 <div className="text-[11px] text-slate-500 mt-1 line-clamp-1 max-w-md">
@@ -461,12 +487,12 @@ export default function AdminTestsIndex({
                                             </td>
                                             <td className="py-3.5 px-4">
                                                 <div className="flex flex-wrap gap-1 max-w-xs">
-                                                    {Array.isArray(t.disciplines) && t.disciplines.map((d, dIdx) => (
+                                                    {normalizeList(t.disciplines).map((d, dIdx) => (
                                                         <span
                                                             key={dIdx}
                                                             className="px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-950/60 text-purple-300 border border-purple-800/50"
                                                         >
-                                                            {d}
+                                                            {typeof d === 'object' ? (d.label || d.value) : d}
                                                         </span>
                                                     ))}
                                                 </div>
@@ -561,13 +587,13 @@ export default function AdminTestsIndex({
                     </div>
 
                     {/* Pagination */}
-                    {tests.links && tests.links.length > 3 && (
+                    {Array.isArray(tests?.links) && tests.links.length > 3 && (
                         <div className="p-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
                             <div>
                                 Showing <span className="text-white font-semibold">{tests.from || 0}</span> to <span className="text-white font-semibold">{tests.to || 0}</span> of <span className="text-white font-semibold">{tests.total || 0}</span> tests
                             </div>
                             <div className="flex items-center gap-1">
-                                {tests.links.map((link, lIdx) => (
+                                {(Array.isArray(tests?.links) ? tests.links : []).map((link, lIdx) => (
                                     <button
                                         key={lIdx}
                                         type="button"
@@ -635,7 +661,7 @@ export default function AdminTestsIndex({
                                         className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                                         required
                                     >
-                                        {bodyRegions.map((r) => (
+                                        {safeBodyRegions.map((r) => (
                                             <option key={r.value} value={r.value}>{r.label}</option>
                                         ))}
                                     </select>
@@ -660,7 +686,7 @@ export default function AdminTestsIndex({
                                     Target Disciplines
                                 </label>
                                 <div className="flex flex-wrap gap-2 pt-1">
-                                    {disciplines.map((d) => {
+                                    {safeDisciplines.map((d) => {
                                         const checked = formData.disciplines.includes(d.value);
                                         return (
                                             <button
@@ -797,9 +823,9 @@ export default function AdminTestsIndex({
                                     {viewingTest.body_region?.replace('_', ' / ')}
                                 </span>
                                 <h3 className="text-lg font-bold text-white mt-0.5">{viewingTest.name}</h3>
-                                {Array.isArray(viewingTest.aliases) && viewingTest.aliases.length > 0 && (
+                                {normalizeList(viewingTest.aliases).length > 0 && (
                                     <p className="text-[11px] text-slate-400 mt-0.5">
-                                        Aliases: {viewingTest.aliases.join(', ')}
+                                        Aliases: {normalizeList(viewingTest.aliases).join(', ')}
                                     </p>
                                 )}
                             </div>

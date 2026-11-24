@@ -10,6 +10,24 @@ import {
     BookOpen, Layers
 } from 'lucide-react';
 
+const normalizeOptions = (x) => {
+    const list = Array.isArray(x)
+        ? x
+        : Object.entries(x ?? {}).map(([value, label]) => ({ value, label }));
+
+    return list.map((item) => (
+        item && typeof item === 'object' && 'value' in item
+            ? item
+            : { value: item, label: item }
+    ));
+};
+
+const normalizeList = (x) => {
+    if (Array.isArray(x)) return x;
+    if (x && typeof x === 'object') return Object.values(x);
+    return [];
+};
+
 export default function ClinicalNoteEditor({
     client,
     appointment,
@@ -202,7 +220,10 @@ export default function ClinicalNoteEditor({
             try {
                 const res = await fetch('/app/tests/lookup');
                 const data = await res.json();
-                setAvailableTests(Array.isArray(data) ? data : []);
+                const list = Array.isArray(data)
+                    ? data
+                    : (Array.isArray(data?.data) ? data.data : Object.values(data ?? {}));
+                setAvailableTests(list);
             } catch {
                 setAvailableTests([]);
             } finally {
@@ -218,7 +239,10 @@ export default function ClinicalNoteEditor({
     };
 
     const handleAddSelectedTests = () => {
-        const toAdd = availableTests.filter((t) => selectedTestIds.includes(t.id));
+        const safeTests = Array.isArray(availableTests)
+            ? availableTests
+            : (Array.isArray(availableTests?.data) ? availableTests.data : Object.values(availableTests ?? {}));
+        const toAdd = safeTests.filter((t) => selectedTestIds.includes(t.id));
         const newItems = toAdd.map((test) => ({
             assessment_test_id: test.id,
             test_name_snapshot: test.name,
@@ -246,15 +270,21 @@ export default function ClinicalNoteEditor({
         setTestResults((prev) => prev.filter((_, i) => i !== index));
     };
 
-    const positiveTests = testResults.filter((t) => t.result === 'positive');
+    const safeTestResults = normalizeList(testResults);
+    const positiveTests = safeTestResults.filter((t) => t.result === 'positive');
 
-    const filteredPickerTests = availableTests.filter((t) => {
+    const safeAvailableTests = Array.isArray(availableTests)
+        ? availableTests
+        : (Array.isArray(availableTests?.data) ? availableTests.data : Object.values(availableTests ?? {}));
+
+    const filteredPickerTests = safeAvailableTests.filter((t) => {
         if (pickerRegion !== 'all' && t.body_region !== pickerRegion) return false;
         if (pickerSearch.trim()) {
             const q = pickerSearch.toLowerCase();
             const matchName = t.name?.toLowerCase().includes(q);
             const matchPurpose = t.purpose?.toLowerCase().includes(q);
-            const matchAliases = Array.isArray(t.aliases) && t.aliases.some((a) => a.toLowerCase().includes(q));
+            const tAliases = normalizeList(t.aliases);
+            const matchAliases = tAliases.some((a) => typeof a === 'string' && a.toLowerCase().includes(q));
             if (!matchName && !matchPurpose && !matchAliases) return false;
         }
         return true;
@@ -273,7 +303,7 @@ export default function ClinicalNoteEditor({
                         Tests Performed & Clinical Maneuvers
                     </h3>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 dark:bg-violet-950/60 text-violet-800 dark:text-violet-300 border border-violet-200 dark:border-violet-800">
-                        {testResults.length} {testResults.length === 1 ? 'test' : 'tests'}
+                        {safeTestResults.length} {safeTestResults.length === 1 ? 'test' : 'tests'}
                     </span>
                 </div>
                 <button
@@ -324,9 +354,9 @@ export default function ClinicalNoteEditor({
             )}
 
             {/* Documented Test Cards */}
-            {testResults.length > 0 && (
+            {safeTestResults.length > 0 && (
                 <div className="space-y-3 pt-1">
-                    {testResults.map((t, idx) => (
+                    {safeTestResults.map((t, idx) => (
                         <div
                             key={t.id || idx}
                             className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3 shadow-xs"
@@ -1004,7 +1034,7 @@ export default function ClinicalNoteEditor({
                                 className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
                             />
                             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-                                {PICKER_REGIONS.map((r) => (
+                                {normalizeOptions(PICKER_REGIONS).map((r) => (
                                     <button
                                         key={r.value}
                                         type="button"
@@ -1053,9 +1083,9 @@ export default function ClinicalNoteEditor({
                                                             {t.body_region?.replace('_', ' / ')}
                                                         </span>
                                                     </div>
-                                                    {Array.isArray(t.aliases) && t.aliases.length > 0 && (
+                                                    {normalizeList(t.aliases).length > 0 && (
                                                         <p className="text-[10px] text-slate-400">
-                                                            Also: {t.aliases.join(', ')}
+                                                            Also: {normalizeList(t.aliases).join(', ')}
                                                         </p>
                                                     )}
                                                     <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 line-clamp-2">
@@ -1075,7 +1105,7 @@ export default function ClinicalNoteEditor({
                                         </div>
                                     );
                                 })
-                            ) : availableTests.length === 0 ? (
+                            ) : safeAvailableTests.length === 0 ? (
                                 <div className="p-8 text-center space-y-3">
                                     <div className="w-10 h-10 rounded-xl bg-violet-50 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 flex items-center justify-center mx-auto">
                                         <Activity className="w-5 h-5" />

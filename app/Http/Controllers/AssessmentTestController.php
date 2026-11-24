@@ -86,9 +86,9 @@ class AssessmentTestController extends Controller
                 'discipline' => $disciplineFilter,
                 'search' => $search,
             ],
-            'bodyRegions' => AssessmentTest::BODY_REGIONS,
+            'bodyRegions' => AssessmentTest::bodyRegionsList(),
             'regionCounts' => $regionCounts,
-            'disciplines' => AssessmentTest::DISCIPLINES,
+            'disciplines' => AssessmentTest::disciplinesList(),
             'totalTests' => AssessmentTest::visibleToPractitioner($tenantId)->count(),
         ]);
     }

@@ -54,7 +54,7 @@ export default function ClinicalNoteShow({ client, appointment, note, clinic, sc
         try {
             const res = await fetch('/app/tests/lookup');
             const data = await res.json();
-            setAvailableLookupTests(Array.isArray(data) ? data : []);
+            setAvailableLookupTests(Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : Object.values(data ?? {})));
         } catch {
             setAvailableLookupTests([]);
         } finally {

@@ -7,6 +7,24 @@ import {
     Info, ShieldCheck, Sparkles, Building2
 } from 'lucide-react';
 
+const normalizeOptions = (x) => {
+    const list = Array.isArray(x)
+        ? x
+        : Object.entries(x ?? {}).map(([value, label]) => ({ value, label }));
+
+    return list.map((item) => (
+        item && typeof item === 'object' && 'value' in item
+            ? item
+            : { value: item, label: item }
+    ));
+};
+
+const normalizeList = (x) => {
+    if (Array.isArray(x)) return x;
+    if (x && typeof x === 'object') return Object.values(x);
+    return [];
+};
+
 export default function TestsIndex({
     tests = [],
     bodyRegions = [],
@@ -16,6 +34,14 @@ export default function TestsIndex({
     canManageCustom = false,
 }) {
     const { flash } = usePage().props;
+
+    const safeDisciplines = normalizeOptions(disciplines);
+    const safeBodyRegions = normalizeOptions(bodyRegions);
+    const safeTests = Array.isArray(tests)
+        ? tests
+        : Array.isArray(tests?.data)
+            ? tests.data
+            : (tests && typeof tests === 'object' ? Object.values(tests) : []);
 
     // Search and filter state
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
@@ -92,12 +118,12 @@ export default function TestsIndex({
         setFormData({
             name: test.name || '',
             body_region: test.body_region || 'shoulder',
-            aliases: Array.isArray(test.aliases) ? test.aliases.join(', ') : '',
+            aliases: normalizeList(test.aliases).join(', '),
             purpose: test.purpose || '',
             procedure: test.procedure || '',
             positive_finding: test.positive_finding || '',
             interpretation_notes: test.interpretation_notes || '',
-            disciplines: Array.isArray(test.disciplines) && test.disciplines.length > 0 ? test.disciplines : ['physio'],
+            disciplines: normalizeList(test.disciplines).length > 0 ? normalizeList(test.disciplines) : ['physio'],
             references: test.references || '',
         });
         setCustomModalOpen(true);
@@ -157,7 +183,7 @@ export default function TestsIndex({
         }
     };
 
-    const totalVisibleTests = tests.length;
+    const totalVisibleTests = tests?.total ?? safeTests.length;
 
     return (
         <AuthenticatedLayout>
@@ -228,7 +254,7 @@ export default function TestsIndex({
                             className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
                         >
                             <option value="all">All Disciplines</option>
-                            {disciplines.map((d) => (
+                            {safeDisciplines.map((d) => (
                                 <option key={d.value} value={d.value}>{d.label}</option>
                             ))}
                         </select>
@@ -257,7 +283,7 @@ export default function TestsIndex({
                             </span>
                         </button>
 
-                        {bodyRegions.map((r) => {
+                        {safeBodyRegions.map((r) => {
                             const count = regionCounts[r.value] || 0;
                             const isSelected = selectedRegion === r.value;
                             return (
@@ -284,7 +310,7 @@ export default function TestsIndex({
                 {/* Tests Grid */}
                 <div className="space-y-3">
                     <div className="flex items-center justify-between text-xs text-slate-500">
-                        <span>Showing {tests.length} tests</span>
+                        <span>Showing {tests?.total ?? safeTests.length} tests</span>
                         {selectedRegion !== 'all' && (
                             <button
                                 type="button"
@@ -296,9 +322,9 @@ export default function TestsIndex({
                         )}
                     </div>
 
-                    {tests.length > 0 ? (
+                    {safeTests.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {tests.map((t) => (
+                            {safeTests.map((t) => (
                                 <div
                                     key={t.id}
                                     className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs hover:border-violet-300 dark:hover:border-violet-700 transition flex flex-col justify-between space-y-4"
@@ -325,9 +351,9 @@ export default function TestsIndex({
                                                 <h3 className="text-sm font-bold text-slate-900 dark:text-white mt-1.5">
                                                     {t.name}
                                                 </h3>
-                                                {Array.isArray(t.aliases) && t.aliases.length > 0 && (
+                                                {normalizeList(t.aliases).length > 0 && (
                                                     <p className="text-[11px] text-slate-400 mt-0.5">
-                                                        Also: {t.aliases.join(', ')}
+                                                        Also: {normalizeList(t.aliases).join(', ')}
                                                     </p>
                                                 )}
                                             </div>
@@ -360,14 +386,14 @@ export default function TestsIndex({
                                         </p>
 
                                         {/* Disciplines Chips */}
-                                        {Array.isArray(t.disciplines) && t.disciplines.length > 0 && (
+                                        {normalizeList(t.disciplines).length > 0 && (
                                             <div className="flex flex-wrap gap-1 pt-1">
-                                                {t.disciplines.map((d, dIdx) => (
+                                                {normalizeList(t.disciplines).map((d, dIdx) => (
                                                     <span
                                                         key={dIdx}
                                                         className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
                                                     >
-                                                        {d}
+                                                        {typeof d === 'object' ? (d.label || d.value) : d}
                                                     </span>
                                                 ))}
                                             </div>
@@ -435,9 +461,9 @@ export default function TestsIndex({
                                 <h3 className="text-base font-bold text-slate-900 dark:text-white mt-0.5">
                                     {viewingTest.name}
                                 </h3>
-                                {Array.isArray(viewingTest.aliases) && viewingTest.aliases.length > 0 && (
+                                {normalizeList(viewingTest.aliases).length > 0 && (
                                     <p className="text-[11px] text-slate-400 mt-0.5">
-                                        Aliases: {viewingTest.aliases.join(', ')}
+                                        Aliases: {normalizeList(viewingTest.aliases).join(', ')}
                                     </p>
                                 )}
                             </div>
@@ -550,7 +576,7 @@ export default function TestsIndex({
                                         className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-violet-500"
                                         required
                                     >
-                                        {bodyRegions.map((r) => (
+                                        {safeBodyRegions.map((r) => (
                                             <option key={r.value} value={r.value}>{r.label}</option>
                                         ))}
                                     </select>
@@ -575,7 +601,7 @@ export default function TestsIndex({
                                     Target Disciplines
                                 </label>
                                 <div className="flex flex-wrap gap-2 pt-1">
-                                    {disciplines.map((d) => {
+                                    {safeDisciplines.map((d) => {
                                         const checked = formData.disciplines.includes(d.value);
                                         return (
                                             <button
