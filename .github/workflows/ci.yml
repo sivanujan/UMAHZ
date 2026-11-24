@@ -163,7 +163,7 @@ jobs:
           cache: 'npm'
 
       - name: Run Composer Audit (High & Critical)
-        run: composer audit --ignore-severity=low --ignore-severity=medium --ignore-severity=info
+        run: composer audit --locked --ignore-severity=low --ignore-severity=medium --ignore-severity=info
 
       - name: Run NPM Audit (High & Critical)
         run: npm audit --audit-level=high
