@@ -30,3 +30,5 @@ Homestead.yaml
 Thumbs.db
 /scratch
 /public/videos/*-v2.mp4
+coverage.xml
+.scannerwork/
