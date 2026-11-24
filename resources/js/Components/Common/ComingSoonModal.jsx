@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Sparkles, Activity, FileText, X, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Activity, X, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 const SESSION_KEY = 'umahz_coming_soon_dismissed_session';
 
@@ -151,7 +151,7 @@ export default function ComingSoonModal() {
                     </h2>
 
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-                        We're constantly expanding UMAHZ to streamline modern healthcare practices. Here's an early preview of two major modules currently in development.
+                        We're constantly expanding UMAHZ to streamline modern healthcare practices. Here's an early preview of an upcoming module currently in development.
                     </p>
 
                     {/* Features List */}
@@ -172,26 +172,6 @@ export default function ComingSoonModal() {
                                 </div>
                                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-normal font-medium">
                                     Camera-based movement assessment & progress tracking
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Feature 2: UMAHZ Scribe */}
-                        <div className="group p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 hover:bg-purple-50/40 dark:hover:bg-purple-950/30 hover:border-purple-200/80 dark:hover:border-purple-800/60 transition-all duration-200 flex items-start gap-4">
-                            <div className="h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-purple-100 dark:bg-purple-950/70 text-purple-600 dark:text-purple-400 dark:border dark:border-purple-800/50 shadow-sm">
-                                <FileText className="w-5 h-5" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between gap-2">
-                                    <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                                        UMAHZ Scribe
-                                    </h3>
-                                    <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/70 text-purple-800 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60 flex-shrink-0">
-                                        Coming Soon
-                                    </span>
-                                </div>
-                                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-normal font-medium">
-                                    AI-assisted clinical documentation
                                 </p>
                             </div>
                         </div>
