@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, Component } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import {
@@ -6,6 +6,36 @@ import {
     AlertCircle, Loader2, RefreshCw, DollarSign, Users,
     AlertTriangle, Sparkles, Check
 } from 'lucide-react';
+
+class ErrorBoundary extends Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false };
+    }
+
+    static getDerivedStateFromError() {
+        return { hasError: true };
+    }
+
+    componentDidCatch(error, errorInfo) {
+        console.error('ErrorBoundary caught error in Add-on item:', error, errorInfo);
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="bg-slate-900/60 rounded-xl border border-rose-500/30 p-6 flex flex-col items-center justify-center text-center space-y-2 min-h-[220px]">
+                    <AlertCircle className="w-8 h-8 text-rose-400" />
+                    <h4 className="text-sm font-semibold text-white">Rendering Error</h4>
+                    <p className="text-xs text-slate-400 max-w-xs">
+                        This add-on could not be rendered due to invalid data.
+                    </p>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
 
 export default function AddOnsIndex({ addOns = [] }) {
     const { flash, errors } = usePage().props;
@@ -46,13 +76,13 @@ export default function AddOnsIndex({ addOns = [] }) {
         setIsCreating(false);
         setSelectedAddOn(addOn);
         setFormData({
-            name: addOn.name,
-            slug: addOn.slug,
-            pricing_type: addOn.pricing_type || 'per_seat',
-            price_monthly: addOn.price_monthly,
-            price_annual: addOn.price_annual,
-            description: addOn.description || '',
-            is_active: Boolean(addOn.is_active),
+            name: addOn?.name || '',
+            slug: addOn?.slug || '',
+            pricing_type: addOn?.pricing_type || 'per_seat',
+            price_monthly: addOn?.price_monthly ?? 29,
+            price_annual: addOn?.price_annual ?? 290,
+            description: addOn?.description || '',
+            is_active: Boolean(addOn?.is_active),
         });
         setEditorOpen(true);
     };
@@ -112,7 +142,7 @@ export default function AddOnsIndex({ addOns = [] }) {
     };
 
     const handleDelete = (addOn) => {
-        if (!confirm(`Are you sure you want to delete "${addOn.name}"?`)) return;
+        if (!confirm(`Are you sure you want to delete "${addOn?.name || 'this add-on'}"?`)) return;
         router.delete(`/admin/addons/${addOn.id}`, {
             preserveScroll: true,
         });
@@ -160,100 +190,113 @@ export default function AddOnsIndex({ addOns = [] }) {
             </div>
 
             {/* Add-ons Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {addOns.map((addOn) => (
-                    <div
-                        key={addOn.id}
-                        className="bg-slate-900/60 rounded-xl border border-slate-800/80 p-6 flex flex-col justify-between shadow-xl relative overflow-hidden group hover:border-slate-700 transition-colors"
-                    >
-                        <div className="space-y-4">
-                            <div className="flex items-start justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
-                                        <Sparkles className="w-5 h-5" />
+            {(!addOns || addOns.length === 0) ? (
+                <div className="p-12 text-center bg-slate-900/40 rounded-xl border border-slate-800 text-slate-400 text-sm">
+                    No add-ons found. Click "Create New Add-on" to add one.
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {addOns.map((addOn) => (
+                        <ErrorBoundary key={addOn?.id || addOn?.slug || Math.random()}>
+                            <div
+                                className="bg-slate-900/60 rounded-xl border border-slate-800/80 p-6 flex flex-col justify-between shadow-xl relative overflow-hidden group hover:border-slate-700 transition-colors"
+                            >
+                                <div className="space-y-4">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
+                                                <Sparkles className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-bold text-white text-base">{addOn?.name || 'Untitled Add-on'}</h3>
+                                                <code className="text-[11px] text-slate-500 font-mono">{addOn?.slug || '—'}</code>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            {addOn?.is_active ? (
+                                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                    Active
+                                                </span>
+                                            ) : (
+                                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+                                                    Deactivated
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 className="font-bold text-white text-base">{addOn.name}</h3>
-                                        <code className="text-[11px] text-slate-500 font-mono">{addOn.slug}</code>
+
+                                    <p className="text-xs text-slate-400 leading-relaxed min-h-[36px]">
+                                        {addOn?.description || 'No description provided.'}
+                                    </p>
+
+                                    <div className="bg-slate-950/60 rounded-lg p-3 border border-slate-800/80 space-y-2">
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-slate-400">Monthly</span>
+                                            <span className="font-mono text-white font-semibold">
+                                                {addOn?.price_monthly != null ? `$${addOn.price_monthly} / mo` : '—'}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-slate-400">Annual</span>
+                                            <span className="font-mono text-slate-300 font-medium">
+                                                {addOn?.price_annual != null ? `$${addOn.price_annual} / yr` : '—'}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-800/60">
+                                            <span className="text-slate-400">Pricing Model</span>
+                                            <span className="capitalize text-violet-300 font-medium">
+                                                {addOn?.pricing_type ? addOn.pricing_type.replace(/_/g, ' ') : '—'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+                                        <div className="flex items-center gap-1.5">
+                                            <Users className="w-3.5 h-3.5 text-slate-500" />
+                                            <span>{addOn?.active_subscribers_count ?? 0} active subscriber(s)</span>
+                                        </div>
+                                        <div>
+                                            {addOn?.has_stripe_sync ? (
+                                                <span className="flex items-center gap-1 text-emerald-400 font-medium text-[11px]">
+                                                    <CheckCircle2 className="w-3 h-3" />
+                                                    Stripe Synced
+                                                </span>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleSyncStripe(addOn?.id)}
+                                                    disabled={syncingId === addOn?.id}
+                                                    className="flex items-center gap-1 text-amber-400 hover:text-amber-300 text-[11px] underline"
+                                                >
+                                                    <RefreshCw className={`w-3 h-3 ${syncingId === addOn?.id ? 'animate-spin' : ''}`} />
+                                                    Retry Stripe Sync
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                                <div>
-                                    {addOn.is_active ? (
-                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                            Active
-                                        </span>
-                                    ) : (
-                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">
-                                            Deactivated
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
 
-                            <p className="text-xs text-slate-400 leading-relaxed min-h-[36px]">
-                                {addOn.description || 'No description provided.'}
-                            </p>
-
-                            <div className="bg-slate-950/60 rounded-lg p-3 border border-slate-800/80 space-y-2">
-                                <div className="flex items-center justify-between text-xs">
-                                    <span className="text-slate-400">Monthly</span>
-                                    <span className="font-mono text-white font-semibold">${addOn.price_monthly} / mo</span>
-                                </div>
-                                <div className="flex items-center justify-between text-xs">
-                                    <span className="text-slate-400">Annual</span>
-                                    <span className="font-mono text-slate-300 font-medium">${addOn.price_annual} / yr</span>
-                                </div>
-                                <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-800/60">
-                                    <span className="text-slate-400">Pricing Model</span>
-                                    <span className="capitalize text-violet-300 font-medium">{addOn.pricing_type.replace('_', ' ')}</span>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
-                                <div className="flex items-center gap-1.5">
-                                    <Users className="w-3.5 h-3.5 text-slate-500" />
-                                    <span>{addOn.active_subscribers_count} active subscriber(s)</span>
-                                </div>
-                                <div>
-                                    {addOn.has_stripe_sync ? (
-                                        <span className="flex items-center gap-1 text-emerald-400 font-medium text-[11px]">
-                                            <CheckCircle2 className="w-3 h-3" />
-                                            Stripe Synced
-                                        </span>
-                                    ) : (
+                                <div className="flex items-center justify-end gap-2 pt-5 border-t border-slate-800/80 mt-4">
+                                    <button
+                                        onClick={() => openEditModal(addOn)}
+                                        className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 hover:text-white transition-colors"
+                                    >
+                                        Edit Add-on
+                                    </button>
+                                    {(addOn?.active_subscribers_count ?? 0) === 0 && (
                                         <button
-                                            onClick={() => handleSyncStripe(addOn.id)}
-                                            disabled={syncingId === addOn.id}
-                                            className="flex items-center gap-1 text-amber-400 hover:text-amber-300 text-[11px] underline"
+                                            onClick={() => handleDelete(addOn)}
+                                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 transition-colors"
+                                            title="Delete Add-on"
                                         >
-                                            <RefreshCw className={`w-3 h-3 ${syncingId === addOn.id ? 'animate-spin' : ''}`} />
-                                            Retry Stripe Sync
+                                            <Trash2 className="w-3.5 h-3.5" />
                                         </button>
                                     )}
                                 </div>
                             </div>
-                        </div>
-
-                        <div className="flex items-center justify-end gap-2 pt-5 border-t border-slate-800/80 mt-4">
-                            <button
-                                onClick={() => openEditModal(addOn)}
-                                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 hover:text-white transition-colors"
-                            >
-                                Edit Add-on
-                            </button>
-                            {addOn.active_subscribers_count === 0 && (
-                                <button
-                                    onClick={() => handleDelete(addOn)}
-                                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 transition-colors"
-                                    title="Delete Add-on"
-                                >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                ))}
-            </div>
+                        </ErrorBoundary>
+                    ))}
+                </div>
+            )}
 
             {/* Create/Edit Modal */}
             {editorOpen && (

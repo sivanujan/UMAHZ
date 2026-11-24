@@ -29,7 +29,7 @@ class AddOnController extends Controller
                 'id' => $addOn->id,
                 'name' => $addOn->name,
                 'slug' => $addOn->slug,
-                'pricing_type' => $addOn->pricing_type,
+                'pricing_type' => $addOn->pricing_type ?? $addOn->billing_type ?? 'per_seat',
                 'price_monthly' => (float) $addOn->price_monthly,
                 'price_annual' => (float) $addOn->price_annual,
                 'is_active' => (bool) $addOn->is_active,
@@ -63,6 +63,7 @@ class AddOnController extends Controller
         $addOn = AddOn::create([
             'name' => $validated['name'],
             'slug' => $slug,
+            'billing_type' => $validated['pricing_type'],
             'pricing_type' => $validated['pricing_type'],
             'price_monthly' => $validated['price_monthly'],
             'price_annual' => $validated['price_annual'],
@@ -107,7 +108,9 @@ class AddOnController extends Controller
         $monthlyChanged = (float) $addOn->price_monthly !== (float) $validated['price_monthly'];
         $annualChanged = (float) $addOn->price_annual !== (float) $validated['price_annual'];
 
-        $addOn->update($validated);
+        $updateData = $validated;
+        $updateData['billing_type'] = $validated['pricing_type'];
+        $addOn->update($updateData);
 
         if ($monthlyChanged || $annualChanged) {
             // Reset Stripe price IDs to generate new ones upon sync (grandfathering)

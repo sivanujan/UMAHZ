@@ -487,6 +487,17 @@ class AdminPlatformManagementTest extends TestCase
 
         $addon = AddOn::where('slug', 'voice-reminders')->firstOrFail();
         $this->assertEquals(19.00, (float) $addon->price_monthly);
+        $this->assertSame('flat_monthly', $addon->billing_type);
+        $this->assertSame('flat_monthly', $addon->pricing_type);
+
+        // Verify index page passes non-null pricing_type to Inertia
+        $response = $this->actingAs($admin)->get('http://umahz.test/admin/addons');
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Admin/AddOns/Index')
+            ->has('addOns')
+            ->where('addOns.0.pricing_type', fn ($val) => ! is_null($val))
+        );
 
         // Sync Stripe
         $this->actingAs($admin)->post("http://umahz.test/admin/addons/{$addon->id}/sync-stripe")->assertSessionHasNoErrors();

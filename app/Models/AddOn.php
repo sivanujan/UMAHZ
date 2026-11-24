@@ -16,6 +16,7 @@ class AddOn extends Model
         'name',
         'description',
         'billing_type',
+        'pricing_type',
         'price_monthly',
         'price_annual',
         'stripe_product_id',
@@ -27,6 +28,10 @@ class AddOn extends Model
         'needs_review_fields',
     ];
 
+    protected $appends = [
+        'pricing_type',
+    ];
+
     protected $casts = [
         'price_monthly' => 'decimal:2',
         'price_annual' => 'decimal:2',
@@ -35,6 +40,16 @@ class AddOn extends Model
         'needs_review' => 'boolean',
         'needs_review_fields' => 'array',
     ];
+
+    public function getPricingTypeAttribute(): string
+    {
+        return $this->attributes['billing_type'] ?? 'per_seat';
+    }
+
+    public function setPricingTypeAttribute(?string $value): void
+    {
+        $this->attributes['billing_type'] = $value;
+    }
 
     public function tenantAddOns(): HasMany
     {
