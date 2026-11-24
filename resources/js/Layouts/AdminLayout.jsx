@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutDashboard, Building2, Users, LifeBuoy, Settings, LogOut, ChevronDown, ShieldCheck, ClipboardCheck, IdCard, CreditCard, Globe, Layers, Puzzle, Tag, History, Ban, Gift } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, LifeBuoy, Settings, LogOut, ChevronDown, ShieldCheck, ClipboardCheck, IdCard, CreditCard, Globe, Layers, Puzzle, Tag, History, Ban, Gift, Activity } from 'lucide-react';
 import { getAvatarInitial } from '@/Utils/name';
 
 export default function AdminLayout({ children, title }) {
@@ -16,6 +16,7 @@ export default function AdminLayout({ children, title }) {
         { name: 'Clinic Applications', href: '/admin/clinics', icon: ClipboardCheck },
         { name: 'Blocked Applicants', href: '/admin/blocked-emails', icon: Ban },
         { name: 'Practitioner Verification', href: '/admin/practitioners', icon: IdCard },
+        { name: 'Test Library', href: '/admin/tests', icon: Activity },
         { name: 'Plans & Pricing', href: '/admin/plans', icon: CreditCard },
         { name: 'Feature Catalog', href: '/admin/features', icon: Puzzle },
         { name: 'Add-ons', href: '/admin/addons', icon: Layers },

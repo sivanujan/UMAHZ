@@ -6,7 +6,8 @@ import ScribeSessionViewer from '@/Components/Scribe/ScribeSessionViewer';
 import {
     FileText, Save, CheckCircle2, Shield, AlertTriangle, ArrowLeft,
     Clock, User, Calendar, Stethoscope, ChevronRight, Lock, Eye, EyeOff,
-    Check, Sparkles, X, Info, MessageSquare
+    Check, Sparkles, X, Info, MessageSquare, Activity, Plus, Trash2,
+    BookOpen, Layers
 } from 'lucide-react';
 
 export default function ClinicalNoteEditor({
@@ -17,15 +18,26 @@ export default function ClinicalNoteEditor({
     practitioner,
     referenceIntake,
     scribeHandoff = null,
+    testResults: initialTestResults = [],
 }) {
     const isEditingExisting = !!note?.id;
     const [noteId, setNoteId] = useState(note?.id || null);
     const [content, setContent] = useState(note?.content || {});
+    const [testResults, setTestResults] = useState(initialTestResults || []);
     const [autosaveStatus, setAutosaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
     const [lastSavedAt, setLastSavedAt] = useState(note?.updated_at || null);
     const [showIntakeDrawer, setShowIntakeDrawer] = useState(false);
     const [showFinalizeModal, setShowFinalizeModal] = useState(false);
     const [showScribeViewer, setShowScribeViewer] = useState(false);
+
+    // Test picker & detail states
+    const [showTestPicker, setShowTestPicker] = useState(false);
+    const [availableTests, setAvailableTests] = useState([]);
+    const [loadingTests, setLoadingTests] = useState(false);
+    const [pickerRegion, setPickerRegion] = useState('all');
+    const [pickerSearch, setPickerSearch] = useState('');
+    const [selectedTestIds, setSelectedTestIds] = useState([]);
+    const [viewingTestDetail, setViewingTestDetail] = useState(null);
 
     // Finalization form state
     const [signerName, setSignerName] = useState(practitioner?.name || '');
@@ -48,6 +60,9 @@ export default function ClinicalNoteEditor({
     const contentRef = useRef(content);
     contentRef.current = content;
 
+    const testResultsRef = useRef(testResults);
+    testResultsRef.current = testResults;
+
     const performAutosave = async () => {
         if (!noteId) {
             // First save initializes the draft note
@@ -64,6 +79,7 @@ export default function ClinicalNoteEditor({
                         appointment_id: appointment?.id || null,
                         clinical_note_template_id: template.id,
                         content: contentRef.current,
+                        test_results: testResultsRef.current,
                     }),
                 });
                 const data = await res.json();
@@ -93,6 +109,7 @@ export default function ClinicalNoteEditor({
                 },
                 body: JSON.stringify({
                     content: contentRef.current,
+                    test_results: testResultsRef.current,
                 }),
             });
             const data = await res.json();
@@ -107,14 +124,14 @@ export default function ClinicalNoteEditor({
         }
     };
 
-    // Debounced autosave on content change
+    // Debounced autosave on content or test results change
     useEffect(() => {
         const timeout = setTimeout(() => {
             performAutosave();
         }, 1500);
 
         return () => clearTimeout(timeout);
-    }, [content]);
+    }, [content, testResults]);
 
     const handleFinalize = async (e) => {
         e.preventDefault();
@@ -140,6 +157,7 @@ export default function ClinicalNoteEditor({
                     appointment_id: appointment?.id || null,
                     clinical_note_template_id: template.id,
                     content,
+                    test_results: testResults,
                 }),
             });
             const initData = await initRes.json();
@@ -151,6 +169,7 @@ export default function ClinicalNoteEditor({
             signer_credentials: signerCredentials,
             attestation_text: 'I attest that the clinical documentation recorded above accurately reflects the assessment, treatment, and clinical observations conducted during this patient encounter.',
             content,
+            test_results: testResults,
         }, {
             onError: (errs) => {
                 setFinalizeErrors(errs);
@@ -158,6 +177,290 @@ export default function ClinicalNoteEditor({
             },
         });
     };
+
+    const PICKER_REGIONS = [
+        { value: 'all', label: 'All Regions' },
+        { value: 'shoulder', label: 'Shoulder' },
+        { value: 'elbow', label: 'Elbow' },
+        { value: 'wrist_hand', label: 'Wrist & Hand' },
+        { value: 'cervical', label: 'Cervical' },
+        { value: 'thoracic', label: 'Thoracic' },
+        { value: 'lumbar', label: 'Lumbar' },
+        { value: 'hip', label: 'Hip' },
+        { value: 'knee', label: 'Knee' },
+        { value: 'ankle_foot', label: 'Ankle & Foot' },
+        { value: 'other', label: 'Other' },
+    ];
+
+    const openTestPicker = async () => {
+        setShowTestPicker(true);
+        setSelectedTestIds([]);
+        setPickerRegion('all');
+        setPickerSearch('');
+        if (availableTests.length === 0) {
+            setLoadingTests(true);
+            try {
+                const res = await fetch('/app/tests/lookup');
+                const data = await res.json();
+                setAvailableTests(Array.isArray(data) ? data : []);
+            } catch {
+                setAvailableTests([]);
+            } finally {
+                setLoadingTests(false);
+            }
+        }
+    };
+
+    const handleTogglePickerTest = (testId) => {
+        setSelectedTestIds((prev) =>
+            prev.includes(testId) ? prev.filter((id) => id !== testId) : [...prev, testId]
+        );
+    };
+
+    const handleAddSelectedTests = () => {
+        const toAdd = availableTests.filter((t) => selectedTestIds.includes(t.id));
+        const newItems = toAdd.map((test) => ({
+            assessment_test_id: test.id,
+            test_name_snapshot: test.name,
+            body_region_snapshot: test.body_region,
+            side: 'bilateral',
+            result: 'negative',
+            pain_reproduced: false,
+            notes: '',
+            assessment_test: test,
+        }));
+        setTestResults((prev) => [...prev, ...newItems]);
+        setShowTestPicker(false);
+        setSelectedTestIds([]);
+    };
+
+    const handleUpdateTestResult = (index, updates) => {
+        setTestResults((prev) => {
+            const next = [...prev];
+            next[index] = { ...next[index], ...updates };
+            return next;
+        });
+    };
+
+    const handleRemoveTestResult = (index) => {
+        setTestResults((prev) => prev.filter((_, i) => i !== index));
+    };
+
+    const positiveTests = testResults.filter((t) => t.result === 'positive');
+
+    const filteredPickerTests = availableTests.filter((t) => {
+        if (pickerRegion !== 'all' && t.body_region !== pickerRegion) return false;
+        if (pickerSearch.trim()) {
+            const q = pickerSearch.toLowerCase();
+            const matchName = t.name?.toLowerCase().includes(q);
+            const matchPurpose = t.purpose?.toLowerCase().includes(q);
+            const matchAliases = Array.isArray(t.aliases) && t.aliases.some((a) => a.toLowerCase().includes(q));
+            if (!matchName && !matchPurpose && !matchAliases) return false;
+        }
+        return true;
+    });
+
+    const hasObjectiveSection = (schema.sections || []).some((sec) =>
+        sec.title?.toLowerCase().includes('objective')
+    );
+
+    const renderTestsSection = () => (
+        <div className="bg-slate-50/70 dark:bg-slate-950/50 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 space-y-4 mt-6">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                        Tests Performed & Clinical Maneuvers
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 dark:bg-violet-950/60 text-violet-800 dark:text-violet-300 border border-violet-200 dark:border-violet-800">
+                        {testResults.length} {testResults.length === 1 ? 'test' : 'tests'}
+                    </span>
+                </div>
+                <button
+                    type="button"
+                    onClick={openTestPicker}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold shadow-xs transition"
+                >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Tests</span>
+                </button>
+            </div>
+
+            {/* Positive Tests Summary Alert */}
+            {positiveTests.length > 0 ? (
+                <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-800 dark:text-rose-300 flex items-start gap-2.5">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <div>
+                        <span className="font-bold text-xs block">
+                            {positiveTests.length} Positive {positiveTests.length === 1 ? 'Test' : 'Tests'}:
+                        </span>
+                        <span className="text-xs font-medium">
+                            {positiveTests
+                                .map(
+                                    (t) =>
+                                        `${t.test_name_snapshot || t.test_name || 'Test'}${
+                                            t.side && t.side !== 'n/a' ? ` (${t.side})` : ''
+                                        }`
+                                )
+                                .join(', ')}
+                        </span>
+                    </div>
+                </div>
+            ) : testResults.length > 0 ? (
+                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-400 flex items-center gap-2 text-xs">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>All {testResults.length} documented assessment tests are negative.</span>
+                </div>
+            ) : (
+                <div className="p-5 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-xl space-y-1">
+                    <Activity className="w-5 h-5 text-slate-400 mx-auto" />
+                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        No orthopedic or assessment tests recorded.
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                        Select tests from the clinical library to record sides, results, and pain reproduction.
+                    </p>
+                </div>
+            )}
+
+            {/* Documented Test Cards */}
+            {testResults.length > 0 && (
+                <div className="space-y-3 pt-1">
+                    {testResults.map((t, idx) => (
+                        <div
+                            key={t.id || idx}
+                            className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3 shadow-xs"
+                        >
+                            <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                                        {t.test_name_snapshot || t.test_name || 'Assessment Test'}
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 capitalize">
+                                        {t.body_region_snapshot ? t.body_region_snapshot.replace('_', ' / ') : 'Other'}
+                                    </span>
+                                    {t.assessment_test && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setViewingTestDetail(t.assessment_test)}
+                                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-violet-600 dark:text-violet-400 hover:underline"
+                                        >
+                                            <BookOpen className="w-3 h-3" />
+                                            <span>Criteria</span>
+                                        </button>
+                                    )}
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => handleRemoveTestResult(idx)}
+                                    className="p-1 rounded text-slate-400 hover:text-rose-500 transition"
+                                    title="Remove test"
+                                >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                                {/* Side Selector */}
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                                        Side
+                                    </label>
+                                    <div className="flex rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
+                                        {[
+                                            { val: 'left', label: 'Left' },
+                                            { val: 'right', label: 'Right' },
+                                            { val: 'bilateral', label: 'Bi' },
+                                            { val: 'n/a', label: 'N/A' },
+                                        ].map((s) => (
+                                            <button
+                                                key={s.val}
+                                                type="button"
+                                                onClick={() => handleUpdateTestResult(idx, { side: s.val })}
+                                                className={`flex-1 py-1 text-[11px] font-semibold transition ${
+                                                    t.side === s.val
+                                                        ? 'bg-violet-600 text-white'
+                                                        : 'bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:bg-slate-100'
+                                                }`}
+                                            >
+                                                {s.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Result Selector */}
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                                        Result
+                                    </label>
+                                    <div className="flex rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
+                                        {[
+                                            { val: 'positive', label: 'Pos (+)', activeCls: 'bg-rose-600 text-white' },
+                                            { val: 'negative', label: 'Neg (-)', activeCls: 'bg-emerald-600 text-white' },
+                                            { val: 'inconclusive', label: 'Inc', activeCls: 'bg-amber-600 text-white' },
+                                            { val: 'not_tested', label: 'N/T', activeCls: 'bg-slate-600 text-white' },
+                                        ].map((r) => (
+                                            <button
+                                                key={r.val}
+                                                type="button"
+                                                onClick={() =>
+                                                    handleUpdateTestResult(idx, {
+                                                        result: r.val,
+                                                        pain_reproduced: r.val === 'positive' ? true : t.pain_reproduced,
+                                                    })
+                                                }
+                                                className={`flex-1 py-1 text-[11px] font-semibold transition ${
+                                                    t.result === r.val
+                                                        ? r.activeCls
+                                                        : 'bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:bg-slate-100'
+                                                }`}
+                                            >
+                                                {r.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Pain Provoked Toggle */}
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                                        Pain Provoked
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            handleUpdateTestResult(idx, {
+                                                pain_reproduced: !t.pain_reproduced,
+                                            })
+                                        }
+                                        className={`w-full py-1 px-2.5 rounded-lg text-[11px] font-semibold border transition text-center ${
+                                            t.pain_reproduced
+                                                ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300'
+                                                : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-500'
+                                        }`}
+                                    >
+                                        {t.pain_reproduced ? '⚡ Pain Provoked (+)' : 'No Pain / Non-tender'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Clinical Observations / Notes */}
+                            <div>
+                                <input
+                                    type="text"
+                                    value={t.notes || ''}
+                                    onChange={(e) => handleUpdateTestResult(idx, { notes: e.target.value })}
+                                    placeholder="Clinical notes / symptom reproduction (e.g. sharp anterolateral shoulder pain at 80° abduction)..."
+                                    className="w-full px-3 py-1.5 rounded-lg text-xs border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                                />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
 
     return (
         <AuthenticatedLayout>
@@ -427,8 +730,10 @@ export default function ClinicalNoteEditor({
                                         );
                                     })}
                                 </div>
+                                {sec.title?.toLowerCase().includes('objective') && renderTestsSection()}
                             </div>
                         ))}
+                        {!hasObjectiveSection && renderTestsSection()}
                     </div>
 
                     {/* Reference Intake Drawer (Read-Only) */}
@@ -660,6 +965,247 @@ export default function ClinicalNoteEditor({
                     isOpen={showScribeViewer}
                     onClose={() => setShowScribeViewer(false)}
                 />
+            )}
+
+            {/* Test Picker Modal */}
+            {showTestPicker && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowTestPicker(false)} />
+                    <div className="relative w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl p-6 z-10 text-xs">
+                        {/* Header */}
+                        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                            <div className="flex items-center gap-2.5">
+                                <Activity className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                                <div>
+                                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                                        Clinical Assessment Test Picker
+                                    </h3>
+                                    <p className="text-xs text-slate-500">
+                                        Select tests to add to your clinical documentation
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowTestPicker(false)}
+                                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Search & Region Filter */}
+                        <div className="py-3 space-y-3 border-b border-slate-100 dark:border-slate-800">
+                            <input
+                                type="text"
+                                value={pickerSearch}
+                                onChange={(e) => setPickerSearch(e.target.value)}
+                                placeholder="Search test by name, alias, or purpose (e.g. Neer, Lachman, Spurling)..."
+                                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
+                            />
+                            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                                {PICKER_REGIONS.map((r) => (
+                                    <button
+                                        key={r.value}
+                                        type="button"
+                                        onClick={() => setPickerRegion(r.value)}
+                                        className={`px-2.5 py-1 rounded-lg font-semibold shrink-0 transition ${
+                                            pickerRegion === r.value
+                                                ? 'bg-violet-600 text-white'
+                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                                        }`}
+                                    >
+                                        {r.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Test List */}
+                        <div className="flex-1 overflow-y-auto py-3 space-y-2 max-h-[45vh]">
+                            {loadingTests ? (
+                                <div className="p-8 text-center text-slate-400">Loading assessment library...</div>
+                            ) : filteredPickerTests.length > 0 ? (
+                                filteredPickerTests.map((t) => {
+                                    const isSelected = selectedTestIds.includes(t.id);
+                                    return (
+                                        <div
+                                            key={t.id}
+                                            className={`p-3 rounded-xl border transition flex items-start justify-between gap-3 ${
+                                                isSelected
+                                                    ? 'bg-violet-50/80 dark:bg-violet-950/40 border-violet-400 dark:border-violet-700'
+                                                    : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            <label className="flex items-start gap-3 cursor-pointer flex-1">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={() => handleTogglePickerTest(t.id)}
+                                                    className="mt-1 rounded text-violet-600 focus:ring-violet-500"
+                                                />
+                                                <div>
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <span className="font-bold text-slate-900 dark:text-white">
+                                                            {t.name}
+                                                        </span>
+                                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 capitalize">
+                                                            {t.body_region?.replace('_', ' / ')}
+                                                        </span>
+                                                    </div>
+                                                    {Array.isArray(t.aliases) && t.aliases.length > 0 && (
+                                                        <p className="text-[10px] text-slate-400">
+                                                            Also: {t.aliases.join(', ')}
+                                                        </p>
+                                                    )}
+                                                    <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 line-clamp-2">
+                                                        {t.purpose}
+                                                    </p>
+                                                </div>
+                                            </label>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => setViewingTestDetail(t)}
+                                                className="p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0"
+                                                title="View procedure and criteria"
+                                            >
+                                                <Info className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    );
+                                })
+                            ) : availableTests.length === 0 ? (
+                                <div className="p-8 text-center space-y-3">
+                                    <div className="w-10 h-10 rounded-xl bg-violet-50 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 flex items-center justify-center mx-auto">
+                                        <Activity className="w-5 h-5" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                            The UMAHZ test library is being prepared. You can add your own clinic tests now.
+                                        </p>
+                                        <p className="text-[11px] text-slate-500">
+                                            Create custom tests for your clinic to document them inside clinical notes.
+                                        </p>
+                                    </div>
+                                    <a
+                                        href="/app/tests"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold shadow-xs transition"
+                                    >
+                                        <Plus className="w-3.5 h-3.5" />
+                                        <span>Add clinic test</span>
+                                    </a>
+                                </div>
+                            ) : (
+                                <div className="p-8 text-center text-slate-500">
+                                    No assessment tests matched your search.
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-3">
+                            <span className="text-xs text-slate-500 font-semibold">
+                                {selectedTestIds.length} {selectedTestIds.length === 1 ? 'test' : 'tests'} selected
+                            </span>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowTestPicker(false)}
+                                    className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-300 font-semibold"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={selectedTestIds.length === 0}
+                                    onClick={handleAddSelectedTests}
+                                    className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold transition disabled:opacity-50"
+                                >
+                                    Add Selected Tests ({selectedTestIds.length})
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Quick Test Detail Modal */}
+            {viewingTestDetail && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setViewingTestDetail(null)} />
+                    <div className="relative w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl p-6 space-y-3.5 z-10 text-xs">
+                        <div className="flex items-start justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
+                            <div>
+                                <span className="text-[10px] uppercase font-bold text-violet-600 dark:text-violet-400">
+                                    {viewingTestDetail.body_region?.replace('_', ' / ')}
+                                </span>
+                                <h4 className="text-base font-bold text-slate-900 dark:text-white mt-0.5">
+                                    {viewingTestDetail.name}
+                                </h4>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setViewingTestDetail(null)}
+                                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-3">
+                            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800">
+                                <h5 className="font-bold text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider mb-1">
+                                    Purpose
+                                </h5>
+                                <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
+                                    {viewingTestDetail.purpose || 'N/A'}
+                                </p>
+                            </div>
+
+                            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800">
+                                <h5 className="font-bold text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider mb-1">
+                                    Procedure Steps
+                                </h5>
+                                <p className="text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                                    {viewingTestDetail.procedure || 'N/A'}
+                                </p>
+                            </div>
+
+                            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 text-emerald-900 dark:text-emerald-200">
+                                <h5 className="font-bold text-emerald-700 dark:text-emerald-400 text-[10px] uppercase tracking-wider mb-1">
+                                    Positive Finding Criteria
+                                </h5>
+                                <p className="leading-relaxed">
+                                    {viewingTestDetail.positive_finding || 'N/A'}
+                                </p>
+                            </div>
+
+                            {viewingTestDetail.interpretation_notes && (
+                                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800">
+                                    <h5 className="font-bold text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider mb-1">
+                                        Clinical Interpretation
+                                    </h5>
+                                    <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
+                                        {viewingTestDetail.interpretation_notes}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex justify-end pt-2 border-t border-slate-200 dark:border-slate-800">
+                            <button
+                                type="button"
+                                onClick={() => setViewingTestDetail(null)}
+                                className="px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 font-semibold"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </AuthenticatedLayout>
     );

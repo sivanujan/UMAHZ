@@ -90,6 +90,11 @@ class ClinicalNote extends Model
         return $this->hasMany(ClinicalNoteAddendum::class)->orderBy('signed_at', 'asc');
     }
 
+    public function testResults(): HasMany
+    {
+        return $this->hasMany(ClinicalNoteTestResult::class)->orderBy('created_at', 'asc');
+    }
+
     public function isDraft(): bool
     {
         return $this->status === self::STATUS_DRAFT;
