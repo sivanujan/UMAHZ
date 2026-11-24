@@ -42,6 +42,11 @@
         <env name="STRIPE_KEY" value="pk_test_placeholder"/>
         <env name="STRIPE_SECRET" value="sk_test_placeholder"/>
         <env name="STRIPE_WEBHOOK_SECRET" value="whsec_placeholder"/>
+        <env name="STRIPE_CONNECT_WEBHOOK_SECRET" value="whsec_connect_placeholder"/>
+        <env name="SCRIBE_TRANSCRIPTION_DRIVER" value="fake"/>
+        <env name="SCRIBE_DRAFTING_DRIVER" value="fake"/>
+        <env name="ASSEMBLYAI_API_KEY" value="dummy_assemblyai_key"/>
+        <env name="RESEND_API_KEY" value="dummy_resend_key"/>
         <env name="OPENROUTER_API_KEY" value="dummy_openrouter_key"/>
     </php>
 </phpunit>
