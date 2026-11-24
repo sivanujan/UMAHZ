@@ -62,6 +62,15 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install NPM dependencies
+        run: npm ci
+
       - name: Prepare Environment File
         run: |
           cp .env.example .env
