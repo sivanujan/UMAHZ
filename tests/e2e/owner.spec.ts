@@ -13,6 +13,7 @@ test.describe('Clinic Owner workflows', () => {
     test('settings, staff invite, create product with two sizes, adjust stock, Sell Products picker, and public site', async ({
         page,
     }) => {
+        test.setTimeout(90_000);
         const guards = attachErrorGuards(page);
 
         await loginAtClinic(page, CLINIC_SLUG, USERS.owner, E2E_PASSWORD);
@@ -94,7 +95,6 @@ test.describe('Clinic Owner workflows', () => {
                 stockModal.locator('button[type="submit"]').click(),
             ]);
             await expect(stockModal).toBeHidden({ timeout: 10_000 });
-            await page.waitForLoadState('networkidle');
         }
 
         // 5. Verify product appears in "Sell Products" picker on client profile

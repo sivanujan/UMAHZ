@@ -60,7 +60,6 @@ test.describe('Patient billing, inventory deduction/void, receipts, and insuranc
             invModal.getByRole('button', { name: /create & issue/i }).click(),
         ]);
         await expect(invModal).toBeHidden({ timeout: 10_000 });
-        await page.waitForLoadState('networkidle');
 
         // Open newest invoice
         const invoices = queryE2eDb<{ id: string; status: string }>(
@@ -80,7 +79,6 @@ test.describe('Patient billing, inventory deduction/void, receipts, and insuranc
         ]);
 
         await expect(page.locator('body')).toContainText(/paid/i);
-        await page.waitForLoadState('networkidle');
 
         const lineItems = queryE2eDb<{ id: string; product_id: string | null }>(
             'SELECT id, product_id FROM invoice_line_items WHERE invoice_id = ?',
@@ -113,7 +111,6 @@ test.describe('Patient billing, inventory deduction/void, receipts, and insuranc
             sellModal.getByRole('button', { name: /create & issue/i }).click(),
         ]);
         await expect(sellModal).toBeHidden({ timeout: 10_000 });
-        await page.waitForLoadState('networkidle');
 
         const inv2 = queryE2eDb<{ id: string }>('SELECT id FROM invoices ORDER BY created_at DESC LIMIT 1');
         const stockBeforeVoid = queryE2eDb<{ stock_quantity: number }>(
@@ -127,7 +124,6 @@ test.describe('Patient billing, inventory deduction/void, receipts, and insuranc
             page.getByRole('button', { name: /^void$/i }).click(),
         ]);
         await expect(page.locator('body')).toContainText(/void/i);
-        await page.waitForLoadState('networkidle');
 
         const stockAfterVoid = queryE2eDb<{ stock_quantity: number }>(
             "SELECT stock_quantity FROM product_variants WHERE sku = 'ARN-50' LIMIT 1"

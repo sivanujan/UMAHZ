@@ -195,6 +195,11 @@ test.describe('Practitioner calendar, clinical notes, tests, and AI Scribe', () 
         );
         expect(sessions.length).toBe(1);
 
+        // Verify Practitioner Dashboard renders unsigned draft Scribe note without React errors
+        await page.goto(clinicUrl(CLINIC_SLUG, '/app/dashboard'));
+        await expect(page.locator('body')).toContainText(/Unsigned Notes/i);
+        await expect(page.locator('body')).toContainText(/Jordan Taylor/i);
+
         guards.assertNoErrors();
     });
 });

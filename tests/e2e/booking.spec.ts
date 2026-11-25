@@ -50,7 +50,6 @@ test.describe('Appointment booking, confirmation email, intake, and PDF consent'
             modal.locator('button[type="submit"]').click(),
         ]);
         await expect(modal).toBeHidden({ timeout: 10_000 });
-        await page.waitForLoadState('networkidle');
 
         // Verify appointment in DB and confirmation email in laravel.log
         const appts = queryE2eDb<{ id: string; service_name: string }>(
@@ -74,7 +73,7 @@ test.describe('Appointment booking, confirmation email, intake, and PDF consent'
             page.waitForResponse((res) => res.url().includes('/intakes/link') && res.request().method() === 'POST'),
             intakeModal.locator('button[type="submit"]').click(),
         ]);
-        await page.waitForLoadState('networkidle');
+        await expect(intakeModal).toContainText(/http|copied|link/i, { timeout: 10_000 });
 
         const intakes = queryE2eDb<{ id: string; token: string; status: string }>(
             'SELECT id, token, status FROM client_intakes ORDER BY created_at DESC LIMIT 1'
@@ -118,7 +117,6 @@ test.describe('Appointment booking, confirmation email, intake, and PDF consent'
             page.locator('form button[type="submit"]').click(),
         ]);
         await expect(page.locator('body')).toContainText(/thank you|submitted|completed/i, { timeout: 10_000 });
-        await page.waitForLoadState('networkidle');
 
         const updatedIntakes = queryE2eDb<{ status: string }>(
             'SELECT status FROM client_intakes WHERE id = ?',
@@ -154,7 +152,6 @@ test.describe('Appointment booking, confirmation email, intake, and PDF consent'
             consentModal.locator('button[type="submit"]').click(),
         ]);
         await expect(consentModal).toBeHidden({ timeout: 10_000 });
-        await page.waitForLoadState('networkidle');
 
         const consents = queryE2eDb<{ id: string; signed_pdf_path: string | null }>(
             "SELECT id, signed_pdf_path FROM consents WHERE consent_type_name = 'E2E Treatment Consent PDF' ORDER BY created_at DESC LIMIT 1"
@@ -181,7 +178,6 @@ test.describe('Appointment booking, confirmation email, intake, and PDF consent'
             typedModal.locator('button[type="submit"]').click(),
         ]);
         await expect(typedModal).toBeHidden({ timeout: 10_000 });
-        await page.waitForLoadState('networkidle');
 
         const typedConsents = queryE2eDb<{ signature_type: string; signature_data: string }>(
             "SELECT signature_type, signature_data FROM consents WHERE signature_type = 'typed' ORDER BY created_at DESC LIMIT 1"
