@@ -33,10 +33,13 @@ use App\Scribe\Drafting\NullObjectiveMeasurementSource;
 use App\Scribe\Drafting\OpenRouterDraftingProvider;
 use App\Scribe\FakeTranscriptionProvider;
 use GuzzleHttp\Client as GuzzleClient;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Mail\Transport\ResendTransport;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Cashier\Cashier;
@@ -98,6 +101,15 @@ class AppServiceProvider extends ServiceProvider
         if ($this->app->environment('production')) {
             URL::forceScheme('https');
         }
+
+        RateLimiter::for('login-lookup', function (Request $request) {
+            $email = mb_strtolower(trim((string) $request->input('email', '')));
+
+            return [
+                Limit::perMinute(10)->by('ip:'.$request->ip()),
+                Limit::perMinute(10)->by('email:'.$email),
+            ];
+        });
 
         Gate::policy(Tenant::class, TenantPolicy::class);
         Gate::policy(PractitionerProfile::class, PractitionerProfilePolicy::class);
