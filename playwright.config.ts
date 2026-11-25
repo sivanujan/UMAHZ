@@ -4,8 +4,8 @@ import path from 'node:path';
 
 function readEnvTestStripeKeys(): { key: string; secret: string; hasTestKeys: boolean } {
     const envPath = path.resolve(process.cwd(), '.env');
-    let key = 'pk_test_e2e_placeholder';
-    let secret = 'sk_test_e2e_placeholder';
+    let key = 'e2e-placeholder';
+    let secret = 'e2e-placeholder';
     let hasTestKeys = false;
 
     if (fs.existsSync(envPath)) {

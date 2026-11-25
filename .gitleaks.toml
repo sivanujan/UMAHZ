@@ -1,0 +1,10 @@
+title = "UMAHZ Gitleaks Config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Allow non-secret Stripe placeholder strings in E2E config history"
+regexes = [
+    '''(pk|sk)_test_e2e_placeholder''',
+]
