@@ -4,6 +4,15 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Clock, CheckCircle2, User, Sparkles, FileWarning, ShieldAlert } from 'lucide-react';
 import { getFirstName } from '@/Utils/name';
 
+function formatNoteSummary(value) {
+    if (typeof value === 'string') return value;
+    if (value && typeof value === 'object') {
+        const first = Object.values(value).find((v) => typeof v === 'string' && v.trim() !== '');
+        if (first) return first.length > 80 ? `${first.slice(0, 77)}...` : first;
+    }
+    return 'Clinical Note';
+}
+
 export default function PractitionerDashboard({ appointments, unsignedNotes, formAlerts }) {
     const { auth } = usePage().props;
     const user = auth.user;
@@ -85,7 +94,7 @@ export default function PractitionerDashboard({ appointments, unsignedNotes, for
                             {unsignedNotes && unsignedNotes.length > 0 ? unsignedNotes.map((n, i) => (
                                 <div key={i} className="p-4">
                                     <p className="text-sm font-medium text-slate-900">{n.client_name}</p>
-                                    <p className="text-xs text-slate-500 mt-0.5">{n.service} · {n.date}</p>
+                                    <p className="text-xs text-slate-500 mt-0.5">{formatNoteSummary(n.service)} · {n.date}</p>
                                 </div>
                             )) : (
                                 <div className="p-4 text-center text-slate-400 text-xs">All notes signed.</div>

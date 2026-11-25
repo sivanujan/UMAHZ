@@ -177,3 +177,27 @@ You can run the same quality and security checks locally before pushing:
   gitleaks detect --verbose
   ```
 
+---
+
+## 🎭 End-to-End Browser Tests (Playwright)
+
+Playwright E2E tests live in `tests/e2e/` and run against an isolated PostgreSQL database (`umahz_e2e`) with sandboxed external drivers (`SCRIBE_TRANSCRIPTION_DRIVER=fake`, `SCRIBE_DRAFTING_DRIVER=fake`, `MAIL_MAILER=log`, and Stripe test-mode placeholders). Never run E2E tests against your dev or production database.
+
+1. **Build frontend assets and seed the isolated E2E database:**
+   ```bash
+   npm run build
+   php artisan e2e:seed
+   ```
+   (`e2e:seed` refuses to run against any database name that does not end with `_e2e`.)
+
+2. **Stop any dev server on port 8000**, then run Playwright headless across Chromium, WebKit, and iPhone mobile viewport:
+   ```bash
+   npm run e2e
+   ```
+
+3. **Run Playwright in interactive UI mode:**
+   ```bash
+   npm run e2e:ui
+   ```
+
+

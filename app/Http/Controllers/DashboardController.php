@@ -13,6 +13,7 @@ use App\Models\StaffMembership;
 use App\Models\Tenant;
 use App\Scopes\TenantScope;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -312,14 +313,15 @@ class DashboardController extends Controller
                 'status' => $this->statusLabel($a->status),
             ]);
 
-        $unsignedNotes = ClinicalNote::with('client')
+        $unsignedNotes = ClinicalNote::with(['client', 'appointment'])
             ->where('staff_membership_id', $membership->id)
             ->where('status', ClinicalNote::STATUS_DRAFT)
             ->latest('created_at')
             ->get()
             ->map(fn (ClinicalNote $note) => [
+                'id' => $note->id,
                 'client_name' => $note->client->first_name.' '.$note->client->last_name,
-                'service' => $note->content,
+                'service' => $this->summarizeUnsignedNote($note),
                 'date' => $note->created_at->diffForHumans(),
             ]);
 
@@ -483,5 +485,35 @@ class DashboardController extends Controller
     protected function statusLabel(string $status): string
     {
         return ucwords(str_replace('_', ' ', $status));
+    }
+
+    /**
+     * Build a safe plain-text summary for an unsigned draft note so structured
+     * SOAP arrays are never passed directly as React children.
+     */
+    protected function summarizeUnsignedNote(ClinicalNote $note): string
+    {
+        if ($note->appointment?->service_name) {
+            return $note->appointment->service_name;
+        }
+
+        if ($note->template_name) {
+            return $note->template_name;
+        }
+
+        $content = $note->content;
+        if (is_string($content) && trim($content) !== '') {
+            return Str::limit(trim($content), 80);
+        }
+
+        if (is_array($content)) {
+            foreach ($content as $value) {
+                if (is_string($value) && trim($value) !== '') {
+                    return Str::limit(trim($value), 80);
+                }
+            }
+        }
+
+        return 'Clinical Note';
     }
 }
