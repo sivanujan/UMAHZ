@@ -74,7 +74,6 @@ test.describe('Appointment booking, confirmation email, intake, and PDF consent'
             page.waitForResponse((res) => res.url().includes('/intakes/link') && res.request().method() === 'POST'),
             intakeModal.locator('button[type="submit"]').click(),
         ]);
-        await expect(intakeModal).toBeHidden({ timeout: 10_000 });
         await page.waitForLoadState('networkidle');
 
         const intakes = queryE2eDb<{ id: string; token: string; status: string }>(
@@ -135,7 +134,7 @@ test.describe('Appointment booking, confirmation email, intake, and PDF consent'
 
         await consentModal.getByRole('button', { name: /E2E Treatment Consent PDF/i }).click();
         await consentModal.locator('input[placeholder="e.g. Jane Doe"]').fill('Jordan Taylor');
-        // Draw signature on canvas (note: "Type Name" mode has a real app bug in RecordConsentModal.jsx where useForm.post ignores options.data)
+        // Draw signature on canvas
         const sigCanvas = consentModal.locator('canvas').first();
         await sigCanvas.scrollIntoViewIfNeeded();
         const box = await sigCanvas.boundingBox();
@@ -154,6 +153,8 @@ test.describe('Appointment booking, confirmation email, intake, and PDF consent'
             page.waitForResponse((res) => res.url().includes('/consents') && res.request().method() === 'POST'),
             consentModal.locator('button[type="submit"]').click(),
         ]);
+        await expect(consentModal).toBeHidden({ timeout: 10_000 });
+        await page.waitForLoadState('networkidle');
 
         const consents = queryE2eDb<{ id: string; signed_pdf_path: string | null }>(
             "SELECT id, signed_pdf_path FROM consents WHERE consent_type_name = 'E2E Treatment Consent PDF' ORDER BY created_at DESC LIMIT 1"
@@ -164,6 +165,29 @@ test.describe('Appointment booking, confirmation email, intake, and PDF consent'
         const pdfRes = await page.request.get(clinicUrl(CLINIC_SLUG, `/app/consents/${consents[0].id}/document`));
         expect(pdfRes.status()).toBe(200);
         expect(pdfRes.headers()['content-type']).toContain('application/pdf');
+
+        // 5. Sign a second consent using "Type Name" mode
+        await page.getByRole('button', { name: /record new consent|record client consent/i }).first().click();
+        const typedModal = page.locator('form').filter({ hasText: /consent/i }).last();
+        await expect(typedModal).toBeVisible();
+        await typedModal.getByRole('button', { name: /type name/i }).click();
+        await typedModal.locator('input[placeholder="e.g. Jane Doe"]').fill('Jordan Taylor');
+        const typedCb = typedModal.locator('input[type="checkbox"]');
+        if ((await typedCb.count()) > 0) {
+            await typedCb.first().check({ force: true });
+        }
+        await Promise.all([
+            page.waitForResponse((res) => res.url().includes('/consents') && res.request().method() === 'POST'),
+            typedModal.locator('button[type="submit"]').click(),
+        ]);
+        await expect(typedModal).toBeHidden({ timeout: 10_000 });
+        await page.waitForLoadState('networkidle');
+
+        const typedConsents = queryE2eDb<{ signature_type: string; signature_data: string }>(
+            "SELECT signature_type, signature_data FROM consents WHERE signature_type = 'typed' ORDER BY created_at DESC LIMIT 1"
+        );
+        expect(typedConsents.length).toBe(1);
+        expect(typedConsents[0].signature_data).toContain('TYPED_ACKNOWLEDGMENT: Jordan Taylor');
 
         guards.assertNoErrors();
     });

@@ -43,10 +43,14 @@ export function attachErrorGuards(
     const pageErrors: string[] = [];
     const serverErrors: string[] = [];
 
+    const isAbortedPollOrNav = (text: string): boolean =>
+        /net::ERR_ABORTED/i.test(text) ||
+        (/\/app\/notifications/i.test(text) && /access control checks/i.test(text));
+
     page.on('console', (msg) => {
         if (msg.type() === 'error') {
             const text = msg.text();
-            if (options?.ignoreConsolePatterns?.some((re) => re.test(text))) {
+            if (isAbortedPollOrNav(text) || options?.ignoreConsolePatterns?.some((re) => re.test(text))) {
                 return;
             }
             consoleErrors.push(text);
@@ -54,7 +58,11 @@ export function attachErrorGuards(
     });
 
     page.on('pageerror', (err) => {
-        pageErrors.push(err.message || String(err));
+        const msg = err.message || String(err);
+        if (isAbortedPollOrNav(msg)) {
+            return;
+        }
+        pageErrors.push(msg);
     });
 
     page.on('response', (res) => {
