@@ -359,4 +359,36 @@ class ConsentManagementTest extends TestCase
         $this->assertSame($originalWording, $consent->fresh()->consent_body);
         $this->assertNotSame($updatedWording, $consent->fresh()->consent_body);
     }
+
+    public function test_staff_can_record_a_typed_name_consent(): void
+    {
+        $clinic = $this->clinic('lotus');
+        [$staff] = $this->staff($clinic);
+        $client = Client::create(['tenant_id' => $clinic->id, 'first_name' => 'Alice', 'last_name' => 'Walker']);
+
+        $type = ConsentType::create([
+            'tenant_id' => $clinic->id,
+            'name' => 'General Treatment Consent',
+            'code' => 'general_treatment',
+            'body' => 'Typed consent agreement terms.',
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($staff)
+            ->post("http://lotus.umahz.test/app/clients/{$client->id}/consents", [
+                'consent_type_id' => $type->id,
+                'signer_name' => 'Alice Walker',
+                'signature_type' => 'typed',
+                'signature_data' => 'TYPED_ACKNOWLEDGMENT: Alice Walker agreed electronically on 2026-11-25T15:00:00.000Z',
+            ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertSessionHas('success');
+
+        $consent = Consent::where('client_id', $client->id)->first();
+        $this->assertNotNull($consent);
+        $this->assertSame('typed', $consent->signature_type);
+        $this->assertSame('Alice Walker', $consent->signer_name);
+        $this->assertStringStartsWith('TYPED_ACKNOWLEDGMENT: Alice Walker', $consent->signature_data);
+    }
 }
