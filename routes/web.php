@@ -604,3 +604,9 @@ require __DIR__ . '/auth.php';
 // Global fallback for public intake links (resolves token and tenant anywhere)
 Route::get('/intake/{token}', [PublicIntakeController::class, 'show'])->name('intake.public.global.show');
 Route::post('/intake/{token}', [PublicIntakeController::class, 'submit'])->name('intake.public.global.submit');
+
+if (app()->isLocal()) {
+    Route::get('/dev/errors/{code}', function (\Illuminate\Http\Request $request, int $code) {
+        return \App\Support\ErrorPageResponder::preview($request, $code);
+    })->whereNumber('code')->name('dev.errors.preview');
+}
