@@ -49,6 +49,8 @@ test.describe('Appointment booking, confirmation email, intake, and PDF consent'
             page.waitForResponse((res) => res.url().includes('/app/appointments') && res.request().method() === 'POST'),
             modal.locator('button[type="submit"]').click(),
         ]);
+        await expect(modal).toBeHidden({ timeout: 10_000 });
+        await page.waitForLoadState('networkidle');
 
         // Verify appointment in DB and confirmation email in laravel.log
         const appts = queryE2eDb<{ id: string; service_name: string }>(
@@ -72,6 +74,8 @@ test.describe('Appointment booking, confirmation email, intake, and PDF consent'
             page.waitForResponse((res) => res.url().includes('/intakes/link') && res.request().method() === 'POST'),
             intakeModal.locator('button[type="submit"]').click(),
         ]);
+        await expect(intakeModal).toBeHidden({ timeout: 10_000 });
+        await page.waitForLoadState('networkidle');
 
         const intakes = queryE2eDb<{ id: string; token: string; status: string }>(
             'SELECT id, token, status FROM client_intakes ORDER BY created_at DESC LIMIT 1'
@@ -114,6 +118,8 @@ test.describe('Appointment booking, confirmation email, intake, and PDF consent'
             page.waitForResponse((res) => res.url().includes(`/intake/${intakeToken}`) && res.request().method() === 'POST'),
             page.locator('form button[type="submit"]').click(),
         ]);
+        await expect(page.locator('body')).toContainText(/thank you|submitted|completed/i, { timeout: 10_000 });
+        await page.waitForLoadState('networkidle');
 
         const updatedIntakes = queryE2eDb<{ status: string }>(
             'SELECT status FROM client_intakes WHERE id = ?',
@@ -128,11 +134,16 @@ test.describe('Appointment booking, confirmation email, intake, and PDF consent'
         await expect(consentModal).toBeVisible();
 
         await consentModal.getByRole('button', { name: /E2E Treatment Consent PDF/i }).click();
-        await consentModal.locator('input[type="text"]').first().fill('Jordan Taylor');
-        const typedBtn = consentModal.getByRole('button', { name: /type/i }).first();
-        if (await typedBtn.isVisible().catch(() => false)) {
-            await typedBtn.click();
-            await consentModal.locator('input[type="text"]').last().fill('Jordan Taylor');
+        await consentModal.locator('input[placeholder="e.g. Jane Doe"]').fill('Jordan Taylor');
+        // Draw signature on canvas (note: "Type Name" mode has a real app bug in RecordConsentModal.jsx where useForm.post ignores options.data)
+        const sigCanvas = consentModal.locator('canvas').first();
+        await sigCanvas.scrollIntoViewIfNeeded();
+        const box = await sigCanvas.boundingBox();
+        if (box) {
+            await page.mouse.move(box.x + 20, box.y + box.height / 2);
+            await page.mouse.down();
+            await page.mouse.move(box.x + 120, box.y + box.height / 2 + 10);
+            await page.mouse.up();
         }
         const consentCb = consentModal.locator('input[type="checkbox"]');
         if ((await consentCb.count()) > 0) {

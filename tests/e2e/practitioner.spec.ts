@@ -128,26 +128,12 @@ test.describe('Practitioner calendar, clinical notes, tests, and AI Scribe', () 
 
     test('Scribe with fake driver: consent, start, stop, transcript, draft, use in note, and sessions list', async ({
         page,
-    }) => {
+    }, testInfo) => {
+        test.skip(
+            testInfo.project.name !== 'chromium',
+            'WebKit and mobile-iphone do not support fake microphone media streams in headless mode.'
+        );
         const guards = attachErrorGuards(page);
-
-        // Provide a silent synthetic MediaStream in headless browsers
-        await page.addInitScript(() => {
-            const fakeGetUserMedia = async () => {
-                const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-                const ctx = new AudioCtx();
-                const dest = ctx.createMediaStreamDestination();
-                return dest.stream;
-            };
-            if (!navigator.mediaDevices) {
-                Object.defineProperty(navigator, 'mediaDevices', {
-                    value: { getUserMedia: fakeGetUserMedia },
-                    configurable: true,
-                });
-            } else {
-                navigator.mediaDevices.getUserMedia = fakeGetUserMedia;
-            }
-        });
 
         await loginAtClinic(page, CLINIC_SLUG, USERS.practitioner, E2E_PASSWORD);
 
@@ -160,9 +146,11 @@ test.describe('Practitioner calendar, clinical notes, tests, and AI Scribe', () 
         await expect(scribeBtn).toBeVisible();
         await scribeBtn.click();
 
-        // Step 1: Consent (first run captures consent; subsequent browser runs may reuse valid encounter consent)
+        // Step 1: Consent (wait until ScribePanel finishes loading either ConsentStep or Start recording)
         const signerInput = page.locator('#scribe-signer');
-        if (await signerInput.isVisible({ timeout: 5_000 }).catch(() => false)) {
+        const startRecBtn = page.getByRole('button', { name: /start recording/i });
+        await expect(signerInput.or(startRecBtn)).toBeVisible({ timeout: 15_000 });
+        if (await signerInput.isVisible()) {
             await signerInput.fill('Jordan Taylor');
             const consentForm = page.locator('form').filter({ hasText: /record consent/i });
             await consentForm.locator('input[type="checkbox"]').check({ force: true });
@@ -173,7 +161,6 @@ test.describe('Practitioner calendar, clinical notes, tests, and AI Scribe', () 
         }
 
         // Step 2: Start recording -> Stop recording -> Transcript -> Generate AI draft -> Use in clinical note
-        const startRecBtn = page.getByRole('button', { name: /start recording/i });
         await expect(startRecBtn).toBeEnabled({ timeout: 10_000 });
         await Promise.all([
             page.waitForResponse((res) => res.url().includes('/start') && res.request().method() === 'POST'),
@@ -196,7 +183,7 @@ test.describe('Practitioner calendar, clinical notes, tests, and AI Scribe', () 
         await expect(useInNoteBtn).toBeVisible({ timeout: 15_000 });
         await useInNoteBtn.click();
 
-        await page.waitForURL((url) => url.pathname.includes('/notes/create'), { timeout: 15_000 });
+        await page.waitForURL((url) => /\/app\/notes\/.*(create|edit)/.test(url.pathname), { timeout: 15_000 });
         await expect(page.locator('body')).toContainText(/Pre-filled from AI Scribe/i);
 
         // Verify session appears in client's Scribe sessions list

@@ -59,6 +59,7 @@ test.describe('Patient billing, inventory deduction/void, receipts, and insuranc
             page.waitForResponse((res) => res.url().includes('/app/invoices') && res.request().method() === 'POST'),
             invModal.getByRole('button', { name: /create & issue/i }).click(),
         ]);
+        await expect(invModal).toBeHidden({ timeout: 10_000 });
         await page.waitForLoadState('networkidle');
 
         // Open newest invoice
@@ -79,6 +80,7 @@ test.describe('Patient billing, inventory deduction/void, receipts, and insuranc
         ]);
 
         await expect(page.locator('body')).toContainText(/paid/i);
+        await page.waitForLoadState('networkidle');
 
         const lineItems = queryE2eDb<{ id: string; product_id: string | null }>(
             'SELECT id, product_id FROM invoice_line_items WHERE invoice_id = ?',
@@ -110,6 +112,7 @@ test.describe('Patient billing, inventory deduction/void, receipts, and insuranc
             page.waitForResponse((res) => res.url().includes('/app/invoices') && res.request().method() === 'POST'),
             sellModal.getByRole('button', { name: /create & issue/i }).click(),
         ]);
+        await expect(sellModal).toBeHidden({ timeout: 10_000 });
         await page.waitForLoadState('networkidle');
 
         const inv2 = queryE2eDb<{ id: string }>('SELECT id FROM invoices ORDER BY created_at DESC LIMIT 1');
@@ -123,6 +126,7 @@ test.describe('Patient billing, inventory deduction/void, receipts, and insuranc
             page.waitForResponse((res) => res.url().includes('/void') && res.request().method() === 'POST'),
             page.getByRole('button', { name: /^void$/i }).click(),
         ]);
+        await expect(page.locator('body')).toContainText(/void/i);
         await page.waitForLoadState('networkidle');
 
         const stockAfterVoid = queryE2eDb<{ stock_quantity: number }>(

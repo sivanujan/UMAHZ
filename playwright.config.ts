@@ -50,7 +50,18 @@ export default defineConfig({
     projects: [
         {
             name: 'chromium',
-            use: { ...devices['Desktop Chrome'] },
+            use: {
+                ...devices['Desktop Chrome'],
+                channel: 'chromium',
+                permissions: ['microphone'],
+                launchOptions: {
+                    args: [
+                        '--use-fake-ui-for-media-stream',
+                        '--use-fake-device-for-media-stream',
+                        '--unsafely-treat-insecure-origin-as-secure=http://e2e-clinic.lvh.me:8000',
+                    ],
+                },
+            },
         },
         {
             name: 'webkit',

@@ -93,6 +93,7 @@ test.describe('Clinic Owner workflows', () => {
                 page.waitForResponse((res) => res.url().includes('/adjust-stock') && res.request().method() === 'POST'),
                 stockModal.locator('button[type="submit"]').click(),
             ]);
+            await expect(stockModal).toBeHidden({ timeout: 10_000 });
             await page.waitForLoadState('networkidle');
         }
 
