@@ -33,6 +33,7 @@ import {
     CheckCheck,
     Lock,
     Package,
+    Activity,
 } from 'lucide-react';
 import { ThemeProvider, useTheme } from '@/Contexts/ThemeContext';
 import AuroraBackground from '@/Components/AuroraBackground';
@@ -313,6 +314,7 @@ function TopNavShell({ children, title }) {
 
     // Secondary items under "More" dropdown
     const moreNav = [
+        { name: 'Test Library', href: '/app/tests', icon: Activity, desc: 'Orthopedic & assessment tests', show: isOwnerOrAdmin || user?.role === 'practitioner' },
         { name: 'Products & Supplies', href: '/app/products', icon: Package, desc: 'Herbs, oils, tape & supplies', show: canViewProducts },
         { name: 'Clinic Settings', href: '/app/settings', icon: Building2, desc: 'Profile, disciplines & logo', show: isOwnerOrAdmin },
         { name: 'Subscription & Billing', href: '/app/billing', icon: CreditCard, desc: 'Plans, seats & invoices', show: isOwnerOrAdmin },

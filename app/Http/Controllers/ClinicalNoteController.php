@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Appointment;
+use App\Models\AssessmentTest;
 use App\Models\AuditEvent;
 use App\Models\Client;
 use App\Models\ClinicalNote;
 use App\Models\ClinicalNoteAddendum;
 use App\Models\ClinicalNoteTemplate;
+use App\Models\ClinicalNoteTestResult;
 use App\Models\ClientIntake;
 use App\Models\ScribeDraftItem;
 use App\Models\ScribeSession;
@@ -115,6 +117,7 @@ class ClinicalNoteController extends Controller
                 'schema' => $latestIntake->schema_snapshot,
                 'flags' => $latestIntake->contraindication_flags,
             ] : null,
+            'testResults' => [],
         ]);
     }
 
@@ -139,6 +142,7 @@ class ClinicalNoteController extends Controller
             'appointment_id' => ['nullable', 'uuid'],
             'clinical_note_template_id' => ['required', 'uuid'],
             'content' => ['nullable', 'array'],
+            'test_results' => ['nullable', 'array'],
         ]);
 
         $template = ClinicalNoteTemplate::where('tenant_id', $tenantId)
@@ -158,6 +162,10 @@ class ClinicalNoteController extends Controller
                 'content' => $validated['content'] ?? [],
                 'status' => ClinicalNote::STATUS_DRAFT,
             ]);
+
+            if ($request->has('test_results')) {
+                $this->syncTestResults($created, $request->input('test_results', []), $user->id);
+            }
 
             AuditEvent::create([
                 'tenant_id' => $tenantId,
@@ -261,6 +269,18 @@ class ClinicalNoteController extends Controller
                 'flags' => $latestIntake->contraindication_flags,
             ] : null,
             'scribeHandoff' => $user->can('viewBody', $note) ? $this->scribeHandoff($note) : null,
+            'testResults' => $note->testResults()->get()->map(fn ($r) => [
+                'id' => $r->id,
+                'assessment_test_id' => $r->assessment_test_id,
+                'test_name' => $r->test_name_snapshot,
+                'test_name_snapshot' => $r->test_name_snapshot,
+                'body_region' => $r->body_region_snapshot,
+                'body_region_snapshot' => $r->body_region_snapshot,
+                'side' => $r->side,
+                'result' => $r->result,
+                'pain_reproduced' => $r->pain_reproduced,
+                'notes' => $r->notes,
+            ])->values()->all(),
         ]);
     }
 
@@ -320,12 +340,19 @@ class ClinicalNoteController extends Controller
         }
 
         $validated = $request->validate([
-            'content' => ['required', 'array'],
+            'content' => ['nullable', 'array'],
+            'test_results' => ['nullable', 'array'],
         ]);
 
-        $note->update([
-            'content' => $validated['content'],
-        ]);
+        if (isset($validated['content'])) {
+            $note->update([
+                'content' => $validated['content'],
+            ]);
+        }
+
+        if ($request->has('test_results')) {
+            $this->syncTestResults($note, $request->input('test_results', []), $request->user()->id);
+        }
 
         return response()->json([
             'success' => true,
@@ -350,6 +377,7 @@ class ClinicalNoteController extends Controller
             'signer_credentials' => ['nullable', 'string', 'max:255'],
             'attestation_text' => ['required', 'string', 'max:2000'],
             'content' => ['required', 'array'],
+            'test_results' => ['nullable', 'array'],
         ]);
 
         DB::transaction(function () use ($note, $validated, $request) {
@@ -369,6 +397,10 @@ class ClinicalNoteController extends Controller
                 'finalized_at' => $now,
                 'finalized_by_user_id' => $request->user()->id,
             ]);
+
+            if ($request->has('test_results')) {
+                $this->syncTestResults($note, $request->input('test_results', []), $request->user()->id);
+            }
 
             AuditEvent::create([
                 'tenant_id' => $note->tenant_id,
@@ -425,7 +457,7 @@ class ClinicalNoteController extends Controller
 
         $client = $note->client;
         $authorMembership = $note->staffMembership()->with('practitionerProfile', 'user')->first();
-        $addenda = $note->addenda()->with('staffMembership.user')->get();
+        $addenda = $note->addenda()->with(['staffMembership.user', 'testResults'])->get();
 
         $handoffData = $canViewBody ? $this->scribeHandoff($note) : null;
 
@@ -460,7 +492,33 @@ class ClinicalNoteController extends Controller
                 'reason' => $ad->reason,
                 'content' => $canViewBody ? $ad->content : null,
                 'signed_at' => $ad->signed_at->toIso8601String(),
+                'test_results' => $ad->testResults->map(fn ($r) => [
+                    'id' => $r->id,
+                    'test_name_snapshot' => $r->test_name_snapshot,
+                    'body_region_snapshot' => $r->body_region_snapshot,
+                    'body_region_label' => AssessmentTest::BODY_REGIONS[$r->body_region_snapshot] ?? ucfirst($r->body_region_snapshot),
+                    'side' => $r->side,
+                    'side_label' => ucfirst($r->side),
+                    'result' => $r->result,
+                    'result_label' => ucfirst(str_replace('_', ' ', $r->result)),
+                    'pain_reproduced' => $r->pain_reproduced,
+                    'notes' => $r->notes,
+                ])->values()->all(),
             ]),
+            'testResults' => $note->testResults()->whereNull('addendum_id')->get()->map(fn ($r) => [
+                'id' => $r->id,
+                'assessment_test_id' => $r->assessment_test_id,
+                'test_name' => $r->test_name_snapshot,
+                'test_name_snapshot' => $r->test_name_snapshot,
+                'body_region' => $r->body_region_snapshot,
+                'body_region_label' => AssessmentTest::BODY_REGIONS[$r->body_region_snapshot] ?? ucfirst($r->body_region_snapshot),
+                'side' => $r->side,
+                'side_label' => ucfirst($r->side),
+                'result' => $r->result,
+                'result_label' => ucfirst(str_replace('_', ' ', $r->result)),
+                'pain_reproduced' => $r->pain_reproduced,
+                'notes' => $r->notes,
+            ])->values()->all(),
         ];
 
         if ($request->wantsJson()) {
@@ -485,6 +543,7 @@ class ClinicalNoteController extends Controller
                 'service_name' => $note->appointment->service_name,
             ] : null,
             'note' => $notePayload,
+            'testResults' => $notePayload['testResults'],
             'scribeHandoff' => $handoffData,
             'clinic' => [
                 'name' => $tenant->name,
@@ -508,6 +567,7 @@ class ClinicalNoteController extends Controller
             'reason' => ['required', 'string', 'max:255'],
             'content' => ['required', 'string', 'max:10000'],
             'author_name' => ['required', 'string', 'max:255'],
+            'test_results' => ['nullable', 'array'],
         ]);
 
         $tenantId = TenantScope::getTenantId();
@@ -532,6 +592,42 @@ class ClinicalNoteController extends Controller
                 'content' => $validated['content'],
                 'signed_at' => $now,
             ]);
+
+            // Save any additional test results performed as part of this addendum
+            if (! empty($validated['test_results']) && is_array($validated['test_results'])) {
+                foreach ($validated['test_results'] as $item) {
+                    if (! is_array($item)) {
+                        continue;
+                    }
+                    $testId = $item['assessment_test_id'] ?? null;
+                    $name = trim((string) ($item['test_name_snapshot'] ?? $item['test_name'] ?? ''));
+                    $region = trim((string) ($item['body_region_snapshot'] ?? $item['body_region'] ?? 'other'));
+
+                    if (empty($name) && $testId) {
+                        $test = AssessmentTest::find($testId);
+                        $name = $test?->name ?? 'Assessment Test';
+                        $region = $test?->body_region ?? 'other';
+                    }
+
+                    if (empty($name)) {
+                        $name = 'Assessment Test';
+                    }
+
+                    ClinicalNoteTestResult::create([
+                        'tenant_id' => $tenantId,
+                        'clinical_note_id' => $note->id,
+                        'addendum_id' => $addendum->id,
+                        'assessment_test_id' => $testId,
+                        'test_name_snapshot' => $name,
+                        'body_region_snapshot' => $region ?: 'other',
+                        'side' => in_array($item['side'] ?? '', ClinicalNoteTestResult::SIDES, true) ? $item['side'] : 'n/a',
+                        'result' => in_array($item['result'] ?? '', ClinicalNoteTestResult::RESULTS, true) ? $item['result'] : 'not_tested',
+                        'pain_reproduced' => isset($item['pain_reproduced']) ? (bool) $item['pain_reproduced'] : null,
+                        'notes' => ! empty($item['notes']) ? trim($item['notes']) : null,
+                        'recorded_by' => $user->id,
+                    ]);
+                }
+            }
 
             // Update parent note status to addended if not already
             if ($note->status !== ClinicalNote::STATUS_ADDENDED) {
@@ -602,5 +698,52 @@ class ClinicalNoteController extends Controller
         if (! $tenantId || $client->tenant_id !== $tenantId) {
             abort(404);
         }
+    }
+
+    /**
+     * Synchronize test results for a clinical note.
+     */
+    private function syncTestResults(ClinicalNote $note, array $testResults, string $userId): void
+    {
+        $note->testResults()->whereNull('addendum_id')->delete();
+
+        foreach ($testResults as $item) {
+            $testId = $item['assessment_test_id'] ?? null;
+            $name = trim((string) ($item['test_name_snapshot'] ?? $item['test_name'] ?? ''));
+            $region = trim((string) ($item['body_region_snapshot'] ?? $item['body_region'] ?? 'other'));
+
+            if (empty($name) && $testId) {
+                $test = AssessmentTest::find($testId);
+                $name = $test?->name ?? 'Assessment Test';
+                $region = $test?->body_region ?? 'other';
+            }
+
+            if (empty($name)) {
+                $name = 'Assessment Test';
+            }
+
+            $note->testResults()->create([
+                'tenant_id' => $note->tenant_id,
+                'assessment_test_id' => $testId,
+                'test_name_snapshot' => $name,
+                'body_region_snapshot' => $region ?: 'other',
+                'side' => in_array($item['side'] ?? '', ClinicalNoteTestResult::SIDES, true) ? $item['side'] : 'n/a',
+                'result' => in_array($item['result'] ?? '', ClinicalNoteTestResult::RESULTS, true) ? $item['result'] : 'not_tested',
+                'pain_reproduced' => isset($item['pain_reproduced']) ? (bool) $item['pain_reproduced'] : null,
+                'notes' => ! empty($item['notes']) ? trim($item['notes']) : null,
+                'recorded_by' => $userId,
+            ]);
+        }
+
+        AuditEvent::create([
+            'tenant_id' => $note->tenant_id,
+            'user_id' => $userId,
+            'action' => 'clinical_note_test_results.updated',
+            'resource_type' => 'ClinicalNote',
+            'resource_id' => $note->id,
+            'metadata' => [
+                'count' => count($testResults),
+            ],
+        ]);
     }
 }

@@ -271,6 +271,18 @@ Route::domain($central)->group(function () {
             Route::post('/{referral}/cancel', [\App\Http\Controllers\Admin\ReferralController::class, 'cancel'])->name('cancel');
         });
 
+        Route::prefix('tests')->name('tests.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Admin\AssessmentTestController::class, 'index'])->name('index');
+            Route::post('/', [\App\Http\Controllers\Admin\AssessmentTestController::class, 'store'])->name('store');
+            Route::put('/{test}', [\App\Http\Controllers\Admin\AssessmentTestController::class, 'update'])->name('update');
+            Route::post('/{test}/review', [\App\Http\Controllers\Admin\AssessmentTestController::class, 'review'])->name('review');
+            Route::post('/{test}/archive', [\App\Http\Controllers\Admin\AssessmentTestController::class, 'archive'])->name('archive');
+            Route::post('/import-preview', [\App\Http\Controllers\Admin\AssessmentTestController::class, 'importPreview'])->name('import-preview');
+            Route::post('/import', [\App\Http\Controllers\Admin\AssessmentTestController::class, 'import'])->name('import');
+            Route::get('/template', [\App\Http\Controllers\Admin\AssessmentTestController::class, 'template'])->name('template');
+            Route::get('/export', [\App\Http\Controllers\Admin\AssessmentTestController::class, 'export'])->name('export');
+        });
+
         Route::prefix('audit-logs')->name('audit-logs.')->group(function () {
             Route::get('/', [AuditLogController::class, 'index'])->name('index');
         });
@@ -451,6 +463,15 @@ Route::domain('{tenant}.' . $central)->where(['tenant' => '[a-z0-9-]+'])->group(
         Route::get('/notes/{note}', [ClinicalNoteController::class, 'show'])->name('notes.show');
         Route::post('/notes/{note}/addenda', [ClinicalNoteController::class, 'addAddendum'])->name('notes.addenda.store');
         Route::delete('/notes/{note}', [ClinicalNoteController::class, 'destroy'])->name('notes.destroy');
+
+        // Clinical assessment tests (Orthopedic & special tests library)
+        Route::get('/tests', [\App\Http\Controllers\AssessmentTestController::class, 'index'])->name('tests.index');
+        Route::get('/tests/lookup', [\App\Http\Controllers\AssessmentTestController::class, 'lookup'])->name('tests.lookup');
+        Route::middleware('staff.role:clinic_owner,practitioner')->group(function () {
+            Route::post('/tests', [\App\Http\Controllers\AssessmentTestController::class, 'store'])->name('tests.store');
+            Route::put('/tests/{test}', [\App\Http\Controllers\AssessmentTestController::class, 'update'])->name('tests.update');
+            Route::delete('/tests/{test}', [\App\Http\Controllers\AssessmentTestController::class, 'destroy'])->name('tests.destroy');
+        });
 
         Route::middleware('staff.role:practitioner,clinic_owner')->group(function () {
             Route::get('/clients/{client}/sessions', [ScribeSessionController::class, 'clientSessions'])->name('clients.sessions');
