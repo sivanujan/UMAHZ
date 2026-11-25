@@ -1,4 +1,33 @@
 import { defineConfig, devices } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
+
+function readEnvTestStripeKeys(): { key: string; secret: string; hasTestKeys: boolean } {
+    const envPath = path.resolve(process.cwd(), '.env');
+    let key = 'pk_test_e2e_placeholder';
+    let secret = 'sk_test_e2e_placeholder';
+    let hasTestKeys = false;
+
+    if (fs.existsSync(envPath)) {
+        const raw = fs.readFileSync(envPath, 'utf8');
+        const keyMatch = raw.match(/^STRIPE_KEY=(.+)$/m);
+        const secretMatch = raw.match(/^STRIPE_SECRET=(.+)$/m);
+        const envKey = keyMatch?.[1]?.trim().replace(/^["']|["']$/g, '') ?? '';
+        const envSecret = secretMatch?.[1]?.trim().replace(/^["']|["']$/g, '') ?? '';
+        if (envKey.startsWith('pk_test_') && envSecret.startsWith('sk_test_')) {
+            key = envKey;
+            secret = envSecret;
+            hasTestKeys = true;
+        }
+    }
+
+    return { key, secret, hasTestKeys };
+}
+
+const stripeEnv = readEnvTestStripeKeys();
+if (stripeEnv.hasTestKeys) {
+    process.env.E2E_HAS_STRIPE_TEST_KEYS = '1';
+}
 
 export default defineConfig({
     testDir: './tests/e2e',
@@ -42,11 +71,13 @@ export default defineConfig({
             PHP_CLI_SERVER_WORKERS: '4',
             APP_ENV: 'local',
             DB_DATABASE: 'umahz_e2e',
+            QUEUE_CONNECTION: 'sync',
             MAIL_MAILER: 'log',
             SCRIBE_TRANSCRIPTION_DRIVER: 'fake',
             SCRIBE_DRAFTING_DRIVER: 'fake',
-            STRIPE_KEY: 'pk_test_e2e_placeholder',
-            STRIPE_SECRET: 'sk_test_e2e_placeholder',
+            SCRIBE_STREAMING: 'false',
+            STRIPE_KEY: stripeEnv.key,
+            STRIPE_SECRET: stripeEnv.secret,
         },
     },
 });

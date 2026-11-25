@@ -37,7 +37,7 @@ class E2eSeedCommand extends Command
     {
         $dbName = (string) $this->option('database');
 
-        if (! str_ends_with(strtolower($dbName), '_e2e')) {
+        if (!str_ends_with(strtolower($dbName), '_e2e')) {
             $this->error("Refusing to run e2e:seed against [{$dbName}]. Target database MUST end with '_e2e'.");
 
             return self::FAILURE;
@@ -53,7 +53,7 @@ class E2eSeedCommand extends Command
             $pdo = new \PDO("pgsql:host={$host};port={$port};dbname=postgres", $user, $pass);
             $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
             $exists = $pdo->query("SELECT 1 FROM pg_database WHERE datname = " . $pdo->quote($dbName))->fetchColumn();
-            if (! $exists) {
+            if (!$exists) {
                 $pdo->exec('CREATE DATABASE "' . str_replace('"', '', $dbName) . '"');
                 $this->info("Created database [{$dbName}].");
             }
@@ -113,8 +113,9 @@ class E2eSeedCommand extends Command
             'plan_tier' => 'practice',
             'offered_disciplines' => ['physiotherapy', 'massage_therapy', 'chiropractic'],
             'business_hours' => collect(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'])
-                ->mapWithKeys(fn ($d) => [$d => ['closed' => false, 'open' => '08:00', 'close' => '22:00']])->all(),
+                ->mapWithKeys(fn($d) => [$d => ['closed' => false, 'open' => '08:00', 'close' => '22:00']])->all(),
             'public_website_enabled' => true,
+            'scribe_settings' => ['enabled' => true],
             'referral_code' => 'E2E-REF10',
         ]);
 
@@ -256,6 +257,23 @@ class E2eSeedCommand extends Command
         // Templates & Consents
         ClinicalNoteTemplate::ensureDefaultsForTenant($clinic->id, ['physiotherapy', 'massage_therapy']);
         ConsentType::ensureDefaultsForTenant($clinic->id);
+        $scribeConsent = ConsentType::ensureScribeTypeForTenant($clinic->id);
+        $scribeConsent->update(['body' => 'I consent to audio recording and AI transcription for clinical documentation.']);
+        $pdfPath = "consent-templates/{$clinic->id}/e2e-consent.pdf";
+        $minimalPdf = "%PDF-1.4\n1 0 obj<< /Type /Catalog /Pages 2 0 R >>endobj\n2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1 >>endobj\n3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>endobj\nxref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \ntrailer<< /Size 4 /Root 1 0 R >>\nstartxref\n190\n%%EOF\n";
+        \Illuminate\Support\Facades\Storage::disk('local')->put($pdfPath, $minimalPdf);
+        ConsentType::create([
+            'tenant_id' => $clinic->id,
+            'code' => 'e2e_treatment_pdf',
+            'name' => 'E2E Treatment Consent PDF',
+            'description' => 'E2E PDF consent template for signature verification.',
+            'agreement_source' => ConsentType::SOURCE_PDF,
+            'pdf_path' => $pdfPath,
+            'pdf_original_name' => 'e2e-consent.pdf',
+            'pdf_file_size' => strlen($minimalPdf),
+            'version' => 1,
+            'is_active' => true,
+        ]);
         IntakeFormTemplate::ensureDefaultsForTenant($clinic->id, ['physiotherapy']);
 
         // Assessment Tests: 1 reviewed, 1 draft
@@ -267,6 +285,20 @@ class E2eSeedCommand extends Command
             'purpose' => 'Assess subacromial impingement.',
             'procedure' => 'Passively flex the shoulder forward while stabilizing the scapula.',
             'positive_finding' => 'Pain in anterior/lateral shoulder.',
+            'disciplines' => ['physio', 'chiro'],
+            'status' => AssessmentTest::STATUS_REVIEWED,
+            'reviewed_by' => $admin->id,
+            'reviewed_at' => now(),
+        ]);
+
+        AssessmentTest::create([
+            'tenant_id' => null,
+            'body_region' => 'knee',
+            'name' => 'Lachman Test',
+            'aliases' => ['Lachman'],
+            'purpose' => 'Assess ACL integrity.',
+            'procedure' => 'Flex knee 20-30 degrees and translate tibia anteriorly.',
+            'positive_finding' => 'Soft endpoint or increased anterior translation.',
             'disciplines' => ['physio', 'chiro'],
             'status' => AssessmentTest::STATUS_REVIEWED,
             'reviewed_by' => $admin->id,
