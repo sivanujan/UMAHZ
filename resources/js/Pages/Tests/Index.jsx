@@ -272,11 +272,10 @@ export default function TestsIndex({
                         <button
                             type="button"
                             onClick={() => handleRegionSelect('all')}
-                            className={`p-3 rounded-2xl border text-left transition ${
-                                selectedRegion === 'all'
+                            className={`p-3 rounded-2xl border text-left transition ${selectedRegion === 'all'
                                     ? 'bg-violet-600 text-white border-violet-600 shadow-md shadow-violet-600/20'
                                     : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                            }`}
+                                }`}
                         >
                             <span className="block text-xs font-bold">All Body Regions</span>
                             <span className={`text-[11px] font-medium mt-0.5 block ${selectedRegion === 'all' ? 'text-violet-200' : 'text-slate-400'}`}>
@@ -292,11 +291,10 @@ export default function TestsIndex({
                                     key={r.value}
                                     type="button"
                                     onClick={() => handleRegionSelect(r.value)}
-                                    className={`p-3 rounded-2xl border text-left transition ${
-                                        isSelected
+                                    className={`p-3 rounded-2xl border text-left transition ${isSelected
                                             ? 'bg-violet-600 text-white border-violet-600 shadow-md shadow-violet-600/20'
                                             : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                                    }`}
+                                        }`}
                                 >
                                     <span className="block text-xs font-bold">{r.label}</span>
                                     <span className={`text-[11px] font-medium mt-0.5 block ${isSelected ? 'text-violet-200' : 'text-slate-400'}`}>
@@ -609,11 +607,10 @@ export default function TestsIndex({
                                                 key={d.value}
                                                 type="button"
                                                 onClick={() => toggleDisciplineSelection(d.value)}
-                                                className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition ${
-                                                    checked
+                                                className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition ${checked
                                                         ? 'bg-violet-600 text-white border-violet-600 shadow-xs'
                                                         : 'bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800'
-                                                }`}
+                                                    }`}
                                             >
                                                 {d.label}
                                             </button>
