@@ -9,8 +9,9 @@ test.describe('Public marketing & error pages', () => {
         await expect(page).toHaveTitle(/UMAHZ/i);
 
         const playBtn = page.getByRole('button', { name: /play product walkthrough video/i });
+        await expect(playBtn).toBeVisible();
         await playBtn.scrollIntoViewIfNeeded();
-        await playBtn.click({ force: true });
+        await playBtn.dispatchEvent('click');
 
         const firstVideo = page.locator('video').first();
         await expect(firstVideo).toBeVisible({ timeout: 10_000 });

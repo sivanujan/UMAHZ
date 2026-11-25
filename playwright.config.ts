@@ -13,6 +13,7 @@ export default defineConfig({
     reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
     use: {
         baseURL: 'http://lvh.me:8000',
+        reducedMotion: 'reduce',
         trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
         video: 'retain-on-failure',
@@ -38,6 +39,7 @@ export default defineConfig({
         timeout: 60_000,
         env: {
             ...process.env,
+            PHP_CLI_SERVER_WORKERS: '4',
             APP_ENV: 'local',
             DB_DATABASE: 'umahz_e2e',
             MAIL_MAILER: 'log',
