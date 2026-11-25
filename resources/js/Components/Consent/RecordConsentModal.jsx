@@ -27,7 +27,7 @@ export default function RecordConsentModal({ client, consentTypes = [], onClose 
     const isCurrentConfigured = isTypeConfigured(selectedType);
     const isPdf = selectedType?.agreement_source === 'pdf';
 
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { data, setData, post, processing, errors, reset, transform } = useForm({
         consent_type_id: selectedType?.id || '',
         signer_name: client.name || `${client.first_name} ${client.last_name}`,
         signature_type: 'draw',
@@ -52,17 +52,16 @@ export default function RecordConsentModal({ client, consentTypes = [], onClose 
             return;
         }
 
-        const submissionData = {
-            ...data,
+        transform((formData) => ({
+            ...formData,
             consent_type_id: selectedType?.id,
             signature_type: signatureMode,
             signature_data: signatureMode === 'draw'
-                ? data.signature_data
-                : `TYPED_ACKNOWLEDGMENT: ${data.signer_name} agreed electronically on ${new Date().toISOString()}`,
-        };
+                ? formData.signature_data
+                : `TYPED_ACKNOWLEDGMENT: ${formData.signer_name} agreed electronically on ${new Date().toISOString()}`,
+        }));
 
         post(`/app/clients/${client.id}/consents`, {
-            data: submissionData,
             preserveScroll: true,
             onSuccess: () => {
                 reset();
