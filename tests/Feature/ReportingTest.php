@@ -297,4 +297,23 @@ class ReportingTest extends TestCase
         $utilCsv->assertOk();
         $utilCsv->assertHeader('content-type', 'text/csv; charset=UTF-8');
     }
+
+    public function test_reports_index_redirects_to_appointments_for_owner_and_practitioner(): void
+    {
+        $tenant = $this->createTenant('indexclinic');
+        [$owner] = $this->createStaff($tenant, StaffMembership::ROLE_CLINIC_OWNER);
+        [$practitioner] = $this->createStaff($tenant, StaffMembership::ROLE_PRACTITIONER);
+
+        $expectedUrl = $this->url($tenant, '/app/reports/appointments');
+
+        $ownerResponse = $this->actingAs($owner)
+            ->get($this->url($tenant, '/app/reports'));
+        $ownerResponse->assertRedirect($expectedUrl);
+        $this->actingAs($owner)->get($expectedUrl)->assertOk();
+
+        $pracResponse = $this->actingAs($practitioner)
+            ->get($this->url($tenant, '/app/reports'));
+        $pracResponse->assertRedirect($expectedUrl);
+        $this->actingAs($practitioner)->get($expectedUrl)->assertOk();
+    }
 }

@@ -65,9 +65,11 @@ class ReportController extends Controller
     /**
      * Landing / Overview redirect.
      */
-    public function index(): RedirectResponse
+    public function index(Request $request): RedirectResponse
     {
-        return redirect()->route('app.reports.appointments');
+        $tenant = $this->currentTenant($request);
+
+        return redirect()->route('app.reports.appointments', ['tenant' => $tenant->subdomain]);
     }
 
     /**
