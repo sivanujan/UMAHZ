@@ -387,26 +387,6 @@ export default function Register({ tenants, preselectedTenantSlug, tosVersion })
                         <p className="mt-2 text-sm text-slate-400">Book appointments, fill forms, and manage your care.</p>
                     </div>
 
-                    <div className="space-y-3">
-                        <button
-                            type="button"
-                            onClick={() => setOauthNotice("Google sign-up isn't connected yet — use the form below for now.")}
-                            className="w-full inline-flex items-center justify-center gap-2.5 py-3.5 px-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-[#1E0B3C] transition-all duration-200 hover:border-slate-300 hover:shadow-sm active:scale-[0.98]"
-                        >
-                            <GoogleIcon /> Continue with Google
-                        </button>
-                        {oauthNotice && (
-                            <p className="text-[11px] text-center text-amber-700 bg-amber-50 border border-amber-200 rounded-lg py-2 px-3">
-                                {oauthNotice}
-                            </p>
-                        )}
-                        <div className="flex items-center gap-3 pt-1">
-                            <div className="flex-1 h-px bg-slate-200" />
-                            <span className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.12em] whitespace-nowrap">or sign up with email</span>
-                            <div className="flex-1 h-px bg-slate-200" />
-                        </div>
-                    </div>
-
                     <StepProgress current={step} />
 
                     <form onSubmit={submit} onKeyDown={handleFormKeyDown} className="space-y-5">
