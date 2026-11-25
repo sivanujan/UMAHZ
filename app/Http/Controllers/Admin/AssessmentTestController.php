@@ -22,7 +22,8 @@ class AssessmentTestController extends Controller
     public function index(Request $request): Response
     {
         $statusFilter = $request->query('status', 'all');
-        $regionFilter = $request->query('body_region', 'all');
+        $regionFilter = $request->query('body_region', $request->query('region', 'all'));
+        $disciplineFilter = $request->query('discipline', 'all');
         $search = trim((string) $request->query('search', ''));
 
         $query = AssessmentTest::platform()
@@ -41,6 +42,10 @@ class AssessmentTestController extends Controller
 
         if ($regionFilter !== 'all' && array_key_exists($regionFilter, AssessmentTest::BODY_REGIONS)) {
             $query->where('body_region', $regionFilter);
+        }
+
+        if ($disciplineFilter !== 'all' && array_key_exists($disciplineFilter, AssessmentTest::DISCIPLINES)) {
+            $query->whereRaw('CAST(disciplines AS TEXT) ILIKE ?', ["%\"{$disciplineFilter}\"%"]);
         }
 
         if ($search !== '') {
@@ -477,6 +482,7 @@ class AssessmentTestController extends Controller
         $rowNumber = 1;
 
         $validRegions = array_keys(AssessmentTest::BODY_REGIONS);
+        $validDisciplines = array_keys(AssessmentTest::DISCIPLINES);
 
         while (($row = fgetcsv($handle, 10000, ',')) !== false) {
             if (! $header) {
@@ -533,39 +539,32 @@ class AssessmentTestController extends Controller
                 continue;
             }
 
-            // Parse aliases
-            $rawAliases = trim($data['aliases'] ?? '');
-            $aliases = [];
-            if (! empty($rawAliases)) {
-                if (str_starts_with($rawAliases, '[') && str_ends_with($rawAliases, ']')) {
-                    $decoded = json_decode($rawAliases, true);
-                    $aliases = is_array($decoded) ? $decoded : [];
-                } else {
-                    $aliases = array_map('trim', explode(',', $rawAliases));
+            // Parse aliases and disciplines (split on ';' or ',', trim, deduplicate)
+            $aliases = $this->normalizeCsvList(trim($data['aliases'] ?? ''), false);
+            $disciplines = $this->normalizeCsvList(trim($data['disciplines'] ?? ''), true);
+
+            $invalidDiscipline = null;
+            foreach ($disciplines as $discipline) {
+                if (! in_array($discipline, $validDisciplines, true)) {
+                    $invalidDiscipline = $discipline;
+                    break;
                 }
             }
 
-            // Parse disciplines
-            $rawDisciplines = trim($data['disciplines'] ?? '');
-            $disciplines = [];
-            if (! empty($rawDisciplines)) {
-                if (str_starts_with($rawDisciplines, '[') && str_ends_with($rawDisciplines, ']')) {
-                    $decoded = json_decode($rawDisciplines, true);
-                    $disciplines = is_array($decoded) ? $decoded : [];
-                } else {
-                    $disciplines = array_map('trim', explode(',', $rawDisciplines));
-                }
+            if ($invalidDiscipline !== null) {
+                $errors[] = "Row {$rowNumber}: Invalid discipline '{$invalidDiscipline}'. Allowed values: " . implode(', ', $validDisciplines);
+                continue;
             }
 
             $validRows[] = [
                 'body_region' => $region,
                 'name' => $name,
-                'aliases' => array_values(array_filter($aliases)),
+                'aliases' => $aliases,
                 'purpose' => $purpose,
                 'procedure' => $procedure,
                 'positive_finding' => $positive,
                 'interpretation_notes' => ! empty($notes) ? $notes : null,
-                'disciplines' => array_values(array_filter($disciplines)),
+                'disciplines' => $disciplines,
                 'references' => ! empty($references) ? $references : null,
             ];
         }
@@ -581,5 +580,41 @@ class AssessmentTestController extends Controller
             'preview' => array_slice($validRows, 0, 10),
             'errors' => $errors,
         ];
+    }
+
+    /**
+     * Split a CSV multi-value cell (JSON array or ';'/',' delimited string) into normalized items.
+     *
+     * @return array<int, string>
+     */
+    private function normalizeCsvList(string $raw, bool $lowercase): array
+    {
+        if ($raw === '') {
+            return [];
+        }
+
+        $items = [];
+        if (str_starts_with($raw, '[') && str_ends_with($raw, ']')) {
+            $decoded = json_decode($raw, true);
+            $items = is_array($decoded) ? $decoded : [$raw];
+        } else {
+            $items = [$raw];
+        }
+
+        $normalized = [];
+        foreach ($items as $item) {
+            foreach (preg_split('/[;,]/', (string) $item) ?: [] as $part) {
+                $val = trim($part);
+                if ($val === '') {
+                    continue;
+                }
+                if ($lowercase) {
+                    $val = mb_strtolower($val);
+                }
+                $normalized[] = $val;
+            }
+        }
+
+        return array_values(array_unique($normalized));
     }
 }

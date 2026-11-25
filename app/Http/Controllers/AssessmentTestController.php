@@ -22,31 +22,47 @@ class AssessmentTestController extends Controller
         $tenantId = TenantScope::getTenantId();
         abort_unless($tenantId, 404);
 
-        $regionFilter = $request->query('body_region', 'all');
+        $regionFilter = $request->query('body_region', $request->query('region', 'all'));
         $disciplineFilter = $request->query('discipline', 'all');
         $search = trim((string) $request->query('search', ''));
 
-        $query = AssessmentTest::visibleToPractitioner($tenantId)
-            ->orderBy('body_region')
-            ->orderBy('sort_order')
-            ->orderBy('name');
-
-        if ($regionFilter !== 'all' && array_key_exists($regionFilter, AssessmentTest::BODY_REGIONS)) {
-            $query->where('body_region', $regionFilter);
-        }
+        $baseQuery = AssessmentTest::visibleToPractitioner($tenantId);
 
         if ($disciplineFilter !== 'all' && array_key_exists($disciplineFilter, AssessmentTest::DISCIPLINES)) {
-            $query->whereRaw('CAST(disciplines AS TEXT) ILIKE ?', ["%\"{$disciplineFilter}\"%"]);
+            $baseQuery->whereRaw('CAST(disciplines AS TEXT) ILIKE ?', ["%\"{$disciplineFilter}\"%"]);
         }
 
         if ($search !== '') {
-            $query->where(function ($q) use ($search) {
+            $baseQuery->where(function ($q) use ($search) {
                 $lower = mb_strtolower($search);
                 $q->whereRaw('LOWER(name) LIKE ?', ["%{$lower}%"])
                     ->orWhereRaw('LOWER(purpose) LIKE ?', ["%{$lower}%"])
                     ->orWhereRaw('LOWER(positive_finding) LIKE ?', ["%{$lower}%"])
                     ->orWhereRaw('CAST(aliases AS TEXT) ILIKE ?', ["%{$search}%"]);
             });
+        }
+
+        // Per-region counts for the current discipline/search filters
+        $regionCounts = [];
+        $counts = (clone $baseQuery)
+            ->selectRaw('body_region, count(*) as count')
+            ->groupBy('body_region')
+            ->pluck('count', 'body_region');
+
+        $totalTests = 0;
+        foreach (AssessmentTest::BODY_REGIONS as $key => $label) {
+            $cnt = (int) ($counts[$key] ?? 0);
+            $regionCounts[$key] = $cnt;
+            $totalTests += $cnt;
+        }
+
+        $query = (clone $baseQuery)
+            ->orderBy('body_region')
+            ->orderBy('sort_order')
+            ->orderBy('name');
+
+        if ($regionFilter !== 'all' && array_key_exists($regionFilter, AssessmentTest::BODY_REGIONS)) {
+            $query->where('body_region', $regionFilter);
         }
 
         $tests = $query->paginate(24)->through(fn (AssessmentTest $t) => [
@@ -68,17 +84,6 @@ class AssessmentTestController extends Controller
             'can_edit' => ! $t->isPlatform() && $t->tenant_id === $tenantId,
         ]);
 
-        // Region counts for tabs
-        $regionCounts = [];
-        $baseCountsQuery = AssessmentTest::visibleToPractitioner($tenantId);
-        $counts = $baseCountsQuery->selectRaw('body_region, count(*) as count')
-            ->groupBy('body_region')
-            ->pluck('count', 'body_region');
-
-        foreach (AssessmentTest::BODY_REGIONS as $key => $label) {
-            $regionCounts[$key] = $counts[$key] ?? 0;
-        }
-
         return Inertia::render('Tests/Index', [
             'tests' => $tests,
             'filters' => [
@@ -89,7 +94,7 @@ class AssessmentTestController extends Controller
             'bodyRegions' => AssessmentTest::bodyRegionsList(),
             'regionCounts' => $regionCounts,
             'disciplines' => AssessmentTest::disciplinesList(),
-            'totalTests' => AssessmentTest::visibleToPractitioner($tenantId)->count(),
+            'totalTests' => $totalTests,
         ]);
     }
 

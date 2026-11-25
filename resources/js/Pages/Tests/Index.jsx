@@ -30,7 +30,8 @@ export default function TestsIndex({
     bodyRegions = [],
     disciplines = [],
     regionCounts = {},
-    filters = { region: 'all', search: '', discipline: 'all' },
+    totalTests = null,
+    filters = { body_region: 'all', search: '', discipline: 'all' },
     canManageCustom = false,
 }) {
     const { flash } = usePage().props;
@@ -45,7 +46,7 @@ export default function TestsIndex({
 
     // Search and filter state
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
-    const [selectedRegion, setSelectedRegion] = useState(filters.region || 'all');
+    const [selectedRegion, setSelectedRegion] = useState(filters.body_region || filters.region || 'all');
     const [selectedDiscipline, setSelectedDiscipline] = useState(filters.discipline || 'all');
 
     // Detail view state
@@ -71,7 +72,7 @@ export default function TestsIndex({
     // Apply filters
     const applyFilters = (region, discipline, search) => {
         router.get('/app/tests', {
-            region: region !== undefined ? region : selectedRegion,
+            body_region: region !== undefined ? region : selectedRegion,
             discipline: discipline !== undefined ? discipline : selectedDiscipline,
             search: search !== undefined ? search : searchTerm,
         }, {
@@ -279,7 +280,7 @@ export default function TestsIndex({
                         >
                             <span className="block text-xs font-bold">All Body Regions</span>
                             <span className={`text-[11px] font-medium mt-0.5 block ${selectedRegion === 'all' ? 'text-violet-200' : 'text-slate-400'}`}>
-                                {totalVisibleTests} tests
+                                {(totalTests ?? totalVisibleTests)} {(totalTests ?? totalVisibleTests) === 1 ? 'test' : 'tests'}
                             </span>
                         </button>
 
@@ -310,7 +311,7 @@ export default function TestsIndex({
                 {/* Tests Grid */}
                 <div className="space-y-3">
                     <div className="flex items-center justify-between text-xs text-slate-500">
-                        <span>Showing {tests?.total ?? safeTests.length} tests</span>
+                        <span>Showing {totalVisibleTests} {totalVisibleTests === 1 ? 'test' : 'tests'}</span>
                         {selectedRegion !== 'all' && (
                             <button
                                 type="button"

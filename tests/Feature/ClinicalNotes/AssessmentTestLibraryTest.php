@@ -768,4 +768,186 @@ CSV;
         $this->assertArrayHasKey('value', $adminProps['bodyRegions'][0]);
         $this->assertArrayHasKey('label', $adminProps['bodyRegions'][0]);
     }
+
+    public function test_admin_import_preview_enforces_csrf_token_and_returns_200_with_valid_token(): void
+    {
+        $admin = $this->createAdmin();
+
+        // Force Laravel 13's PreventRequestForgery middleware to enforce CSRF checks during this test
+        $this->app->bind(\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class, function ($app) {
+            return new class(
+                $app,
+                $app->make(\Illuminate\Contracts\Encryption\Encrypter::class)
+            ) extends \Illuminate\Foundation\Http\Middleware\PreventRequestForgery {
+                protected function runningUnitTests(): bool
+                {
+                    return false;
+                }
+            };
+        });
+
+        $csvContent = implode("\n", [
+            'body_region,name,aliases,purpose,procedure,positive_finding,interpretation_notes,disciplines,references',
+            'shoulder,"Neer Test","Neer Impingement","Assess subacromial impingement","Passively flex arm","Pain in anterior shoulder","High sensitivity","physio;chiro","Neer 1972"',
+        ]);
+
+        // 1. Without CSRF token -> 419
+        $noTokenResponse = $this->actingAs($admin)
+            ->postJson('http://umahz.test/admin/tests/import-preview', [
+                'csv_file' => UploadedFile::fake()->createWithContent('tests.csv', $csvContent),
+            ]);
+
+        $noTokenResponse->assertStatus(419);
+
+        // 2. With valid session + CSRF token -> 200
+        $this->actingAs($admin)->get('http://umahz.test/admin/tests')->assertStatus(200);
+        $token = csrf_token();
+
+        $validResponse = $this->actingAs($admin)
+            ->withHeader('X-CSRF-TOKEN', $token)
+            ->postJson('http://umahz.test/admin/tests/import-preview', [
+                'csv_file' => UploadedFile::fake()->createWithContent('tests.csv', $csvContent),
+            ]);
+
+        $validResponse->assertStatus(200)
+            ->assertJsonPath('total_rows', 1)
+            ->assertJsonPath('valid_count', 1)
+            ->assertJsonPath('error_count', 0);
+    }
+
+    public function test_region_filter_returns_only_matching_region_for_admin_and_practitioner(): void
+    {
+        $admin = $this->createAdmin();
+
+        AssessmentTest::create([
+            'tenant_id' => null,
+            'body_region' => 'shoulder',
+            'name' => 'Shoulder Filter Test',
+            'purpose' => 'Check shoulder',
+            'procedure' => 'Move arm',
+            'positive_finding' => 'Pain',
+            'disciplines' => ['physio'],
+            'status' => AssessmentTest::STATUS_REVIEWED,
+        ]);
+
+        AssessmentTest::create([
+            'tenant_id' => null,
+            'body_region' => 'lumbar',
+            'name' => 'Lumbar Filter Test',
+            'purpose' => 'Check lumbar',
+            'procedure' => 'Raise leg',
+            'positive_finding' => 'Radicular pain',
+            'disciplines' => ['chiro'],
+            'status' => AssessmentTest::STATUS_REVIEWED,
+        ]);
+
+        AssessmentTest::create([
+            'tenant_id' => null,
+            'body_region' => 'ankle_foot',
+            'name' => 'Ankle Filter Test',
+            'purpose' => 'Check ankle',
+            'procedure' => 'Squeeze calf',
+            'positive_finding' => 'No plantarflexion',
+            'disciplines' => ['physio'],
+            'status' => AssessmentTest::STATUS_REVIEWED,
+        ]);
+
+        // Admin /admin/tests?body_region=lumbar
+        $adminRes = $this->actingAs($admin)
+            ->get('http://umahz.test/admin/tests?body_region=lumbar');
+        $adminRes->assertStatus(200);
+        $adminData = $adminRes->viewData('page')['props']['tests']['data'];
+        $this->assertCount(1, $adminData);
+        $this->assertSame('lumbar', $adminData[0]['body_region']);
+        $this->assertSame('Lumbar Filter Test', $adminData[0]['name']);
+
+        // Practitioner /app/tests?body_region=ankle_foot&discipline=physio
+        $pracRes = $this->actingAs($this->practitionerA)
+            ->get('http://metro-physio.umahz.test/app/tests?body_region=ankle_foot&discipline=physio');
+        $pracRes->assertStatus(200);
+        $pracProps = $pracRes->viewData('page')['props'];
+        $this->assertCount(1, $pracProps['tests']['data']);
+        $this->assertSame('ankle_foot', $pracProps['tests']['data'][0]['body_region']);
+        // Per-region counts & totalTests match the active discipline=physio filter (1 shoulder, 0 lumbar, 1 ankle_foot)
+        $this->assertSame(1, $pracProps['regionCounts']['shoulder']);
+        $this->assertSame(0, $pracProps['regionCounts']['lumbar']);
+        $this->assertSame(1, $pracProps['regionCounts']['ankle_foot']);
+        $this->assertSame(2, $pracProps['totalTests']);
+    }
+
+    public function test_csv_import_splits_semicolon_disciplines_deduplicates_and_matches_discipline_filter(): void
+    {
+        $admin = $this->createAdmin();
+
+        $csvContent = implode("\n", [
+            'body_region,name,aliases,purpose,procedure,positive_finding,interpretation_notes,disciplines,references',
+            'lumbar,"Slump Test","Slump ; Sitting Dural Stretch, Slump","Assess neural tension","Flex neck and extend knee","Reproduction of leg pain",""," Physio ; CHIRO , massage ; physio ","Butler 1991"',
+        ]);
+
+        $file = UploadedFile::fake()->createWithContent('tests.csv', $csvContent);
+        $previewRes = $this->actingAs($admin)
+            ->postJson('http://umahz.test/admin/tests/import-preview', ['csv_file' => $file]);
+
+        $previewRes->assertStatus(200)
+            ->assertJsonPath('valid_count', 1)
+            ->assertJsonPath('error_count', 0)
+            ->assertJsonPath('valid_rows.0.disciplines', ['physio', 'chiro', 'massage'])
+            ->assertJsonPath('valid_rows.0.aliases', ['Slump', 'Sitting Dural Stretch']);
+
+        $importFile = UploadedFile::fake()->createWithContent('tests.csv', $csvContent);
+        $this->actingAs($admin)
+            ->post('http://umahz.test/admin/tests/import', ['csv_file' => $importFile])
+            ->assertRedirect();
+
+        $imported = AssessmentTest::where('name', 'Slump Test')->firstOrFail();
+        $this->assertSame(['physio', 'chiro', 'massage'], $imported->disciplines);
+        $this->assertSame(['Slump', 'Sitting Dural Stretch'], $imported->aliases);
+
+        // Publish as reviewed and verify practitioner discipline filter matches it
+        $imported->update(['status' => AssessmentTest::STATUS_REVIEWED, 'reviewed_at' => now()]);
+
+        $pracRes = $this->actingAs($this->practitionerA)
+            ->get('http://metro-physio.umahz.test/app/tests?discipline=physio');
+        $pracRes->assertStatus(200);
+        $names = collect($pracRes->viewData('page')['props']['tests']['data'])->pluck('name')->all();
+        $this->assertContains('Slump Test', $names);
+
+        // Unknown discipline is rejected in preview with a clear error
+        $badCsv = implode("\n", [
+            'body_region,name,aliases,purpose,procedure,positive_finding,interpretation_notes,disciplines,references',
+            'lumbar,"Bad Discipline Test","","Purpose","Procedure","Positive","","physio;wizardry",""',
+        ]);
+        $badFile = UploadedFile::fake()->createWithContent('bad.csv', $badCsv);
+        $badRes = $this->actingAs($admin)
+            ->postJson('http://umahz.test/admin/tests/import-preview', ['csv_file' => $badFile]);
+
+        $badRes->assertStatus(200)
+            ->assertJsonPath('valid_count', 0)
+            ->assertJsonPath('error_count', 1);
+        $this->assertStringContainsString('wizardry', $badRes->json('errors.0'));
+    }
+
+    public function test_repair_migration_splits_legacy_disciplines_and_aliases_idempotently(): void
+    {
+        $test = AssessmentTest::create([
+            'tenant_id' => null,
+            'body_region' => 'knee',
+            'name' => 'Legacy Semicolon Test',
+            'aliases' => ['Old Alias 1; Old Alias 2, Old Alias 1'],
+            'purpose' => 'Check ACL',
+            'procedure' => 'Pull tibia',
+            'positive_finding' => 'Laxity',
+            'disciplines' => ['Physio; chiro, massage ; physio'],
+            'status' => AssessmentTest::STATUS_DRAFT,
+        ]);
+
+        $migration = require base_path('database/migrations/2026_11_25_000001_repair_assessment_test_disciplines_and_aliases.php');
+        $migration->up();
+        // Safe to run twice
+        $migration->up();
+
+        $test->refresh();
+        $this->assertSame(['physio', 'chiro', 'massage'], $test->disciplines);
+        $this->assertSame(['Old Alias 1', 'Old Alias 2'], $test->aliases);
+    }
 }

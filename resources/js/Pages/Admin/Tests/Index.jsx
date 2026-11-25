@@ -44,7 +44,7 @@ export default function AdminTestsIndex({
 
     // Filter states
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
-    const [selectedRegion, setSelectedRegion] = useState(filters.region || 'all');
+    const [selectedRegion, setSelectedRegion] = useState(filters.body_region || filters.region || 'all');
     const [selectedStatus, setSelectedStatus] = useState(filters.status || 'all');
 
     // Create / Edit modal state
@@ -72,6 +72,7 @@ export default function AdminTestsIndex({
     const [csvFile, setCsvFile] = useState(null);
     const [previewing, setPreviewing] = useState(false);
     const [importPreviewData, setImportPreviewData] = useState(null);
+    const [importError, setImportError] = useState(null);
     const [importing, setImporting] = useState(false);
 
     // Action loaders
@@ -87,7 +88,7 @@ export default function AdminTestsIndex({
     // Trigger search/filter
     const applyFilters = (newRegion, newStatus, newSearch) => {
         router.get('/admin/tests', {
-            region: newRegion !== undefined ? newRegion : selectedRegion,
+            body_region: newRegion !== undefined ? newRegion : selectedRegion,
             status: newStatus !== undefined ? newStatus : selectedStatus,
             search: newSearch !== undefined ? newSearch : searchTerm,
         }, {
@@ -224,29 +225,22 @@ export default function AdminTestsIndex({
         setCsvFile(file);
         setPreviewing(true);
         setImportPreviewData(null);
+        setImportError(null);
 
         const uploadData = new FormData();
         uploadData.append('csv_file', file);
         uploadData.append('file', file);
 
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-            const res = await fetch('/admin/tests/import-preview', {
-                method: 'POST',
+            const res = await window.axios.post('/admin/tests/import-preview', uploadData, {
                 headers: {
-                    'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json',
+                    Accept: 'application/json',
                 },
-                body: uploadData,
             });
-            const data = await res.json();
-            if (res.ok) {
-                setImportPreviewData(data);
-            } else {
-                alert(data.message || 'Failed to parse CSV file.');
-            }
+            setImportPreviewData(res.data);
         } catch (err) {
-            alert('Error parsing CSV preview: ' + err.message);
+            const msg = err.response?.data?.message || err.message || 'Failed to parse CSV file.';
+            setImportError(msg);
         } finally {
             setPreviewing(false);
         }
@@ -255,6 +249,7 @@ export default function AdminTestsIndex({
     const handleConfirmImport = async () => {
         if (!csvFile) return;
         setImporting(true);
+        setImportError(null);
 
         const uploadData = new FormData();
         uploadData.append('csv_file', csvFile);
@@ -266,9 +261,13 @@ export default function AdminTestsIndex({
                 setImportModalOpen(false);
                 setCsvFile(null);
                 setImportPreviewData(null);
+                setImportError(null);
                 setImporting(false);
             },
-            onError: () => setImporting(false),
+            onError: (errors) => {
+                setImportError(errors?.csv_file || errors?.message || 'Failed to import CSV rows.');
+                setImporting(false);
+            },
             onFinish: () => setImporting(false),
         });
     };
@@ -322,6 +321,7 @@ export default function AdminTestsIndex({
                             onClick={() => {
                                 setCsvFile(null);
                                 setImportPreviewData(null);
+                                setImportError(null);
                                 setImportModalOpen(true);
                             }}
                             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-semibold shadow-xs transition"
@@ -590,7 +590,7 @@ export default function AdminTestsIndex({
                     {Array.isArray(tests?.links) && tests.links.length > 3 && (
                         <div className="p-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
                             <div>
-                                Showing <span className="text-white font-semibold">{tests.from || 0}</span> to <span className="text-white font-semibold">{tests.to || 0}</span> of <span className="text-white font-semibold">{tests.total || 0}</span> tests
+                                Showing <span className="text-white font-semibold">{tests.from || 0}</span> to <span className="text-white font-semibold">{tests.to || 0}</span> of <span className="text-white font-semibold">{tests.total || 0}</span> {(tests.total || 0) === 1 ? 'test' : 'tests'}
                             </div>
                             <div className="flex items-center gap-1">
                                 {(Array.isArray(tests?.links) ? tests.links : []).map((link, lIdx) => (
@@ -935,6 +935,16 @@ export default function AdminTestsIndex({
                             <div className="p-8 text-center text-slate-400 flex items-center justify-center gap-2">
                                 <RefreshCw className="w-4 h-4 animate-spin text-purple-400" />
                                 <span>Parsing CSV and validating rows...</span>
+                            </div>
+                        )}
+
+                        {importError && (
+                            <div className="p-3.5 rounded-xl bg-rose-950/50 border border-rose-800/70 text-rose-300 text-xs flex items-start gap-2.5">
+                                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="font-semibold text-rose-200">CSV Import Error</p>
+                                    <p className="mt-0.5">{importError}</p>
+                                </div>
                             </div>
                         )}
 
