@@ -9,19 +9,19 @@
         "e2e:ui": "playwright test --ui"
     },
     "devDependencies": {
-        "@inertiajs/react": "^3.6.1",
+        "@inertiajs/react": "^3.11.0",
         "@playwright/test": "^1.65.1",
-        "@tailwindcss/postcss": "^4.3.3",
-        "@tailwindcss/vite": "^4.0.0",
-        "@vitejs/plugin-react": "^6.0.5",
-        "autoprefixer": "^10.5.4",
+        "@tailwindcss/postcss": "^4.3.5",
+        "@tailwindcss/vite": "^4.3.5",
+        "@vitejs/plugin-react": "^6.3.0",
+        "autoprefixer": "^10.7.0",
         "axios": "^1.19.0",
         "concurrently": "^9.0.1",
-        "laravel-vite-plugin": "^3.1",
-        "lucide-react": "^1.28.0",
+        "laravel-vite-plugin": "^3.2",
+        "lucide-react": "^1.77.0",
         "postcss": "^8.5.25",
-        "react": "^19.2.8",
-        "react-dom": "^19.2.8",
+        "react": "^19.3.1",
+        "react-dom": "^19.3.1",
         "tailwindcss": "^4.3.3",
         "vite": "^8.0.0"
     },
@@ -30,8 +30,8 @@
         "@dnd-kit/sortable": "^10.0.0",
         "@dnd-kit/utilities": "^3.2.2",
         "framer-motion": "^13.2.0",
-        "grapesjs": "^0.23.6",
+        "grapesjs": "^0.23.9",
         "pdf-lib": "^1.17.1",
-        "recharts": "^3.10.1"
+        "recharts": "^3.11.0"
     }
 }
