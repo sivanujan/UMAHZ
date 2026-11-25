@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\LoginLockoutService;
 use App\Support\RoleRedirect;
 use App\Support\Tenancy;
 use Illuminate\Http\RedirectResponse;
@@ -183,9 +184,22 @@ class AuthenticatedSessionController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (!Auth::attempt($credentials, $request->boolean('remember'))) {
+        $lockouts = app(LoginLockoutService::class);
+        $ip = (string) $request->ip();
+
+        if (($remaining = $lockouts->checkLockout($credentials['email'], $ip)) !== null) {
             return back()->withErrors([
-                'email' => 'The provided credentials do not match our records.',
+                'email' => $this->lockoutMessage($remaining),
+            ])->onlyInput('email');
+        }
+
+        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+            $lockedRemaining = $lockouts->recordFailure($credentials['email'], $ip, $tenant?->id);
+
+            return back()->withErrors([
+                'email' => $lockedRemaining !== null
+                    ? $this->lockoutMessage($lockedRemaining)
+                    : 'The provided credentials do not match our records.',
             ])->onlyInput('email');
         }
 
@@ -198,16 +212,22 @@ class AuthenticatedSessionController extends Controller
                 ->where('tenant_id', $tenant->id)
                 ->exists();
 
-            if (!$belongs) {
+            if (! $belongs) {
                 Auth::guard('web')->logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();
 
+                $lockedRemaining = $lockouts->recordFailure($credentials['email'], $ip, $tenant->id);
+
                 return back()->withErrors([
-                    'email' => 'You do not have access to this clinic workspace.',
+                    'email' => $lockedRemaining !== null
+                        ? $this->lockoutMessage($lockedRemaining)
+                        : 'You do not have access to this clinic workspace.',
                 ])->onlyInput('email');
             }
         }
+
+        $lockouts->clearOnSuccess($credentials['email'], $ip);
 
         $request->session()->regenerate();
 
@@ -331,6 +351,14 @@ class AuthenticatedSessionController extends Controller
             'neutralMessage' => null,
             'lastClinic' => null,
         ];
+    }
+
+    private function lockoutMessage(int $remainingSeconds): string
+    {
+        $minutes = max(1, (int) ceil($remainingSeconds / 60));
+        $unit = $minutes === 1 ? 'minute' : 'minutes';
+
+        return "Too many attempts. Try again in {$minutes} {$unit}, or reset your password.";
     }
 
     private function createLoginToken(string $email, Tenant $tenant): string

@@ -7,6 +7,7 @@ use App\Models\StaffMembership;
 use App\Models\User;
 use App\Notifications\StaffInvitationNotification;
 use App\Scopes\TenantScope;
+use App\Services\LoginLockoutService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -31,6 +32,8 @@ class StaffInvitationController extends Controller
         $tenant = \App\Models\Tenant::find($tenantId);
         $seatCheck = $tenant ? app(\App\Services\PlanEntitlements::class)->checkPractitionerSeats($tenant) : null;
 
+        $lockouts = app(LoginLockoutService::class);
+
         $memberships = StaffMembership::with(['user', 'practitionerProfile'])
             ->where('tenant_id', $tenantId)
             ->latest('created_at')
@@ -45,6 +48,7 @@ class StaffInvitationController extends Controller
                 'joined_at' => $membership->joined_at?->diffForHumans(),
                 'created_at_date' => $membership->created_at?->format('M j, Y'),
                 'discipline' => $membership->practitionerProfile?->professionLabel(),
+                'is_locked' => $lockouts->isAccountLocked($membership->user->email),
                 // The owner can't act on their own row.
                 'is_self' => $membership->user_id === $request->user()->id,
             ]);
@@ -236,6 +240,24 @@ class StaffInvitationController extends Controller
         }
 
         return back()->with('success', 'Staff member removed. Their records are retained.');
+    }
+
+    /**
+     * Unlock a staff member's login lockouts (per-IP & account-wide).
+     */
+    public function unlock(Request $request, StaffMembership $membership, LoginLockoutService $lockouts): RedirectResponse
+    {
+        $tenantId = TenantScope::getTenantId();
+        abort_unless($membership->tenant_id === $tenantId, 404);
+
+        $lockouts->unlockAccount(
+            $membership->user->email,
+            $request->user(),
+            $request->ip(),
+            $tenantId
+        );
+
+        return back()->with('success', "{$membership->user->name}'s login lockout has been cleared.");
     }
 
     /**

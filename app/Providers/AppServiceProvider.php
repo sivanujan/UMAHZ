@@ -111,6 +111,16 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        RateLimiter::for('forgot-password', function (Request $request) {
+            $email = mb_strtolower(trim((string) $request->input('email', '')));
+            $max = (int) config('auth_security.forgot_password_max_attempts', 5);
+
+            return [
+                Limit::perMinute($max)->by('fp-ip:'.$request->ip()),
+                Limit::perMinute($max)->by('fp-email:'.$email),
+            ];
+        });
+
         Gate::policy(Tenant::class, TenantPolicy::class);
         Gate::policy(PractitionerProfile::class, PractitionerProfilePolicy::class);
         Gate::policy(Appointment::class, AppointmentPolicy::class);

@@ -294,6 +294,8 @@ Route::domain($central)->group(function () {
             Route::delete('/{user}', [PlatformStaffController::class, 'destroy'])->name('destroy');
         });
 
+        Route::post('/users/{user}/unlock', [PlatformStaffController::class, 'unlock'])->name('users.unlock');
+
         Route::prefix('settings')->name('settings.')->group(function () {
             Route::get('/', [PlatformSettingsController::class, 'index'])->name('index');
             Route::post('/', [PlatformSettingsController::class, 'update'])->name('update');
@@ -547,6 +549,7 @@ Route::domain('{tenant}.' . $central)->where(['tenant' => '[a-z0-9-]+'])->group(
             Route::post('/staff', [StaffInvitationController::class, 'store'])->middleware('subscription.write')->name('staff.store');
             Route::patch('/staff/{membership}', [StaffInvitationController::class, 'updateStatus'])->name('staff.update');
             Route::post('/staff/{membership}/resend', [StaffInvitationController::class, 'resend'])->name('staff.resend');
+            Route::post('/staff/{membership}/unlock', [StaffInvitationController::class, 'unlock'])->name('staff.unlock');
             Route::delete('/staff/{membership}', [StaffInvitationController::class, 'destroy'])->name('staff.destroy');
 
             // Clinic Subscription & Billing — plan upgrade, card management, invoice downloads.

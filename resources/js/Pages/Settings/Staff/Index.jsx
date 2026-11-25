@@ -125,6 +125,13 @@ export default function StaffIndex({ staff = [], roles = [], seatInfo = null }) 
         });
     };
 
+    const handleUnlock = (member) => {
+        router.post(`/app/staff/${member.id}/unlock`, {}, {
+            preserveScroll: true,
+            onSuccess: () => setToastMessage(`Login lockout cleared for ${member.name}.`),
+        });
+    };
+
     const handleSetStatus = (member, newStatus) => {
         router.patch(`/app/staff/${member.id}`, { status: newStatus }, {
             preserveScroll: true,
@@ -588,6 +595,16 @@ export default function StaffIndex({ staff = [], roles = [], seatInfo = null }) 
                                                                     {/* Actions for Active Members */}
                                                                     {member.status === 'active' && (
                                                                         <>
+                                                                            {member.is_locked && (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => handleUnlock(member)}
+                                                                                    className="px-2.5 py-1 text-xs font-bold rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 transition"
+                                                                                    title="Clear login lockout"
+                                                                                >
+                                                                                    Unlock
+                                                                                </button>
+                                                                            )}
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={() => setEditRoleModal({ member, currentRole: member.role })}
