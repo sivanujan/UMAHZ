@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\LoginLockoutService;
+use App\Support\AuthBranding;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,10 +24,12 @@ class NewPasswordController extends Controller
      */
     public function create(Request $request): Response
     {
-        return Inertia::render('Auth/ResetPassword', [
+        $branding = AuthBranding::resolve($request);
+
+        return Inertia::render('Auth/ResetPassword', array_merge($branding['props'], [
             'email' => $request->query('email', ''),
             'token' => $request->route('token'),
-        ]);
+        ]));
     }
 
     /**
@@ -59,7 +62,7 @@ class NewPasswordController extends Controller
         }
 
         throw ValidationException::withMessages([
-            'email' => [trans($status)],
+            'token' => ['This password reset link is invalid or has expired. Please request a new link.'],
         ]);
     }
 }

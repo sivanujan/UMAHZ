@@ -1,63 +1,96 @@
 import React, { useState } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
-import { Lock, Check, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
-import Logo from '@/Components/Common/Logo';
+import { Link, useForm } from '@inertiajs/react';
+import { Mail, Lock, Check, Eye, EyeOff, AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
+import AuthSplitLayout from '@/Components/Auth/AuthSplitLayout';
 import PasswordStrengthMeter from '@/Components/UI/PasswordStrengthMeter';
 
-const ROYAL_BLUE = '#5B2EFF';
-const DEEP_NAVY = '#1E0B3C';
-const UI_FONT = "'Manrope', system-ui, -apple-system, sans-serif";
-
-const labelStyle = { display: 'block', fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#64748b', marginBottom: 9 };
-
-function iconColorClass(showError) {
-    return showError ? 'text-rose-400' : 'text-[#5B2EFF]/45 group-focus-within:text-[#5B2EFF]';
-}
-
-function inputBorderClass(showError) {
-    return showError
-        ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-400/15'
-        : 'border-slate-200/80 focus:border-[#5B2EFF] focus:ring-[#5B2EFF]/20';
-}
-
-function PasswordField({ label, value, onChange, onBlur, error, valid, helper, show, onToggleShow, autoComplete }) {
-    const showError = !!error;
+function PasswordInput({
+    id,
+    label,
+    value,
+    onChange,
+    onBlur,
+    error,
+    valid,
+    helper,
+    show,
+    onToggleShow,
+    autoComplete,
+    disabled,
+}) {
+    const showError = Boolean(error);
     const showValid = valid && !showError;
+
     return (
         <div>
-            <label style={labelStyle}>{label}</label>
+            <label
+                htmlFor={id}
+                className="block text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5"
+            >
+                {label}
+            </label>
             <div className="relative group">
-                <Lock className={`w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-200 ${iconColorClass(showError)}`} />
+                <Lock
+                    className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors duration-200 pointer-events-none ${
+                        showError
+                            ? 'text-rose-500'
+                            : 'text-slate-400 dark:text-slate-500 group-focus-within:text-indigo-600 dark:group-focus-within:text-indigo-400'
+                    }`}
+                />
                 <input
+                    id={id}
                     type={show ? 'text' : 'password'}
                     value={value}
                     onChange={onChange}
                     onBlur={onBlur}
                     required
+                    disabled={disabled}
                     autoComplete={autoComplete}
-                    className={`w-full pl-11 pr-16 py-3.5 bg-white/70 border rounded-xl text-sm outline-none transition-all duration-200 text-[#1E0B3C] focus:bg-white focus:ring-4 ${inputBorderClass(showError)}`}
+                    placeholder="••••••••••••"
+                    className={`w-full pl-10 pr-16 py-3 rounded-xl text-sm outline-none transition-all duration-200 bg-white dark:bg-slate-800/70 border ${
+                        showError
+                            ? 'border-rose-300 dark:border-rose-500/50 text-rose-900 dark:text-rose-100 focus:ring-4 focus:ring-rose-500/15'
+                            : 'border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-600 dark:focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15'
+                    } disabled:opacity-60 disabled:cursor-not-allowed`}
                 />
-                {showValid && <Check className="w-4 h-4 text-emerald-500 absolute right-10 top-1/2 -translate-y-1/2" strokeWidth={2.5} />}
-                {showError && <AlertCircle className="w-4 h-4 text-rose-500 absolute right-10 top-1/2 -translate-y-1/2" strokeWidth={2} />}
+                {showValid && (
+                    <Check
+                        className="w-4 h-4 text-emerald-500 absolute right-10 top-1/2 -translate-y-1/2"
+                        strokeWidth={2.5}
+                    />
+                )}
+                {showError && (
+                    <AlertCircle
+                        className="w-4 h-4 text-rose-500 absolute right-10 top-1/2 -translate-y-1/2"
+                        strokeWidth={2}
+                    />
+                )}
                 <button
                     type="button"
                     onClick={onToggleShow}
-                    tabIndex={-1}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#5B2EFF] transition-colors duration-200"
+                    aria-label={show ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 cursor-pointer"
                 >
                     {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
             </div>
             {showError ? (
-                <p className="text-[11px] text-rose-600 font-medium mt-1.5">{error}</p>
+                <p className="text-xs text-rose-500 dark:text-rose-400 font-medium mt-1.5">{error}</p>
             ) : helper ? (
-                <p className="text-[11px] text-slate-400 mt-1.5">{helper}</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">{helper}</p>
             ) : null}
         </div>
     );
 }
 
-export default function ResetPassword({ email, token }) {
+export default function ResetPassword({
+    email,
+    token,
+    clinic = null,
+    clinicNotFound = false,
+    canRegisterClinic = false,
+    canRegisterClient = false,
+}) {
     const { data, setData, post, processing, errors } = useForm({
         token,
         email: email || '',
@@ -71,97 +104,154 @@ export default function ResetPassword({ email, token }) {
 
     const markTouched = (name) => setTouched((t) => ({ ...t, [name]: true }));
 
-    const passwordFormatError = touched.password && data.password.length < 12 ? 'At least 12 characters' : null;
+    const passwordFormatError =
+        touched.password && data.password.length < 12 ? 'At least 12 characters' : null;
     const passwordError = errors.password || passwordFormatError;
     const passwordValid = data.password.length >= 12 && !errors.password;
 
-    const confirmFormatError = touched.password_confirmation && data.password_confirmation && data.password_confirmation !== data.password ? 'Passwords must match' : null;
+    const confirmFormatError =
+        touched.password_confirmation &&
+        data.password_confirmation &&
+        data.password_confirmation !== data.password
+            ? 'Passwords must match'
+            : null;
     const confirmError = errors.password_confirmation || confirmFormatError;
-    const confirmValid = !!data.password_confirmation && data.password_confirmation === data.password && !errors.password_confirmation;
+    const confirmValid =
+        Boolean(data.password_confirmation) &&
+        data.password_confirmation === data.password &&
+        !errors.password_confirmation;
+
+    const tokenError = errors.token || errors.email;
+
+    const validAccent =
+        clinic?.accent_color && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(clinic.accent_color.trim())
+            ? clinic.accent_color.trim()
+            : null;
 
     const submit = (e) => {
         e.preventDefault();
         post('/reset-password');
     };
 
+    const pageTitle = clinic ? `Reset Password — ${clinic.name}` : 'Reset Password — UMAHZ';
+    const headingTitle = clinic
+        ? `Reset your password for ${clinic.name}`
+        : 'Set a new password';
+    const headingSubtitle = 'Choose a strong password to protect your account.';
+    const requestNewHref = data.email
+        ? `/forgot-password?email=${encodeURIComponent(data.email)}`
+        : '/forgot-password';
+    const backLabel = clinic ? `Back to ${clinic.name} sign in` : 'Back to sign in';
+
     return (
-        <div
-            className="min-h-screen antialiased text-slate-800 flex items-center justify-center px-6 py-16 relative overflow-hidden"
-            style={{ fontFamily: UI_FONT, background: '#F8FAFC' }}
+        <AuthSplitLayout
+            pageTitle={pageTitle}
+            headingTitle={headingTitle}
+            headingSubtitle={headingSubtitle}
+            clinic={clinic}
+            clinicNotFound={clinicNotFound}
+            canRegisterClinic={canRegisterClinic}
+            canRegisterClient={canRegisterClient}
         >
-            <Head title="Reset Password" />
-
-            <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #F8FAFC 45%, #ECFDF5 100%)' }} />
-                <div className="absolute top-[-120px] right-[-100px] w-[480px] h-[480px] rounded-full" style={{ background: 'rgba(91,46,255,0.22)', filter: 'blur(110px)' }} />
-                <div className="absolute bottom-[-100px] left-[-80px] w-[420px] h-[420px] rounded-full" style={{ background: 'rgba(34,197,94,0.16)', filter: 'blur(110px)' }} />
-            </div>
-
-            <div className="max-w-md w-full relative z-10">
-                <Link href="/" className="flex items-center justify-center mb-10">
-                    <Logo size="lg" tagline />
-                </Link>
-
+            {tokenError && (
                 <div
-                    className="rounded-[20px] p-8 sm:p-9 space-y-7 border border-white/60 backdrop-blur-xl"
-                    style={{
-                        background: 'rgba(255,255,255,0.78)',
-                        boxShadow: '0 25px 70px -25px rgba(13,27,42,0.25), 0 8px 24px -12px rgba(91,46,255,0.15)',
-                    }}
+                    role="alert"
+                    className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-300 space-y-2.5"
                 >
-                    <div className="text-center">
-                        <h1 className="text-2xl sm:text-[28px] font-bold tracking-normal" style={{ color: DEEP_NAVY }}>Reset Your Password</h1>
-                        <p className="mt-2 text-sm text-slate-400">Choose a new password for {data.email || 'your account'}.</p>
+                    <div className="flex items-start gap-2.5 text-xs font-medium">
+                        <AlertCircle className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
+                        <span>{tokenError}</span>
                     </div>
-
-                    <form onSubmit={submit} className="space-y-5">
-                        <div>
-                            <PasswordField
-                                label="New Password"
-                                value={data.password}
-                                onChange={(e) => setData('password', e.target.value)}
-                                onBlur={() => markTouched('password')}
-                                error={passwordError}
-                                valid={passwordValid}
-                                show={showPassword}
-                                onToggleShow={() => setShowPassword((s) => !s)}
-                                autoComplete="new-password"
-                                helper="Minimum 12 characters."
-                            />
-                            <PasswordStrengthMeter password={data.password} />
-                        </div>
-
-                        <PasswordField
-                            label="Confirm New Password"
-                            value={data.password_confirmation}
-                            onChange={(e) => setData('password_confirmation', e.target.value)}
-                            onBlur={() => markTouched('password_confirmation')}
-                            error={confirmError}
-                            valid={confirmValid}
-                            show={showConfirm}
-                            onToggleShow={() => setShowConfirm((s) => !s)}
-                            autoComplete="new-password"
-                        />
-
-                        <button
-                            type="submit"
-                            disabled={processing}
-                            className="w-full py-3.5 px-4 text-white font-medium text-sm rounded-full transition-all duration-300 ease-out flex items-center justify-center gap-2 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] disabled:opacity-70 disabled:hover:scale-100"
-                            style={{
-                                background: `linear-gradient(135deg, ${ROYAL_BLUE} 0%, #2E9BE6 100%)`,
-                                boxShadow: '0 10px 30px -8px rgba(91,46,255,0.45)',
-                            }}
-                        >
-                            {processing && <Loader2 className="w-4 h-4 animate-spin" />}
-                            {processing ? 'Resetting…' : 'Reset Password'}
-                        </button>
-                    </form>
-
-                    <p className="text-center text-sm text-slate-400">
-                        <Link href="/login" className="font-semibold transition-opacity duration-200 hover:opacity-75" style={{ color: ROYAL_BLUE }}>Back to sign in</Link>
-                    </p>
+                    <Link
+                        href={requestNewHref}
+                        className="inline-flex items-center justify-center w-full py-2 px-3 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-700 text-rose-700 dark:text-rose-300 hover:bg-rose-100/60 dark:hover:bg-rose-900/40 transition-colors"
+                    >
+                        Request a new link
+                    </Link>
                 </div>
+            )}
+
+            <form onSubmit={submit} className="space-y-4">
+                {/* Read-only Email */}
+                <div>
+                    <label
+                        htmlFor="reset-email"
+                        className="block text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5"
+                    >
+                        Account email
+                    </label>
+                    <div className="relative">
+                        <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
+                        <input
+                            id="reset-email"
+                            type="email"
+                            value={data.email}
+                            readOnly
+                            className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none bg-slate-100 dark:bg-slate-800/40 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 cursor-default"
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <PasswordInput
+                        id="reset-password"
+                        label="New password"
+                        value={data.password}
+                        onChange={(e) => setData('password', e.target.value)}
+                        onBlur={() => markTouched('password')}
+                        error={passwordError}
+                        valid={passwordValid}
+                        helper="Minimum 12 characters. Include uppercase, lowercase, and a number or symbol."
+                        show={showPassword}
+                        onToggleShow={() => setShowPassword((s) => !s)}
+                        autoComplete="new-password"
+                        disabled={processing}
+                    />
+                    <PasswordStrengthMeter password={data.password} />
+                </div>
+
+                <PasswordInput
+                    id="reset-password-confirmation"
+                    label="Confirm new password"
+                    value={data.password_confirmation}
+                    onChange={(e) => setData('password_confirmation', e.target.value)}
+                    onBlur={() => markTouched('password_confirmation')}
+                    error={confirmError}
+                    valid={confirmValid}
+                    show={showConfirm}
+                    onToggleShow={() => setShowConfirm((s) => !s)}
+                    autoComplete="new-password"
+                    disabled={processing}
+                />
+
+                <button
+                    type="submit"
+                    disabled={processing}
+                    style={
+                        validAccent
+                            ? {
+                                  backgroundColor: validAccent,
+                                  backgroundImage: `linear-gradient(135deg, ${validAccent}, #4338ca)`,
+                                  boxShadow: `0 10px 25px -5px ${validAccent}40`,
+                              }
+                            : undefined
+                    }
+                    className="w-full py-3.5 px-4 font-semibold text-sm rounded-full text-white bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 hover:from-violet-500 hover:via-indigo-500 hover:to-blue-500 shadow-lg shadow-indigo-600/25 hover:shadow-indigo-600/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-60 disabled:hover:translate-y-0 disabled:cursor-not-allowed cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                >
+                    {processing && <Loader2 className="w-4 h-4 animate-spin" />}
+                    <span>{processing ? 'Updating password…' : 'Update Password'}</span>
+                </button>
+            </form>
+
+            <div className="pt-1 text-center">
+                <Link
+                    href="/login"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+                >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>{backLabel}</span>
+                </Link>
             </div>
-        </div>
+        </AuthSplitLayout>
     );
 }

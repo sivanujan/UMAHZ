@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Support\AuthBranding;
 use App\Support\RoleRedirect;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,9 +24,11 @@ class EmailVerificationPromptController extends Controller
             return redirect(RoleRedirect::path($request, $user));
         }
 
-        return Inertia::render('Auth/VerifyEmail', [
+        $branding = AuthBranding::resolve($request);
+
+        return Inertia::render('Auth/VerifyEmail', array_merge($branding['props'], [
             'status' => session('status'),
             'email' => $user->email,
-        ]);
+        ]));
     }
 }

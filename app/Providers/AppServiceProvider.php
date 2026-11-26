@@ -13,6 +13,7 @@ use App\Models\IntakeFormTemplate;
 use App\Models\PractitionerProfile;
 use App\Models\ScribeSession;
 use App\Models\Tenant;
+use App\Models\User;
 use App\PatientBilling\Contracts\PaymentProvider;
 use App\PatientBilling\StripePaymentProvider;
 use App\Policies\AppointmentPolicy;
@@ -32,7 +33,10 @@ use App\Scribe\Drafting\FakeDraftingProvider;
 use App\Scribe\Drafting\NullObjectiveMeasurementSource;
 use App\Scribe\Drafting\OpenRouterDraftingProvider;
 use App\Scribe\FakeTranscriptionProvider;
+use App\Services\LoginLockoutService;
+use App\Support\Tenancy;
 use GuzzleHttp\Client as GuzzleClient;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Mail\Transport\ResendTransport;
@@ -101,6 +105,28 @@ class AppServiceProvider extends ServiceProvider
         if ($this->app->environment('production')) {
             URL::forceScheme('https');
         }
+
+        ResetPassword::createUrlUsing(function (User $user, string $token): string {
+            $path = '/reset-password/'.$token.'?email='.urlencode($user->getEmailForPasswordReset());
+
+            if ($user->isPlatformAdmin()) {
+                return Tenancy::centralUrl($path);
+            }
+
+            $membership = $user->activeWorkspaceMemberships()
+                ->with('tenant')
+                ->get()
+                ->first(fn ($m) => $m->tenant && $m->tenant->isApproved() && ! $m->tenant->is_manually_suspended);
+
+            if ($membership && $membership->tenant) {
+                $clinicUrl = $membership->tenant->appUrl($path);
+                if ($clinicUrl) {
+                    return $clinicUrl;
+                }
+            }
+
+            return Tenancy::centralUrl($path);
+        });
 
         RateLimiter::for('login-lookup', function (Request $request) {
             $email = mb_strtolower(trim((string) $request->input('email', '')));

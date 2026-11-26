@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\LoginLockoutService;
+use App\Support\AuthBranding;
 use App\Support\RoleRedirect;
 use App\Support\Tenancy;
 use Illuminate\Http\RedirectResponse;
@@ -293,64 +294,24 @@ class AuthenticatedSessionController extends Controller
      */
     private function baseLoginProps(Request $request): array
     {
-        $host = $request->getHost();
-        $isCentral = $host === Tenancy::centralDomain();
-        $isPortal = $host === Tenancy::portalHost();
-        $subdomain = Tenancy::subdomainFromHost($host);
-
-        $clinic = null;
-        $clinicNotFound = false;
-        $resolvedTenant = null;
-
-        if ($subdomain !== null) {
-            $resolvedTenant = Tenant::withoutGlobalScopes()
-                ->where('subdomain', $subdomain)
-                ->first();
-
-            $clinic = Cache::remember("tenant_login_branding_{$subdomain}", 300, function () use ($resolvedTenant) {
-                if (!$resolvedTenant || $resolvedTenant->status !== Tenant::STATUS_APPROVED) {
-                    return null;
-                }
-
-                return [
-                    'name' => $resolvedTenant->name,
-                    'subdomain' => $resolvedTenant->subdomain,
-                    'logo_url' => $resolvedTenant->logo_url,
-                    'accent_color' => $resolvedTenant->brand_color,
-                    'tagline' => $resolvedTenant->homepage_settings['tagline'] ?? null,
-                ];
-            });
-
-            if (!$clinic) {
-                $clinicNotFound = true;
-            }
-        }
+        $branding = AuthBranding::resolve($request);
+        $props = $branding['props'];
+        $resolvedTenant = $branding['tenant'];
 
         $prefilledEmail = $this->decodeLoginToken(
             $request->query('lt'),
             $resolvedTenant
         );
 
-        $baseUrl = parse_url(config('app.url'));
-
-        return [
+        return array_merge($props, [
             'status' => session('status'),
-            'canRegisterClient' => $isPortal,
-            'canRegisterClinic' => $isCentral,
-            'isCentral' => $isCentral,
-            'clinic' => $clinic,
-            'clinicNotFound' => $clinicNotFound,
-            'centralLoginUrl' => Tenancy::centralUrl('/login'),
-            'centralDomain' => Tenancy::centralDomain(),
-            'appScheme' => $baseUrl['scheme'] ?? 'https',
-            'appPort' => isset($baseUrl['port']) ? (string) $baseUrl['port'] : '',
-            'step' => $isCentral ? 'email' : 'password',
+            'step' => $props['isCentral'] ? 'email' : 'password',
             'prefilledEmail' => $prefilledEmail,
             'lookupEmail' => $prefilledEmail ?? '',
             'clinics' => [],
             'neutralMessage' => null,
             'lastClinic' => null,
-        ];
+        ]);
     }
 
     private function lockoutMessage(int $remainingSeconds): string

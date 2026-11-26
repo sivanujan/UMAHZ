@@ -3,27 +3,33 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Support\AuthBranding;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class PasswordResetLinkController extends Controller
 {
+    public const NEUTRAL_SENT_MESSAGE = "If an account exists for this email, we've sent a password reset link.";
+
     /**
      * Display the "forgot password" view.
      */
-    public function create(): Response
+    public function create(Request $request): Response
     {
-        return Inertia::render('Auth/ForgotPassword', [
+        $branding = AuthBranding::resolve($request);
+
+        return Inertia::render('Auth/ForgotPassword', array_merge($branding['props'], [
             'status' => session('status'),
-        ]);
+            'prefilledEmail' => (string) $request->query('email', ''),
+        ]));
     }
 
     /**
-     * Email a password reset link to the given address.
+     * Email a password reset link to the given address. Always returns a neutral
+     * confirmation message so account existence is never disclosed.
      */
     public function store(Request $request): RedirectResponse
     {
@@ -31,14 +37,8 @@ class PasswordResetLinkController extends Controller
             'email' => ['required', 'string', 'email'],
         ]);
 
-        $status = Password::sendResetLink($request->only('email'));
+        Password::sendResetLink($request->only('email'));
 
-        if ($status === Password::RESET_LINK_SENT) {
-            return back()->with('status', __($status));
-        }
-
-        throw ValidationException::withMessages([
-            'email' => [trans($status)],
-        ]);
+        return back()->with('status', self::NEUTRAL_SENT_MESSAGE);
     }
 }
