@@ -191,6 +191,8 @@ class ReportingTest extends TestCase
 
     public function test_revenue_calculations_handle_exact_minor_units_without_drift(): void
     {
+        $this->travelTo(Carbon::create(2026, 11, 15, 15, 0, 0, 'UTC'));
+
         $tenant = $this->createTenant('finances');
         [$owner] = $this->createStaff($tenant, StaffMembership::ROLE_CLINIC_OWNER);
 
