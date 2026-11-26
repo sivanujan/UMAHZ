@@ -286,6 +286,16 @@ export default function PlatformStaffIndex({ staff = [] }) {
                                         </td>
                                         <td className="py-4 px-6 text-right">
                                             <div className="inline-flex items-center gap-1.5">
+                                                {member.is_locked && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => router.post(`/admin/users/${member.id}/unlock`, {}, { preserveScroll: true })}
+                                                        className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                                                        title="Clear login lockout"
+                                                    >
+                                                        Unlock
+                                                    </button>
+                                                )}
                                                 <button
                                                     onClick={() => openEditModal(member)}
                                                     className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"

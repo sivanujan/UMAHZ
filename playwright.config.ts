@@ -56,6 +56,7 @@ export default defineConfig({
                 permissions: ['microphone'],
                 launchOptions: {
                     args: [
+                        '--no-proxy-server',
                         '--use-fake-ui-for-media-stream',
                         '--use-fake-device-for-media-stream',
                         '--unsafely-treat-insecure-origin-as-secure=http://e2e-clinic.lvh.me:8000',

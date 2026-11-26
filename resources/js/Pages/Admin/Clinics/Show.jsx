@@ -228,7 +228,7 @@ function PermanentRejectModal({ tenant, onCancel, onConfirm, processing }) {
     );
 }
 
-export default function ClinicShow({ tenant, primaryPractitioner }) {
+export default function ClinicShow({ tenant, primaryPractitioner, ownerUser = null }) {
     const { errors, flash } = usePage().props;
     const [modal, setModal] = useState(null); // 'needs_more_info' | 'reject' | 'reject_permanent' | 'remove' | null
     const [processing, setProcessing] = useState(false);
@@ -365,6 +365,32 @@ export default function ClinicShow({ tenant, primaryPractitioner }) {
                             />
                             <InfoRow icon={User} label="Primary Contact" value={tenant.primary_contact_name} />
                             <InfoRow icon={Mail} label="Contact Email" value={tenant.primary_contact_email} />
+                            {ownerUser && (
+                                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800">
+                                    <span className="text-xs text-slate-400">
+                                        Owner Login ({ownerUser.email}):{' '}
+                                        <span className={ownerUser.is_locked ? 'text-rose-400 font-semibold' : 'text-emerald-400 font-semibold'}>
+                                            {ownerUser.is_locked ? 'Locked' : 'Active'}
+                                        </span>
+                                    </span>
+                                    {ownerUser.is_locked && (
+                                        <button
+                                            type="button"
+                                            disabled={processing}
+                                            onClick={() => {
+                                                setProcessing(true);
+                                                router.post(`/admin/users/${ownerUser.id}/unlock`, {}, {
+                                                    preserveScroll: true,
+                                                    onFinish: () => setProcessing(false),
+                                                });
+                                            }}
+                                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+                                        >
+                                            Unlock Owner
+                                        </button>
+                                    )}
+                                </div>
+                            )}
                             <InfoRow icon={Phone} label="Contact Phone" value={tenant.primary_contact_phone} />
                             <InfoRow
                                 icon={Stethoscope}

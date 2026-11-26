@@ -126,7 +126,20 @@ class ClinicReviewController extends Controller
         $maxAttempts = $tenant->maxReapplyAttempts();
         $attemptsRemaining = max(0, $maxAttempts - $attempt);
 
+        $ownerMembership = $tenant->staffMemberships()
+            ->with('user')
+            ->where('role', StaffMembership::ROLE_CLINIC_OWNER)
+            ->first();
+        $ownerUser = $ownerMembership?->user;
+        $lockouts = app(\App\Services\LoginLockoutService::class);
+
         return Inertia::render('Admin/Clinics/Show', [
+            'ownerUser' => $ownerUser ? [
+                'id' => $ownerUser->id,
+                'name' => $ownerUser->name,
+                'email' => $ownerUser->email,
+                'is_locked' => $lockouts->isAccountLocked($ownerUser->email),
+            ] : null,
             'tenant' => [
                 'id' => $tenant->id,
                 'name' => $tenant->name,

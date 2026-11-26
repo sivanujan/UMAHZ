@@ -111,7 +111,10 @@ export async function loginAtClinic(
 export async function loginAsAdmin(page: Page): Promise<void> {
     await page.goto(`${MAIN_BASE_URL}/login`);
     await page.locator('input[type="email"], input[name="email"]').fill(USERS.admin);
-    await page.locator('input[type="password"], input[name="password"]').fill(E2E_PASSWORD);
+    await page.locator('button[type="submit"]').click();
+    const passwordInput = page.locator('input[type="password"], input[name="password"]');
+    await passwordInput.waitFor({ state: 'visible', timeout: 10_000 });
+    await passwordInput.fill(E2E_PASSWORD);
     await page.locator('button[type="submit"]').click();
     await page.waitForURL((url) => url.pathname.startsWith('/admin'), { timeout: 15_000 });
 }

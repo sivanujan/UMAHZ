@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditEvent;
 use App\Models\StaffMembership;
 use App\Models\User;
+use App\Services\LoginLockoutService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,6 +23,8 @@ class PlatformStaffController extends Controller
      */
     public function index(Request $request): Response
     {
+        $lockouts = app(LoginLockoutService::class);
+
         // Get all users who have the Platform Admin role or a platform_admin staff membership
         $staff = User::query()
             ->where(function ($query) {
@@ -41,6 +44,7 @@ class PlatformStaffController extends Controller
                 'email_verified' => ! is_null($user->email_verified_at),
                 'email_verified_at' => $user->email_verified_at?->format('M j, Y'),
                 'two_factor_enabled' => ! is_null($user->two_factor_secret),
+                'is_locked' => $lockouts->isAccountLocked($user->email),
                 'is_current_user' => $user->id === $request->user()->id,
                 'created_at' => $user->created_at?->format('M j, Y'),
             ]);
@@ -186,5 +190,19 @@ class PlatformStaffController extends Controller
         });
 
         return back()->with('success', "Platform admin {$adminName} was removed.");
+    }
+
+    /**
+     * Unlock any user's login lockouts (platform admin only).
+     */
+    public function unlock(Request $request, User $user, LoginLockoutService $lockouts): RedirectResponse
+    {
+        $lockouts->unlockAccount(
+            $user->email,
+            $request->user(),
+            $request->ip()
+        );
+
+        return back()->with('success', "Login lockout cleared for {$user->email}.");
     }
 }

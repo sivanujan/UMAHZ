@@ -18,6 +18,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\PatientBilling\Contracts\PaymentProvider;
 use App\PatientBilling\FakePaymentProvider;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
@@ -522,6 +523,8 @@ class ProductManagementTest extends TestCase
 
     public function test_product_sales_report_aggregates_totals_and_current_stock(): void
     {
+        $this->travelTo(Carbon::create(2026, 11, 15, 15, 0, 0, 'UTC'));
+
         $tenant = $this->clinic('report-clinic');
         [$owner] = $this->staff($tenant, StaffMembership::ROLE_CLINIC_OWNER);
         $client = $this->client($tenant);
@@ -591,13 +594,20 @@ class ProductManagementTest extends TestCase
             ],
         ]);
         $inv2 = Invoice::where('tenant_id', $tenant->id)->latest('id')->firstOrFail();
+        // Pay second invoice at an evening Toronto time (21:30 America/Toronto = 02:30 UTC next day)
+        $this->travelTo(Carbon::create(2026, 11, 14, 21, 30, 0, 'America/Toronto'));
         $this->actingAs($owner)->post($this->url($tenant, "/app/invoices/{$inv2->id}/pay/manual"), [
             'amount' => 8520,
             'method' => 'cash',
         ]);
+        $this->travelTo(Carbon::create(2026, 11, 15, 15, 0, 0, 'UTC'));
 
-        // Query product sales report
-        $res = $this->actingAs($owner)->get($this->url($tenant, '/app/reports/products'));
+        $tzNow = Carbon::now($tenant->timezone ?: 'America/Toronto');
+        $startDate = $tzNow->copy()->startOfMonth()->toDateString();
+        $endDate = $tzNow->copy()->toDateString();
+
+        // Query product sales report using tenant-timezone date range
+        $res = $this->actingAs($owner)->get($this->url($tenant, "/app/reports/products?start_date={$startDate}&end_date={$endDate}"));
         $res->assertOk();
         $res->assertInertia(fn ($page) => $page
             ->component('Reports/Products')
@@ -1238,6 +1248,8 @@ class ProductManagementTest extends TestCase
 
     public function test_product_sales_report_breakdown_by_variant(): void
     {
+        $this->travelTo(Carbon::create(2026, 11, 14, 21, 30, 0, 'America/Toronto'));
+
         $tenant = $this->clinic('report-variant-clinic');
         [$owner] = $this->staff($tenant, StaffMembership::ROLE_CLINIC_OWNER);
         $client = $this->client($tenant);
@@ -1304,8 +1316,12 @@ class ProductManagementTest extends TestCase
             'method' => 'cash',
         ]);
 
-        // Check report
-        $reportRes = $this->actingAs($owner)->get($this->url($tenant, '/app/reports/products'));
+        $tzNow = Carbon::now($tenant->timezone ?: 'America/Toronto');
+        $startDate = $tzNow->copy()->startOfMonth()->toDateString();
+        $endDate = $tzNow->copy()->addDay()->toDateString();
+
+        // Check report using tenant-timezone date range
+        $reportRes = $this->actingAs($owner)->get($this->url($tenant, "/app/reports/products?start_date={$startDate}&end_date={$endDate}"));
         $reportRes->assertOk();
 
         $rows = $reportRes->viewData('page')['props']['rows'];

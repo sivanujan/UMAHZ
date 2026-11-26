@@ -22,9 +22,17 @@ Route::middleware('guest')->group(function () {
 
     Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('login', [AuthenticatedSessionController::class, 'store']);
+    Route::post('login/lookup', [AuthenticatedSessionController::class, 'lookup'])
+        ->middleware('throttle:login-lookup')
+        ->name('login.lookup');
+    Route::post('login/choose-clinic', [AuthenticatedSessionController::class, 'chooseClinic'])
+        ->middleware('throttle:login-lookup')
+        ->name('login.choose-clinic');
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])->name('password.request');
-    Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])->name('password.email');
+    Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
+        ->middleware('throttle:forgot-password')
+        ->name('password.email');
     Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])->name('password.reset');
     Route::post('reset-password', [NewPasswordController::class, 'store'])->name('password.update');
 
