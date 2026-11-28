@@ -597,4 +597,14 @@ class PublicBookingTest extends TestCase
         $migration->up();
         $this->assertTrue(\Illuminate\Support\Facades\Schema::hasTable('clinic_services'));
     }
+
+    public function test_owner_can_view_online_booking_settings_page(): void
+    {
+        [, $owner] = $this->setupClinic();
+
+        $this->actingAs($owner)
+            ->get('http://lotus.umahz.test/app/settings/booking')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('Settings/OnlineBooking'));
+    }
 }

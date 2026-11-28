@@ -79,7 +79,7 @@ class OnlineBookingSettingsController extends Controller
             'closedDates' => $closedDates,
             'timeOffs' => $timeOffs,
             'consentTypes' => $consentTypes,
-            'disciplines' => $tenant->disciplinesList(),
+            'disciplines' => $tenant->offeredDisciplineList(),
         ]);
     }
 
