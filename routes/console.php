@@ -17,3 +17,6 @@ Schedule::command('scribe:purge-audio')->hourly()->withoutOverlapping();
 
 // Transition past_due clinic subscriptions to restricted_overdue after grace period
 Schedule::command('billing:check-overdue')->daily();
+
+// Send 24-hour appointment reminder emails idempotently every hour.
+Schedule::command('appointments:send-reminders')->hourly()->withoutOverlapping();
