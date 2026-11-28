@@ -116,7 +116,29 @@ class E2eSeedCommand extends Command
                 ->mapWithKeys(fn($d) => [$d => ['closed' => false, 'open' => '08:00', 'close' => '22:00']])->all(),
             'public_website_enabled' => true,
             'scribe_settings' => ['enabled' => true],
+            'booking_settings' => [
+                'enabled' => true,
+                'mode' => 'request',
+                'min_notice_hours' => 2,
+                'max_days_ahead' => 60,
+                'buffer_minutes' => 15,
+                'allow_patient_cancellation' => true,
+                'cancellation_notice_hours' => 24,
+                'require_intake' => false,
+                'require_consent' => false,
+                'send_24h_reminder' => true,
+            ],
             'referral_code' => 'E2E-REF10',
+        ]);
+
+        \App\Models\ClinicService::create([
+            'tenant_id' => $clinic->id,
+            'name' => 'E2E Initial Physiotherapy',
+            'discipline' => 'physiotherapy',
+            'duration_minutes' => 60,
+            'price_cents' => 12000,
+            'bookable_online' => true,
+            'is_active' => true,
         ]);
 
         $adminMembership = StaffMembership::create([

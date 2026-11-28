@@ -61,6 +61,30 @@ class NotificationController extends Controller
             ];
         }
 
+        // 1b. Pending online booking requests
+        $bookingRequests = Appointment::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->where('status', Appointment::STATUS_REQUESTED)
+            ->with(['client:id,first_name,last_name'])
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get();
+
+        foreach ($bookingRequests as $req) {
+            $clientName = $req->client ? trim("{$req->client->first_name} {$req->client->last_name}") : 'Patient';
+            $notifications[] = [
+                'id' => 'booking_req_'.$req->id,
+                'type' => 'booking_request',
+                'title' => 'New Booking Request',
+                'message' => "{$clientName} requested {$req->service_name}",
+                'time' => $req->starts_at->format('M j, g:ia'),
+                'time_ago' => $req->created_at?->diffForHumans() ?? 'Just now',
+                'url' => '/app/calendar',
+                'icon' => 'calendar',
+                'tone' => 'amber',
+            ];
+        }
+
         // 2. Recent payments / paid invoices
         $recentPaid = Invoice::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)

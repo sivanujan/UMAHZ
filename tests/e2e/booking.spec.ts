@@ -187,4 +187,51 @@ test.describe('Appointment booking, confirmation email, intake, and PDF consent'
 
         guards.assertNoErrors();
     });
+
+    test('public self-booking: guest books on e2e-clinic, staff approves, patient cancels with manage link', async ({
+        page,
+    }) => {
+        const guards = attachErrorGuards(page);
+
+        await page.goto(clinicUrl(CLINIC_SLUG, '/book'));
+        await expect(page.locator('body')).toContainText(/Book at E2E Wellness Clinic/i);
+
+        // Wait for at least one available slot button and pick it
+        const slotBtn = page.locator('button').filter({ hasText: /(AM|PM)$/ }).first();
+        await expect(slotBtn).toBeVisible({ timeout: 15_000 });
+        await slotBtn.click();
+
+        await page.locator('#book-first-name').fill('Public');
+        await page.locator('#book-last-name').fill('Guest');
+        await page.locator('#book-email').fill(`public-guest-${Date.now()}@example.com`);
+        await page.locator('#book-phone').fill('416-555-0188');
+
+        await Promise.all([
+            page.waitForURL((url) => url.pathname.includes('/book/manage/'), { timeout: 15_000 }),
+            page.getByRole('button', { name: /submit booking request/i }).click(),
+        ]);
+
+        const manageUrl = page.url();
+        await expect(page.locator('body')).toContainText(/Request Received/i);
+
+        // Staff approves the booking request in Calendar
+        await loginAtClinic(page, CLINIC_SLUG, USERS.receptionist, E2E_PASSWORD);
+        await page.goto(clinicUrl(CLINIC_SLUG, '/app/calendar'));
+        await expect(page.locator('body')).toContainText(/Booking Requests/i);
+        await Promise.all([
+            page.waitForResponse((res) => res.url().includes('/approve') && res.request().method() === 'POST'),
+            page.getByRole('button', { name: /^approve$/i }).first().click(),
+        ]);
+
+        // Patient reloads manage link -> sees Confirmed -> cancels
+        await page.goto(manageUrl);
+        await expect(page.locator('body')).toContainText(/Appointment Confirmed/i);
+        await Promise.all([
+            page.waitForResponse((res) => res.url().includes('/cancel') && res.request().method() === 'POST'),
+            page.getByRole('button', { name: /cancel appointment/i }).click(),
+        ]);
+        await expect(page.locator('body')).toContainText(/Appointment Cancelled/i);
+
+        guards.assertNoErrors();
+    });
 });

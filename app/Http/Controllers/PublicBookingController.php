@@ -143,9 +143,10 @@ class PublicBookingController extends Controller
         return redirect("/book/manage/{$result['manage_token']}?booked=1");
     }
 
-    public function manage(Request $request, string $token): Response
+    public function manage(Request $request): Response
     {
         $tenant = $this->resolveTenant($request);
+        $token = (string) $request->route('token');
         $appointment = $this->resolveManageAppointment($tenant, $token);
         $settings = $tenant->bookingSettings();
         $tz = $tenant->timezone ?: 'UTC';
@@ -188,9 +189,10 @@ class PublicBookingController extends Controller
         ]);
     }
 
-    public function ics(Request $request, string $token): HttpResponse
+    public function ics(Request $request): HttpResponse
     {
         $tenant = $this->resolveTenant($request);
+        $token = (string) $request->route('token');
         $appointment = $this->resolveManageAppointment($tenant, $token);
 
         $uid = $appointment->id.'@'.Tenancy::centralDomain();
@@ -221,9 +223,10 @@ class PublicBookingController extends Controller
         ]);
     }
 
-    public function cancel(Request $request, string $token): RedirectResponse
+    public function cancel(Request $request): RedirectResponse
     {
         $tenant = $this->resolveTenant($request);
+        $token = (string) $request->route('token');
         $appointment = $this->resolveManageAppointment($tenant, $token);
 
         $data = $request->validate([
