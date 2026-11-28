@@ -2092,7 +2092,7 @@ function PageBuilderContent({ tenant }) {
             category: basicContentCat,
             content: `
                 <div style="padding: 8px 0; display: inline-block;">
-                    <a href="#services" class="umahz-btn" style="display: inline-block; background: ${brandColor}; color: #ffffff; padding: 12px 28px; border-radius: 9999px; font-weight: 700; text-decoration: none; font-size: 0.95rem; box-shadow: 0 4px 14px rgba(124, 58, 237, 0.3); transition: all 0.2s ease;">
+                    <a href="/book" class="umahz-btn" style="display: inline-block; background: ${brandColor}; color: #ffffff; padding: 12px 28px; border-radius: 9999px; font-weight: 700; text-decoration: none; font-size: 0.95rem; box-shadow: 0 4px 14px rgba(124, 58, 237, 0.3); transition: all 0.2s ease;">
                         Book Appointment
                     </a>
                 </div>

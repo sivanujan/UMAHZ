@@ -243,8 +243,13 @@ function AppointmentBlock({ appt, tz, startHour, onClick }) {
                     </div>
 
                     {height > 46 && (
-                        <div className="text-[11px] font-semibold truncate leading-tight mt-0.5 text-slate-700 dark:text-slate-200">
-                            {appt.service_name}
+                        <div className="text-[11px] font-semibold truncate leading-tight mt-0.5 text-slate-700 dark:text-slate-200 flex items-center gap-1">
+                            <span className="truncate">{appt.service_name}</span>
+                            {appt.booking_source === 'public' && (
+                                <span className="shrink-0 px-1 py-0.2 rounded text-[9px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                                    {appt.status === 'requested' ? 'Request' : 'Online'}
+                                </span>
+                            )}
                         </div>
                     )}
 
@@ -787,6 +792,7 @@ export default function CalendarIndex() {
     const { props } = usePage();
     const {
         view = 'week', anchorDate, rangeStart, rangeEnd, timezone = 'UTC', appointments = [],
+        bookingRequests = [], clinicServices = [],
         practitioners = [], clients = [], locations = [], statuses, filters = {},
     } = props;
 
@@ -926,6 +932,53 @@ export default function CalendarIndex() {
                         </GlassButton>
                     }
                 />
+
+                {bookingRequests.length > 0 && (
+                    <GlassCard className="p-4 border-amber-300/70 dark:border-amber-700/50 bg-amber-50/70 dark:bg-amber-950/20 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                                Booking Requests ({bookingRequests.length})
+                            </h2>
+                            <span className="text-xs text-amber-700 dark:text-amber-300">
+                                Patient self-bookings awaiting staff confirmation
+                            </span>
+                        </div>
+                        <div className="divide-y divide-amber-200/60 dark:divide-amber-800/40">
+                            {bookingRequests.map((req) => (
+                                <div key={req.id} className="py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+                                    <div>
+                                        <span className="font-bold text-slate-900 dark:text-white">{req.client_name}</span>
+                                        <span className="text-slate-600 dark:text-slate-300 ml-2">
+                                            {req.service_name} &bull; {humanDate(zonedParts(req.starts_at, timezone).dateKey)}{' '}
+                                            {humanTime(req.starts_at, timezone)} &bull; {req.practitioner_name}
+                                        </span>
+                                        {req.client_contact_diff && (
+                                            <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">
+                                                Submitted contact details differ from saved profile — review client record.
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => router.post(`/app/appointments/${req.id}/approve`, {}, { preserveScroll: true })}
+                                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer"
+                                        >
+                                            Approve
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => router.post(`/app/appointments/${req.id}/decline`, {}, { preserveScroll: true })}
+                                            className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold cursor-pointer"
+                                        >
+                                            Decline
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </GlassCard>
+                )}
 
                 {/* Toolbar */}
                 <GlassCard className="p-4 space-y-3">

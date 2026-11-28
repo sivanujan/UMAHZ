@@ -1346,6 +1346,15 @@ export default function ClinicSettings({
                     eyebrow="Administration"
                     title="Clinic Settings"
                     subtitle="Configure clinic profile details, offered disciplines, branding, and clinical documentation."
+                    actions={
+                        <Link
+                            href="/app/settings/booking"
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition"
+                        >
+                            Online Booking
+                            <ArrowRight className="w-3.5 h-3.5" />
+                        </Link>
+                    }
                 />
 
                 {flash?.success && (

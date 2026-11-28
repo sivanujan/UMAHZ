@@ -67,7 +67,12 @@ export default function PublicHome({ clinic }) {
                                     High-quality holistic wellness and clinical care tailored for your health.
                                 </p>
                                 <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-                                    <a href="/pay" style={{ background: 'white', color: brandColor, padding: '14px 28px', borderRadius: 9999, fontWeight: 700, textDecoration: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                                    {clinic.public_booking_enabled && (
+                                        <a href="/book" style={{ background: 'white', color: brandColor, padding: '14px 28px', borderRadius: 9999, fontWeight: 700, textDecoration: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                                            Book Appointment
+                                        </a>
+                                    )}
+                                    <a href="/pay" style={{ background: clinic.public_booking_enabled ? 'rgba(255,255,255,0.15)' : 'white', color: clinic.public_booking_enabled ? 'white' : brandColor, border: clinic.public_booking_enabled ? '1px solid rgba(255,255,255,0.3)' : 'none', padding: '14px 28px', borderRadius: 9999, fontWeight: 700, textDecoration: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
                                         Pay Invoice Online
                                     </a>
                                     <a href="/login" style={{ background: 'rgba(255,255,255,0.15)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '14px 28px', borderRadius: 9999, fontWeight: 600, textDecoration: 'none' }}>
