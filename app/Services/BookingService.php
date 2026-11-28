@@ -29,6 +29,7 @@ class BookingService
         Appointment::STATUS_CONFIRMED,
         Appointment::STATUS_CHECKED_IN,
         Appointment::STATUS_COMPLETED,
+        Appointment::STATUS_REQUESTED,
     ];
 
     /**

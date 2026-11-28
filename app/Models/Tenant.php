@@ -128,6 +128,7 @@ class Tenant extends Model
         'stripe_connect_payouts_enabled',
         'stripe_connect_details_submitted',
         'scribe_settings',
+        'booking_settings',
         'scheduled_plan_id',
         'scheduled_billing_interval',
         'scheduled_extra_seats',
@@ -142,6 +143,7 @@ class Tenant extends Model
             'business_hours' => 'array',
             'homepage_settings' => 'array',
             'scribe_settings' => 'array',
+            'booking_settings' => 'array',
             'onboarding_completed_at' => 'datetime',
             'requested_disciplines' => 'array',
             'custom_disciplines' => 'array',
@@ -399,6 +401,76 @@ class Tenant extends Model
     public function scribeEnabled(): bool
     {
         return $this->scribeSettings()['enabled'];
+    }
+
+    /**
+     * Effective public online booking settings (clinic overrides on top of safe defaults).
+     *
+     * @return array{
+     *   enabled: bool,
+     *   mode: string,
+     *   min_notice_hours: int,
+     *   max_days_ahead: int,
+     *   buffer_minutes: int,
+     *   allow_patient_cancellation: bool,
+     *   cancellation_notice_hours: int,
+     *   require_intake: bool,
+     *   require_consent: bool,
+     *   consent_type_id: ?string,
+     *   send_24h_reminder: bool,
+     * }
+     */
+    public function bookingSettings(): array
+    {
+        $defaults = [
+            'enabled' => false,
+            'mode' => 'request',
+            'min_notice_hours' => 2,
+            'max_days_ahead' => 60,
+            'buffer_minutes' => 15,
+            'allow_patient_cancellation' => true,
+            'cancellation_notice_hours' => 24,
+            'require_intake' => false,
+            'require_consent' => false,
+            'consent_type_id' => null,
+            'send_24h_reminder' => true,
+        ];
+
+        $raw = array_merge($defaults, is_array($this->booking_settings) ? $this->booking_settings : []);
+
+        return [
+            'enabled' => (bool) $raw['enabled'],
+            'mode' => in_array($raw['mode'], ['auto_confirm', 'request'], true) ? $raw['mode'] : 'request',
+            'min_notice_hours' => max(0, min(168, (int) $raw['min_notice_hours'])),
+            'max_days_ahead' => max(1, min(365, (int) $raw['max_days_ahead'])),
+            'buffer_minutes' => max(0, min(120, (int) $raw['buffer_minutes'])),
+            'allow_patient_cancellation' => (bool) $raw['allow_patient_cancellation'],
+            'cancellation_notice_hours' => max(0, min(168, (int) $raw['cancellation_notice_hours'])),
+            'require_intake' => (bool) $raw['require_intake'],
+            'require_consent' => (bool) $raw['require_consent'],
+            'consent_type_id' => is_string($raw['consent_type_id']) && $raw['consent_type_id'] !== '' ? $raw['consent_type_id'] : null,
+            'send_24h_reminder' => (bool) $raw['send_24h_reminder'],
+        ];
+    }
+
+    public function publicBookingEnabled(): bool
+    {
+        return $this->bookingSettings()['enabled'];
+    }
+
+    public function clinicServices(): HasMany
+    {
+        return $this->hasMany(ClinicService::class)->orderBy('sort_order')->orderBy('name');
+    }
+
+    public function closedDates(): HasMany
+    {
+        return $this->hasMany(ClinicClosedDate::class)->orderBy('date');
+    }
+
+    public function practitionerTimeOffs(): HasMany
+    {
+        return $this->hasMany(PractitionerTimeOff::class)->orderBy('starts_at');
     }
 
     public function hasCompletedOnboarding(): bool

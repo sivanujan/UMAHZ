@@ -25,19 +25,29 @@ class Appointment extends Model
 
     public const STATUS_NO_SHOW = 'no_show';
 
+    public const STATUS_REQUESTED = 'requested';
+
+    public const STATUS_DECLINED = 'declined';
+
     protected $fillable = [
         'tenant_id',
         'client_id',
         'staff_membership_id',
         'location_id',
         'room_id',
+        'clinic_service_id',
         'service_name',
         'starts_at',
         'ends_at',
         'status',
+        'booking_source',
         'notes',
         'cancelled_at',
         'cancellation_reason',
+        'public_manage_token_hash',
+        'client_contact_diff',
+        'reminder_sent_at',
+        'declined_reason',
     ];
 
     protected function casts(): array
@@ -46,7 +56,14 @@ class Appointment extends Model
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'client_contact_diff' => 'array',
+            'reminder_sent_at' => 'datetime',
         ];
+    }
+
+    public function clinicService(): BelongsTo
+    {
+        return $this->belongsTo(ClinicService::class);
     }
 
     public function client(): BelongsTo

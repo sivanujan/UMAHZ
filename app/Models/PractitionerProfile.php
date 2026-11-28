@@ -36,6 +36,8 @@ class PractitionerProfile extends Model
         'biography',
         'photo_url',
         'calendar_color',
+        'working_hours',
+        'accepts_online_booking',
         'verification_status',
         'license_number',
         'licensing_body',
@@ -51,6 +53,8 @@ class PractitionerProfile extends Model
     protected function casts(): array
     {
         return [
+            'working_hours' => 'array',
+            'accepts_online_booking' => 'boolean',
             'is_primary_contact' => 'boolean',
             'reviewed_at' => 'datetime',
         ];
