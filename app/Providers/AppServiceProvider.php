@@ -147,6 +147,14 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        RateLimiter::for('public-booking-slots', function (Request $request) {
+            return Limit::perMinute(10)->by('pb-slots:'.$request->ip());
+        });
+
+        RateLimiter::for('public-booking-submit', function (Request $request) {
+            return Limit::perMinute(5)->by('pb-submit:'.$request->ip());
+        });
+
         Gate::policy(Tenant::class, TenantPolicy::class);
         Gate::policy(PractitionerProfile::class, PractitionerProfilePolicy::class);
         Gate::policy(Appointment::class, AppointmentPolicy::class);

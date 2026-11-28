@@ -43,6 +43,7 @@ class ClinicHomeController extends Controller
                 'subdomain'    => $tenant->subdomain,
                 'logo_url'     => $tenant->logo_url,
                 'brand_color'  => $tenant->brand_color ?: '#6d28d9',
+                'public_booking_enabled' => $tenant->publicBookingEnabled(),
                 // Contact
                 'email'        => $tenant->email ?: $tenant->primary_contact_email,
                 'phone'        => $tenant->phone ?: $tenant->primary_contact_phone,

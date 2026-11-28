@@ -5,17 +5,21 @@ namespace App\Http\Controllers;
 use App\Models\Appointment;
 use App\Models\AuditEvent;
 use App\Models\Client;
+use App\Models\ClinicService;
 use App\Models\Location;
 use App\Models\StaffMembership;
 use App\Models\Tenant;
 use App\Notifications\AppointmentConfirmationNotification;
+use App\Notifications\PublicBookingNotification;
 use App\Scopes\TenantScope;
 use App\Services\BookingService;
+use App\Services\PublicBookingService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -88,6 +92,20 @@ class AppointmentController extends Controller
 
         $appointments = $query->get()->map(fn (Appointment $a) => $this->present($a));
 
+        $bookingRequests = Appointment::with(['client', 'staffMembership.user', 'location', 'room'])
+            ->where('tenant_id', $tenant->id)
+            ->where('status', Appointment::STATUS_REQUESTED)
+            ->orderBy('starts_at')
+            ->get()
+            ->map(fn (Appointment $a) => $this->present($a))
+            ->values();
+
+        $clinicServices = ClinicService::where('tenant_id', $tenant->id)
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'name', 'duration_minutes', 'price_cents', 'discipline']);
+
         return Inertia::render('Calendar/Index', [
             'view' => $view,
             'anchorDate' => $anchorOut,
@@ -95,6 +113,8 @@ class AppointmentController extends Controller
             'rangeEnd' => $rangeEnd->subDay()->format('Y-m-d'),
             'timezone' => $tz,
             'appointments' => $appointments,
+            'bookingRequests' => $bookingRequests,
+            'clinicServices' => $clinicServices,
             'practitioners' => $this->practitioners($tenant->id),
             'clients' => $this->clients(),
             'locations' => $this->locations(),
@@ -193,7 +213,38 @@ class AppointmentController extends Controller
         $this->booking->cancel($appointment, $data['reason'] ?? null);
         $this->audit($request, 'appointment.cancelled', $appointment);
 
+        if ($appointment->booking_source === 'public' && $appointment->client?->email) {
+            Notification::route('mail', $appointment->client->email)
+                ->notify(new PublicBookingNotification($appointment, 'cancelled_by_clinic', null, null, $data['reason'] ?? null));
+        }
+
         return back()->with('success', 'Appointment cancelled.');
+    }
+
+    public function approve(Appointment $appointment, Request $request, PublicBookingService $publicBooking): RedirectResponse
+    {
+        $this->authorizeAppointment($appointment);
+        Gate::authorize('updateStatus', $appointment);
+
+        $publicBooking->approveRequest($appointment);
+        $this->audit($request, 'appointment.approved', $appointment);
+
+        return back()->with('success', 'Booking request approved.');
+    }
+
+    public function decline(Appointment $appointment, Request $request, PublicBookingService $publicBooking): RedirectResponse
+    {
+        $this->authorizeAppointment($appointment);
+        Gate::authorize('updateStatus', $appointment);
+
+        $data = $request->validate([
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $publicBooking->declineRequest($appointment, $data['reason'] ?? null);
+        $this->audit($request, 'appointment.declined', $appointment);
+
+        return back()->with('success', 'Booking request declined.');
     }
 
     /**
@@ -247,6 +298,8 @@ class AppointmentController extends Controller
             'ends_at' => $a->ends_at->utc()->toIso8601String(),
             'duration_minutes' => (int) $a->starts_at->diffInMinutes($a->ends_at),
             'status' => $a->status,
+            'booking_source' => $a->booking_source ?? 'staff',
+            'client_contact_diff' => $a->client_contact_diff,
             'notes' => $a->notes,
         ];
     }

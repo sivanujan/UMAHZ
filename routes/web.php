@@ -27,6 +27,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InsuranceClaimController;
 use App\Http\Controllers\IntakeTemplateController;
 use App\Http\Controllers\LocationController;
+use App\Http\Controllers\OnlineBookingSettingsController;
 use App\Http\Controllers\Onboarding\ClinicRegistrationController;
 use App\Http\Controllers\Onboarding\OnboardingController;
 use App\Http\Controllers\PatientBilling\ClinicConnectController;
@@ -39,6 +40,7 @@ use App\Http\Controllers\PractitionerAppointmentController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductReportController;
 use App\Http\Controllers\ClinicHomeController;
+use App\Http\Controllers\PublicBookingController;
 use App\Http\Controllers\PublicIntakeController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SearchController;
@@ -94,7 +96,23 @@ Route::get('/storage/{path}', function (string $path) {
 */
 Route::domain($central)->group(function () {
     Route::get('/', function () {
-        return Inertia::render('Welcome');
+        $bookableClinics = \App\Models\Tenant::withoutGlobalScopes()
+            ->where('status', \App\Models\Tenant::STATUS_APPROVED)
+            ->where('is_manually_suspended', false)
+            ->orderBy('name')
+            ->get()
+            ->filter(fn (\App\Models\Tenant $t) => $t->publicBookingEnabled())
+            ->map(fn (\App\Models\Tenant $t) => [
+                'name' => $t->name,
+                'subdomain' => $t->subdomain,
+                'tagline' => $t->homepage_settings['tagline'] ?? null,
+                'book_url' => $t->appUrl('/book'),
+            ])
+            ->values();
+
+        return Inertia::render('Welcome', [
+            'bookableClinics' => $bookableClinics,
+        ]);
     })->name('home');
 
     Route::get('/features', function () {
@@ -352,6 +370,14 @@ Route::domain('{tenant}.' . $central)->where(['tenant' => '[a-z0-9-]+'])->group(
     // terrible UX for patients landing on the clinic's subdomain URL.
     Route::get('/', [ClinicHomeController::class, 'show'])->name('clinic.home');
 
+    // Public self-booking portal
+    Route::get('/book', [PublicBookingController::class, 'show'])->name('public.book.show');
+    Route::get('/book/slots', [PublicBookingController::class, 'slots'])->middleware('throttle:public-booking-slots')->name('public.book.slots');
+    Route::post('/book', [PublicBookingController::class, 'store'])->middleware('throttle:public-booking-submit')->name('public.book.store');
+    Route::get('/book/manage/{token}', [PublicBookingController::class, 'manage'])->name('public.book.manage');
+    Route::get('/book/manage/{token}/ics', [PublicBookingController::class, 'ics'])->name('public.book.ics');
+    Route::post('/book/manage/{token}/cancel', [PublicBookingController::class, 'cancel'])->middleware('throttle:public-booking-submit')->name('public.book.cancel');
+
     // Public unauthenticated patient intake form completion
     Route::get('/intake/{token}', [PublicIntakeController::class, 'show'])->name('intake.public.show');
     Route::post('/intake/{token}', [PublicIntakeController::class, 'submit'])->name('intake.public.submit');
@@ -514,6 +540,8 @@ Route::domain('{tenant}.' . $central)->where(['tenant' => '[a-z0-9-]+'])->group(
         Route::patch('/appointments/{appointment}', [AppointmentController::class, 'update'])->name('appointments.update');
         Route::patch('/appointments/{appointment}/status', [AppointmentController::class, 'status'])->name('appointments.status');
         Route::patch('/appointments/{appointment}/cancel', [AppointmentController::class, 'cancel'])->name('appointments.cancel');
+        Route::post('/appointments/{appointment}/approve', [AppointmentController::class, 'approve'])->name('appointments.approve');
+        Route::post('/appointments/{appointment}/decline', [AppointmentController::class, 'decline'])->name('appointments.decline');
 
         // Practitioner schedule & limited status update (own appointments only)
         Route::middleware('staff.role:practitioner,clinic_owner')->prefix('practitioner')->name('practitioner.')->group(function () {
@@ -578,6 +606,18 @@ Route::domain('{tenant}.' . $central)->where(['tenant' => '[a-z0-9-]+'])->group(
             Route::post('/settings/branding', [ClinicSettingsController::class, 'updateBranding'])->name('settings.branding');
             Route::patch('/settings/scribe', [ClinicSettingsController::class, 'updateScribe'])->name('settings.scribe');
             Route::delete('/settings/account', [ClinicSettingsController::class, 'deleteAccount'])->name('settings.account.delete');
+
+            // Online Booking Settings, Services, Closed Dates, Practitioner Schedules & Time Off
+            Route::get('/settings/booking', [OnlineBookingSettingsController::class, 'index'])->name('settings.booking');
+            Route::patch('/settings/booking', [OnlineBookingSettingsController::class, 'updateSettings'])->name('settings.booking.update');
+            Route::post('/settings/booking/services', [OnlineBookingSettingsController::class, 'storeService'])->name('settings.booking.services.store');
+            Route::patch('/settings/booking/services/{service}', [OnlineBookingSettingsController::class, 'updateService'])->name('settings.booking.services.update');
+            Route::delete('/settings/booking/services/{service}', [OnlineBookingSettingsController::class, 'destroyService'])->name('settings.booking.services.destroy');
+            Route::post('/settings/booking/closed-dates', [OnlineBookingSettingsController::class, 'storeClosedDate'])->name('settings.booking.closed-dates.store');
+            Route::delete('/settings/booking/closed-dates/{closedDate}', [OnlineBookingSettingsController::class, 'destroyClosedDate'])->name('settings.booking.closed-dates.destroy');
+            Route::post('/settings/booking/time-offs', [OnlineBookingSettingsController::class, 'storeTimeOff'])->name('settings.booking.time-offs.store');
+            Route::delete('/settings/booking/time-offs/{timeOff}', [OnlineBookingSettingsController::class, 'destroyTimeOff'])->name('settings.booking.time-offs.destroy');
+            Route::patch('/settings/booking/practitioners/{membership}', [OnlineBookingSettingsController::class, 'updatePractitionerSchedule'])->name('settings.booking.practitioners.update');
 
             // Public home page content — owner customises tagline, description,
             // cover image, social links, hours/address visibility.
